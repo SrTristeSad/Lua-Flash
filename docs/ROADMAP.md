@@ -1,42 +1,38 @@
-# Lua-Flash — Player Lua e Studio Lua
+# Lua-Flash — desenvolvimento do Player em Lua
 
-## Escopo
+## Direção
 
-Uma plataforma moderna de autoria e execução de jogos/animações usando Lua e formatos independentes. Não há obrigação de executar SWF/FLA/XFL ou ActionScript antigos. O Flash Player original é uma referência histórica de comportamento, não uma fonte de código fechado para redistribuição.
+Criar uma plataforma moderna de animações e jogos com motor próprio em Lua. O antigo Adobe Flash serve como referência de experiência; arquivos SWF, FLA, XFL e ActionScript não são objetivos de compatibilidade.
 
-- [`player-lua/`](../player-lua/) — runtime (projeto atual).
-- [`studio-lua/`](../studio-lua/) — editor visual separado, mantido sem alterações nesta etapa.
-- `src/model.lua` e `src/runtime.lua` continuam iguais nos dois aplicativos, com teste de sincronização.
+- **[player-lua/](../player-lua/)** — produto em desenvolvimento.
+- **[studio-lua/](../studio-lua/)** — editor visual separado; sem alterações nesta etapa.
+- Renderizador e codec `.lflash` continuam compartilhados sem divergência.
 
-## 0.1–0.3: etapas anteriores
+## 0.1–0.4
 
-- [x] Editor e Player separados, com formato nativo `.lflash`.
-- [x] Reprodução, interpolação opcional, scrub, velocidade e loop.
-- [x] Mouse, toque, teclado e hit-testing por forma/camada.
-- [x] Minijogo de exemplo integrado ao Player.
-- [x] CI com verificação de código, testes de callbacks e renderização real via LÖVE/Xvfb.
+- [x] Reprodução de cenas, camadas e quadros-chave, controle de tempo e interpolação opcional.
+- [x] Entrada de mouse, teclado e toque, com hit-testing de formas.
+- [x] Formato `LUAFGAME 1` com regras declarativas sem execução de código externo.
+- [x] Publicação de jogos simples a partir de cenas do Studio.
+- [x] Testes automatizados e inicialização gráfica no LÖVE com Xvfb.
 
-## 0.4: jogos independentes do código do Player
+## 0.5 — LUAFGAME 2
 
-- [x] **LUAFGAME 1** — primeiro formato próprio `.lfgame` contendo cena `.lflash` e regras.
-- [x] Interpretador restrito de ações de pontuação, busca de quadro, pausa e reprodução.
-- [x] Clique/toque em formas e eventos de teclado como gatilhos das regras.
-- [x] Vitória por meta, cronômetro, encerramento e placar sobre o palco.
-- [x] Carregamento de arquivos externos sem executar código Lua deles.
-- [x] Ferramentas `tools/export_example.lua` e `tools/make_game.lua`.
-- [x] Testes para arquivos truncados/ilegais e interoperabilidade do formato.
-- [x] Pacote Player 0.4 em `.love` e exemplos exportáveis.
-- [ ] Avaliação manual com usuários e verificação de desempenho em dispositivos reais.
+- [x] Nomes de objetos (`OBJECT`) usados por gatilhos `CLICKID`.
+- [x] Estado local de partida (`STATE`), com ações `SET` e `ADD`.
+- [x] Regras condicionais `WHEN` usando comparadores `GE`, `EQ` e `LE`.
+- [x] Continuidade de leitura e gravação de jogos `LUAFGAME 1`.
+- [x] Demonstração interativa e ferramenta de publicação `make_game.lua` usando v2.
+- [x] Validação estrita de pacotes, limites e testes de arquivos inválidos.
+- [ ] Identificadores de objetos persistentes no **modelo visual** independentemente da ordem da camada.
+- [ ] Testes manuais e benchmarks em dispositivos reais.
 
-## 0.5 — próximos fundamentos
+## Prioridades de 0.6
 
-- [ ] IDs estáveis para objetos e instâncias, sem depender do índice da forma.
-- [ ] API de eventos e hierarquia de cenas.
-- [ ] Ações declarativas mais abrangentes com estados locais, colisões e transições.
-- [ ] Importar e gerenciar imagens, fontes e áudio.
-- [ ] Definir um mecanismo de permissões e isolamento antes de introduzir scripts de jogos fornecidos por terceiros.
-- [ ] Publicação e distribuição multiplataforma além do `.love`.
+- [ ] Objetos persistentes, hierarquia de instâncias e camadas interativas.
+- [ ] Melhores regras e tratamento de colisão para jogos mais elaborados.
+- [ ] Importação de imagens/áudio com sincronização.
+- [ ] Modelo de permissões e sandbox antes de aceitar Lua escrito por terceiros.
+- [ ] Otimização, builds desktop nativos e planejamento Android/Web.
 
-## Filosofia
-
-Compatibilidade entre nossos formatos próprios e nenhuma regressão voluntária das ferramentas já estáveis. **Formato declarativo não equivale a execução arbitrária de Lua**: a segurança é reforçada mantendo essa separação clara.
+O Studio não deve ser modificado apenas para acrescentar recursos específicos do Player, exceto quando houver plano de migração de arquivos compartilhados.
