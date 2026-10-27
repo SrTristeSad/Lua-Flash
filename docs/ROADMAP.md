@@ -1,39 +1,45 @@
-# Lua-Flash — desenvolvimento por projetos
+# Lua-Flash — Player e Studio independentes
 
 ## Objetivo
 
-Criar um novo ecossistema Flash em Lua, com projeto autoral próprio (`.lflash`), **sem retrocompatibilidade obrigatória com o Adobe Flash Player, SWF, FLA, XFL ou ActionScript**. Engenharia reversa de programas antigos serve como estudo de comportamento, não reprodução de código proprietário.
+Criar uma plataforma nova de criação e execução de jogos e animações em Lua, sem obrigação de compatibilidade com SWF/FLA/XFL e ActionScript do Adobe Flash. Estudamos comportamentos e ideias do Flash original, mas não reutilizamos seu código proprietário.
 
-## Organização
+## Projetos
 
-- [`player-lua/`](../player-lua/) — **foco atual**. Executa projetos de animação Lua-Flash.
-- [`studio-lua/`](../studio-lua/) — editor visual preservado em pasta independente.
-- Modelo `model.lua` e renderizador `runtime.lua` espelhados, com igualdade validada pelo `tools/sync_core.py`.
+- **[player-lua/](../player-lua/)**: foco de desenvolvimento atual, runtime em Lua + LÖVE.
+- **[studio-lua/](../studio-lua/)**: editor visual, preservado em pasta separada.
+- O modelo e a renderização compartilhados são verificados por `tools/sync_core.py`.
 
-## Player 0.2 — núcleo e controles
+## Player 0.1–0.2 — fundação e reprodução
 
-- [x] Aplicativos Player e Studio separados.
-- [x] Player com demo animada própria, arrastar/soltar `.lflash`, timeline e tela cheia.
-- [x] Transporte independente para play/pause, speed 0,25×–4×, scrub, loop e encerramento.
-- [x] Interpolação visual opcional por camada entre keyframes com shapes compatíveis.
-- [x] Exibição exata por padrão de projetos externos, para evitar mudanças não solicitadas.
-- [x] Testes automatizados do modelo, transporte, visualização simulada e interoperabilidade.
-- [ ] Validação visual real e benchmarks em Windows/Linux/macOS.
+- [x] Abre documentos nativos `.lflash` com formas e camadas.
+- [x] Player e Studio independentes.
+- [x] Controle de quadros, velocidade, loop, tela cheia e timeline.
+- [x] Interpolação visual opcional de formas compatíveis.
+- [x] Testes automatizados e pacote `.love` independente.
 
-## Player 0.3 — funções prioritárias
+## Player 0.3 — entrada e interação
 
-- [ ] Suporte a símbolos e instâncias independentes de objetos.
-- [ ] Interpolação controlada por metadados do projeto (com easing e propriedades por objeto).
-- [ ] Mouse, teclado e touch dentro do palco, com APIs estáveis para jogos.
-- [ ] Áudio e sincronização com a timeline.
-- [ ] Formato próprio de publicação separando dados editáveis e conteúdo distribuído.
-- [ ] Sistema de permissões/sandbox antes de permitir scripts de terceiros.
+- [x] Mapeamento de coordenadas de palco com redimensionamento e letterboxing.
+- [x] Hit-testing de formas, camadas e quadros interpolados.
+- [x] Eventos de mouse, toque e teclado; captura e cancelamento de ponteiros.
+- [x] Minijogo de acerto ao alvo, com pontuação, cronômetro, clique, toque e mira pelo teclado.
+- [x] Testes unitários de interatividade e smoke test na CI.
+- [x] Empacotamento da versão 0.3 em `.love`.
+- [ ] Testes gráficos reais e benchmarks com LÖVE.
 
-## Futuro
+## Próximas prioridades — Player 0.4
 
-- [ ] Manter editor e Player compatíveis **com nossos próprios projetos**.
-- [ ] Empacotar Player Windows/Linux/macOS.
-- [ ] Backends Android e Web, com testes específicos.
-- [ ] Otimização de CPU/GPU e recuperação de arquivos.
+- [ ] Especificar APIs de eventos para **conteúdos criados por terceiros**, com modelo de segurança e permissões.
+- [ ] Publicação de jogos em formato próprio, separado do documento do Studio.
+- [ ] Objetos e instâncias com nomes/IDs estáveis para interações.
+- [ ] Controles de gamepad e suporte móvel melhorado.
+- [ ] Áudio, sincronização da timeline e otimização de desenho.
 
-A versão 0.2 é experimental, e testes unitários não substituem homologação gráfica.
+## Mais adiante
+
+- [ ] SDK/runtime para projetos Lua com sandbox.
+- [ ] Arte vetorial avançada, símbolos, sprites, máscaras e hierarquias.
+- [ ] Builds Windows/Linux/macOS testados; Android e web exigem trabalhos específicos.
+
+**O Player 0.3 é experimental.** Testes automatizados não garantem usabilidade ou estabilidade gráfica em todos os dispositivos.
