@@ -132,33 +132,25 @@ end
 -- Temporal collision sampling: for regular playback only, sample intermediate
 -- positions instead of checking the final frame alone. The bounded budget limits
 -- work for very high speed playback. Seeking stays instantaneous.
-local function sweepSamples(first,last,total,looped)
-  local samples={}
-  local function segment(startPos,endPos,count)
-    if count<=0 then return end
-    for n=1,count do
-      samples[#samples+1]=startPos+(endPos-startPos)*n/count
+local function sweepSamples(first,last,total,wraps)
+  local positions={}
+  -- A numeric wrap count also detects complete loops that happen to finish
+  -- at a frame greater than or equal to the starting frame.
+  local distance=wraps>0 and ((total-first)+(wraps-1)*total+(last-1))
+    or math.max(0,last-first)
+  local steps=math.max(1,math.min(MAX_SWEEP_STEPS,
+    math.ceil(distance*SUBSTEPS_PER_FRAME)))
+  local prior=first
+  for i=1,steps do
+    local advanced=first+distance*i/steps
+    if wraps>0 and math.floor((advanced-1)/total)>math.floor((prior-1)/total) then
+      positions[#positions+1]=1
     end
+    local sample=wraps>0 and (((advanced-1)%total)+1) or advanced
+    positions[#positions+1]=sample
+    prior=advanced
   end
-  if not looped then
-    local distance=math.max(0,last-first)
-    local count=math.max(1,math.min(MAX_SWEEP_STEPS,
-      math.ceil(distance*SUBSTEPS_PER_FRAME)))
-    segment(first,last,count)
-  else
-    local firstLength=math.max(0,total-first)
-    local lastLength=math.max(0,last-1)
-    local length=firstLength+lastLength
-    if length==0 then return {last} end
-    local allowed=math.min(MAX_SWEEP_STEPS,math.ceil(length*SUBSTEPS_PER_FRAME))
-    local a=firstLength>0 and math.max(1,math.floor(allowed*firstLength/length)) or 0
-    local b=math.max(0,allowed-a)
-    segment(first,total,a)
-    samples[#samples+1]=1 -- preserve exact first-frame contact at the wrap
-    segment(1,last,b)
-  end
-  if #samples==0 then samples[1]=last end
-  return samples
+  return positions
 end
 
 local function intersects(self,pair,position,sampler,media,scene)
@@ -183,11 +175,13 @@ function S:checkCollisions(sampler,media,previousPosition,wrapped)
   if #self.collisionPairs==0 then return false end
   local currentPos=self.transport.position
   local positions
+  local wraps=wrapped==true and 1 or
+    (type(wrapped)=="number" and math.max(0,math.floor(wrapped)) or 0)
   if type(previousPosition)=="number" and previousPosition==previousPosition and
      previousPosition>=1 and previousPosition<=self.definition.document.totalFrames and
-     (wrapped or currentPos>=previousPosition) then
+     (wraps>0 or currentPos>=previousPosition) then
     positions=sweepSamples(previousPosition,currentPos,
-      self.definition.document.totalFrames,wrapped==true)
+      self.definition.document.totalFrames,wraps)
   else
     positions={currentPos}
   end

@@ -223,7 +223,7 @@ function love.update(dt)
   if ciSmoke and drawnFrames>=5 then love.event.quit();return end
   local before,playing=transport.position,transport.playing
   transport:update(dt)
-  local wrapped=playing and transport.loop and transport.position<before
+  local wraps=playing and transport.lastWraps or 0
   if media then media:timelineAdvance(before,transport.position,playing) end
   if game then
     game:update(dt,transport.playing)
@@ -232,7 +232,7 @@ function love.update(dt)
   if session then
     session:update(dt)
     if session:checkCollisions(smooth and sampler or nil,media,
-      playing and before or nil,wrapped) then
+      playing and before or nil,wraps) then
       notice=session.lastAction
       if media and session.lastCollision then
         media:trigger({type="collision",

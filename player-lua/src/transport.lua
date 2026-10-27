@@ -7,7 +7,7 @@ local speeds={0.25,0.5,0.75,1,1.25,1.5,2,3,4}
 function T.new(doc)
   assert(type(doc)=="table" and type(doc.totalFrames)=="number" and doc.totalFrames>=1)
   return setmetatable({
-    doc=doc,position=1,playing=false,loop=true,speed=1
+    doc=doc,position=1,playing=false,loop=true,speed=1,lastWraps=0
   },T)
 end
 
@@ -23,6 +23,7 @@ end
 function T:seek(position)
   if type(position)~="number" or position~=position then return self:frame() end
   self.position=math.max(1,math.min(self.doc.totalFrames,position))
+  self.lastWraps=0
   return self:frame()
 end
 
@@ -63,6 +64,7 @@ function T:cycleSpeed(direction)
 end
 
 function T:update(dt)
+  self.lastWraps=0
   if not self.playing or type(dt)~="number" or dt~=dt or dt<=0 then return end
   -- Do not fast-forward by several seconds after a minimized/backgrounded window.
   dt=math.min(dt,0.25)
@@ -73,6 +75,7 @@ function T:update(dt)
   end
   local nextPosition=self.position+dt*self.doc.fps*self.speed
   if self.loop then
+    self.lastWraps=math.floor((nextPosition-1)/frames)
     self.position=((nextPosition-1)%frames)+1
   elseif nextPosition>=frames+1 then
     self.position=frames
