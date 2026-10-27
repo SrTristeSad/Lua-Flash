@@ -72,7 +72,9 @@ assert(media:hit(p[1]+8,p[2]+32,1,sampler)==nil,"transparent region cannot hit")
 assert(media:maskFor("estrela")==media:maskFor("estrela"))
 assert(media.maskBuilds==1 and numDecodes==1,"mask should be cached per resource")
 -- A new animated PNG can have its own mask; then reuse the same cached bitmap.
-local alt=assert(media:hit(p[1]+56,p[2]+32,8,sampler))
+local nextRect=assert(media:spriteRect(1,8,sampler:sample(8)))
+local nextP=nextRect.points
+local alt=assert(media:hit(nextP[1]+56,nextP[2]+32,8,sampler))
 assert(alt.sprite=="bola")
 assert(media.maskBuilds==2 and numDecodes==2)
 for i=1,8 do media:hit(p[1]+56,p[2]+32,1,sampler) end
