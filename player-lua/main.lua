@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.5. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.6. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -7,9 +7,9 @@ local Transport=require("src.transport")
 local Interpolation=require("src.interpolation")
 local Input=require("src.input")
 local TargetGame=require("src.target_game")
-local GamePackage=require("src.package_v2")
+local GamePackage=require("src.package_v3")
 local Session=require("src.session")
-local GameExample=require("src.game_example_v2")
+local GameExample=require("src.game_example_v3")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -158,6 +158,7 @@ end
 local function onEvent(event)
   if event.clicked then
     if session then
+      event.frame=transport.position
       if session:dispatch(event) then notice=session.lastAction
       else notice="Sem acao configurada neste objeto." end
       return
@@ -182,7 +183,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.5")
+  love.window.setTitle("Lua-Flash Player 0.6")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -198,7 +199,12 @@ function love.update(dt)
     game:update(dt,transport.playing)
     if not game.active then transport.playing=false end
   end
-  if session then session:update(dt) end
+  if session then
+    session:update(dt)
+    if session:checkCollisions(smooth and sampler or nil) then
+      notice=session.lastAction
+    end
+  end
 end
 
 local function renderScene(x,y,w,h)
@@ -217,7 +223,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.5  |  Objetos nomeados, estados e regras",21,60,C.muted,fonts.small)
+  label("PLAYER 0.6  |  Colisoes e IDs por quadro-chave",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -261,20 +267,21 @@ function love.draw()
     lg.push("all")
     lg.setScissor(viewport.x,viewport.y,viewport.w,viewport.h)
     lg.setColor(0,0,0,.72)
-    lg.rectangle("fill",x,y,330,112,8,8)
+    lg.rectangle("fill",x,y,330,128,8,8)
     label(session.definition.title,x+10,y+9,C.green)
     label("Pontos: "..session.score.." / "..session.definition.goal,
       x+10,y+33,C.text,fonts.small)
     label(string.format("Tempo: %.1fs | Eventos: %d",session.remaining,session.events),
       x+10,y+52,C.text,fonts.small)
     local stateText=""
-    if session.definition.version==2 then
+    if session.definition.version and session.definition.version>=2 then
       for _,item in ipairs(session.definition.states) do
-        stateText=item.id..": "..tostring(session.states[item.id]); break
+        if stateText~="" then stateText=stateText.."  |  " end
+        stateText=stateText..item.id..": "..tostring(session.states[item.id])
       end
     end
-    if stateText~="" then label(stateText,x+10,y+71,C.green,fonts.small) end
-    label(session.lastAction,x+10,y+90,C.muted,fonts.small)
+    if stateText~="" then label(stateText,x+10,y+72,C.green,fonts.small) end
+    label(session.lastAction,x+10,y+97,C.muted,fonts.small)
     if not session.active then
       lg.setColor(0,0,0,.74)
       lg.rectangle("fill",viewport.x+viewport.w*.22,viewport.y+viewport.h*.40,
@@ -308,7 +315,7 @@ function love.draw()
   button(string.format("%gx",transport.speed),289,ctrlY,58,32,false)
   button("+",353,ctrlY,34,32,false)
   button(smooth and "SUAVE: ON" or "SUAVE: OFF",w-155,ctrlY,135,32,smooth)
-  label(session and "Jogo v2: bola acumula toques; 2+ pontuam | Z: reiniciar quadro" or
+  label(session and "Jogo v3: bola e barreira colidem | Clique na bola | Z: quadro 1" or
     (game and "Clique/toque na bola | WASD: mira | ENTER: disparar | G: novo jogo" or
     "Espaco: play | Setas: quadro | I: interpolacao | F11: tela cheia"),
     27,ctrlY+40,C.muted,fonts.small)
