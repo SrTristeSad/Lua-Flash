@@ -18,11 +18,12 @@ REQUIRED = {
     "src/demo.lua", "src/transport.lua", "src/interpolation.lua",
     "src/input.lua", "src/target_game.lua",
     "src/package.lua", "src/package_v2.lua", "src/package_v3.lua",
+    "src/package_v4.lua", "src/media_runtime.lua",
     "src/session.lua", "src/collision.lua",
     "src/game_example.lua", "src/game_example_v2.lua",
-    "src/game_example_v3.lua",
+    "src/game_example_v3.lua", "src/game_example_v4.lua",
 }
-VERSION = "0.6"
+VERSION = "0.7"
 
 
 def build(output: Path) -> None:
