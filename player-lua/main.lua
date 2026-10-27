@@ -1,10 +1,12 @@
--- Lua-Flash Player 0.2. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.3. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
 local Demo=require("src.demo")
 local Transport=require("src.transport")
 local Interpolation=require("src.interpolation")
+local Input=require("src.input")
+local TargetGame=require("src.target_game")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -14,6 +16,8 @@ local smooth=true -- demo uses keyframed animation; imported projects start in e
 local source="Demonstracao interna"
 local notice="Solte um projeto .lflash na janela ou use o exemplo incluido."
 local fonts={}
+local input=Input.new()
+local game=nil
 local C={
   bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
   text={.90,.94,1},muted={.62,.69,.77},accent={.25,.70,.99},
@@ -53,6 +57,8 @@ local function install(doc,name,isDemo)
   transport=Transport.new(document)
   transport.playing=true
   sampler=Interpolation.new(document)
+  input:reset()
+  game=nil
   source=name or "Projeto Lua-Flash"
   smooth=isDemo == true
   notice=isDemo and "Animacao de demonstracao carregada." or
@@ -93,6 +99,37 @@ local function seekFromX(x,w)
   transport:seekProgress((x-32)/(w-64))
 end
 
+local function startGame()
+  install(Demo.create(),"Acerte a bola - minijogo do Player",true)
+  game=TargetGame.new()
+  transport.loop=true
+  notice="Minijogo: clique ou toque na bola; WASD move mira e ENTER dispara."
+end
+
+local function sceneViewport()
+  local w,h,top,stageHeight=metrics()
+  return {x=18,y=top+10,w=w-36,h=stageHeight-15}
+end
+
+local function currentHit(x,y)
+  return Input.hitTest(document,transport.position,x,y,smooth and sampler or nil)
+end
+
+local function onEvent(event)
+  if event.clicked then
+    if game then
+      local success=game:attempt(event.hit)
+      notice=game.active and (success and "Acertou! +"..game.score.." pontos." or "Errou! Continue tentando.")
+        or "Tempo esgotado. Clique JOGAR para reiniciar."
+    elseif event.hit then
+      notice=string.format("Objeto selecionado: camada %d, forma %d (%s).",
+        event.hit.layer,event.hit.shape,event.hit.kind)
+    else
+      notice="Clique realizado sobre o palco."
+    end
+  end
+end
+
 local function toggleSmooth()
   smooth=not smooth
   notice=smooth and "Interpolacao visual ativada (nao altera seu arquivo)." or
@@ -100,7 +137,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.2")
+  love.window.setTitle("Lua-Flash Player 0.3")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -111,6 +148,10 @@ end
 
 function love.update(dt)
   transport:update(dt)
+  if game then
+    game:update(dt,transport.playing)
+    if not game.active then transport.playing=false end
+  end
 end
 
 local function renderScene(x,y,w,h)
@@ -128,12 +169,42 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.2  |  Arquivos nativos .lflash",21,50,C.muted,fonts.small)
+  label("PLAYER 0.3  |  Eventos de mouse, toque e teclado",21,50,C.muted,fonts.small)
+  button("JOGAR",w-486,24,83,36,game~=nil)
 
   button("DEMO",w-395,24,80,36,false)
   button("PROJETO SALVO",w-305,24,143,36,false)
   button(transport.loop and "LOOP: ON" or "LOOP: OFF",w-153,24,132,36,transport.loop)
   renderScene(18,top+10,w-36,stageHeight-15)
+
+  if game then
+    local viewport=sceneViewport()
+    local ox,oy,scale=Runtime.geometry(document,viewport.x,viewport.y,viewport.w,viewport.h)
+    local reticleX=ox+game.reticleX*scale
+    local reticleY=oy+game.reticleY*scale
+    lg.push("all")
+    lg.setScissor(viewport.x,viewport.y,viewport.w,viewport.h)
+    lg.setColor(0,0,0,.58)
+    lg.rectangle("fill",viewport.x+12,viewport.y+12,248,80,8,8)
+    label("ACERTE A BOLA",viewport.x+22,viewport.y+17,C.green)
+    label("Pontos: "..game.score.."   Erros: "..game.misses,
+      viewport.x+22,viewport.y+39,C.text,fonts.small)
+    label(string.format("Tempo: %.1fs",game.remaining),
+      viewport.x+22,viewport.y+58,C.text,fonts.small)
+    lg.setColor(1,.35,.35,.95)
+    lg.setLineWidth(2)
+    lg.circle("line",reticleX,reticleY,12)
+    lg.line(reticleX-18,reticleY,reticleX+18,reticleY)
+    lg.line(reticleX,reticleY-18,reticleX,reticleY+18)
+    if not game.active then
+      lg.setColor(0,0,0,.72)
+      lg.rectangle("fill",ox+document.width*scale*.22,oy+document.height*scale*.36,
+        document.width*scale*.56,document.height*scale*.25,10,10)
+      label("FIM DE JOGO - "..game.score.." PONTOS",
+        ox+document.width*scale*.26,oy+document.height*scale*.43,C.text)
+    end
+    lg.pop()
+  end
 
   lg.setColor(C.top)
   lg.rectangle("fill",0,top+stageHeight,w,h-top-stageHeight)
@@ -158,36 +229,101 @@ function love.draw()
   button(string.format("%gx",transport.speed),289,ctrlY,58,32,false)
   button("+",353,ctrlY,34,32,false)
   button(smooth and "SUAVE: ON" or "SUAVE: OFF",w-155,ctrlY,135,32,smooth)
-  label("Espaco: play  |  Setas: quadro  |  I: interpolacao  |  F11: tela cheia",27,ctrlY+40,C.muted,fonts.small)
+  label(game and "Clique/toque na bola | WASD: mira | ENTER: disparar | G: novo jogo" or
+    "Espaco: play | Setas: quadro | I: interpolacao | F11: tela cheia",
+    27,ctrlY+40,C.muted,fonts.small)
 
   lg.setColor(C.top)
   lg.rectangle("fill",0,h-26,w,26)
   label(notice,13,h-22,C.muted,fonts.small)
 end
 
-function love.mousepressed(x,y,key)
-  if key~=1 then return end
+function love.mousepressed(x,y,key,istouch)
+  if istouch or key~=1 then return end
   local w,h,top,stageHeight=metrics()
-  if inside(x,y,w-395,24,80,36) then
-    install(Demo.create(),"Demonstracao interna",true)
-  elseif inside(x,y,w-305,24,143,36) then openSaved()
-  elseif inside(x,y,w-153,24,132,36) then transport.loop=not transport.loop
+  if inside(x,y,w-486,24,83,36) then startGame();return
+  elseif inside(x,y,w-395,24,80,36) then
+    install(Demo.create(),"Demonstracao interna",true);return
+  elseif inside(x,y,w-305,24,143,36) then openSaved();return
+  elseif inside(x,y,w-153,24,132,36) then transport.loop=not transport.loop;return
   end
   local topPanel=top+stageHeight+12
   local barY=topPanel+30
   local ctrlY=barY+23
-  if inside(x,y,28,barY-8,w-56,22) then seekFromX(x,w)
-  elseif inside(x,y,27,ctrlY,52,32) then transport:step(-1)
-  elseif inside(x,y,85,ctrlY,94,32) then transport:toggle()
-  elseif inside(x,y,185,ctrlY,52,32) then transport:step(1)
-  elseif inside(x,y,250,ctrlY,34,32) then transport:cycleSpeed(-1)
-  elseif inside(x,y,353,ctrlY,34,32) then transport:cycleSpeed(1)
-  elseif inside(x,y,w-155,ctrlY,135,32) then toggleSmooth() end
+  if inside(x,y,28,barY-8,w-56,22) then seekFromX(x,w);return
+  elseif inside(x,y,27,ctrlY,52,32) then transport:step(-1);return
+  elseif inside(x,y,85,ctrlY,94,32) then transport:toggle();return
+  elseif inside(x,y,185,ctrlY,52,32) then transport:step(1);return
+  elseif inside(x,y,250,ctrlY,34,32) then transport:cycleSpeed(-1);return
+  elseif inside(x,y,353,ctrlY,34,32) then transport:cycleSpeed(1);return
+  elseif inside(x,y,w-155,ctrlY,135,32) then toggleSmooth();return
+  end
+  local event=input:pointer("down","mouse",1,x,y,document,transport.position,
+    sceneViewport(),smooth and sampler or nil)
+  if game and event.inside then game:setReticle(event.x,event.y) end
+end
+
+function love.mousereleased(x,y,key,istouch)
+  if istouch or key~=1 then return end
+  onEvent(input:pointer("up","mouse",1,x,y,document,transport.position,
+    sceneViewport(),smooth and sampler or nil))
+end
+
+function love.mousemoved(x,y,dx,dy,istouch)
+  if istouch then return end
+  local sx,sy=Input.stagePoint(x,y,document,sceneViewport())
+  if game and sx then game:setReticle(sx,sy) end
+  input:pointer("move","mouse",1,x,y,document,transport.position,
+    sceneViewport(),smooth and sampler or nil)
+end
+
+function love.touchpressed(id,x,y)
+  local sx,sy=Input.stagePoint(x,y,document,sceneViewport())
+  if not sx then
+    love.mousepressed(x,y,1,false)
+    return
+  end
+  input:pointer("down","touch",id,x,y,document,transport.position,
+    sceneViewport(),smooth and sampler or nil)
+  if game then game:setReticle(sx,sy) end
+end
+
+function love.touchmoved(id,x,y)
+  local sx,sy=Input.stagePoint(x,y,document,sceneViewport())
+  if game and sx then game:setReticle(sx,sy) end
+  input:pointer("move","touch",id,x,y,document,transport.position,
+    sceneViewport(),smooth and sampler or nil)
+end
+
+function love.touchreleased(id,x,y)
+  onEvent(input:pointer("up","touch",id,x,y,document,transport.position,
+    sceneViewport(),smooth and sampler or nil))
+end
+
+function love.touchcancelled(id,x,y)
+  input:pointer("cancel","touch",id,x,y,document,transport.position,
+    sceneViewport(),smooth and sampler or nil)
+end
+
+function love.focus(focused)
+  if not focused then input:reset() end
 end
 
 function love.keypressed(key)
+  input:key("down",key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if ctrl and key=="s" then saveCopy();return end
+  if key=="g" then startGame();return end
+  if game then
+    local direction={w={0,-25},a={-25,0},s={0,25},d={25,0}}
+    local motion=direction[key]
+    if motion then game:moveReticle(motion[1],motion[2],document);return end
+    if key=="return" or key=="kpenter" then
+      local result=game:attempt(currentHit(game.reticleX,game.reticleY))
+      notice=result and "Acertou com o teclado!" or "Errou o alvo!"
+      return
+    end
+  end
   if key=="space" then transport:toggle()
   elseif key=="left" then transport:step(-1)
   elseif key=="right" then transport:step(1)
@@ -202,6 +338,10 @@ function love.keypressed(key)
   elseif key=="i" then toggleSmooth()
   elseif key=="-" or key=="kp-" then transport:cycleSpeed(-1)
   elseif key=="=" or key=="kp+" then transport:cycleSpeed(1) end
+end
+
+function love.keyreleased(key)
+  input:key("up",key)
 end
 
 function love.wheelmoved(_,dy)
