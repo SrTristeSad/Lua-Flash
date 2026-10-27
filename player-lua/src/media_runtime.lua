@@ -4,13 +4,17 @@ local Runtime=require("src.runtime")
 local Model=require("src.model")
 local Collision=require("src.collision")
 local PixelMask=require("src.pixel_mask")
+local SpriteTransform=require("src.sprite_transform")
 local M={}
 M.__index=M
 
 function M.new(definition)
   local self=setmetatable({definition=definition,images={},sounds={},muted=false,
     volume=1,bindingsByIndex={},bindingsById={},animationsByIndex={},
-    masks={},assetFiles={},maskBuilds=0},M)
+    masks={},assetFiles={},maskBuilds=0,transformsByIndex={}},M)
+  for _,transform in ipairs(definition.transforms or {}) do
+    self.transformsByIndex[transform.index]=transform
+  end
   for _,anim in ipairs(definition.animations or {}) do
     self.animationsByIndex[anim.index]=anim
   end
@@ -100,9 +104,26 @@ function M:collides(idA,idB,position,scene)
   if not boundA and not boundB then return true end
   local ma=boundA and self:maskFor(self:imageAsset(boundA.index,position)) or nil
   local mb=boundB and self:maskFor(self:imageAsset(boundB.index,position)) or nil
-  if boundA and boundB then return PixelMask.overlap(ma,a,mb,b) end
-  if boundA then return PixelMask.overlapShape(ma,a,b) end
-  return PixelMask.overlapShape(mb,b,a)
+  if not a.transformed and not b.transformed then
+    if boundA and boundB then return PixelMask.overlap(ma,a,mb,b) end
+    if boundA then return PixelMask.overlapShape(ma,a,b) end
+    return PixelMask.overlapShape(mb,b,a)
+  end
+  -- Transformed masks need an inverse coordinate mapping, not AABB-only hits.
+  -- Test both directions when both objects are PNGs, avoiding missed contacts
+  -- where one raster's projected centers fall between the other's samples.
+  if boundA and boundB then
+    return SpriteTransform.intersects(a,ma,b,mb,
+      function(x,y) return SpriteTransform.contains(b,mb,x,y) end) or
+      SpriteTransform.intersects(b,mb,a,ma,
+      function(x,y) return SpriteTransform.contains(a,ma,x,y) end)
+  end
+  if boundA then
+    return SpriteTransform.intersects(a,ma,b,nil,
+      function(x,y) return PixelMask.shapeContains(b,x,y) end)
+  end
+  return SpriteTransform.intersects(b,mb,a,nil,
+    function(x,y) return PixelMask.shapeContains(a,x,y) end)
 end
 
 function M:release()
@@ -127,7 +148,9 @@ function M:spriteRect(index,position,scene)
     x=(x1+x2-sprite.width)/2
     y=(y1+y2-sprite.height)/2
   end
-  return {kind="rect",points={x,y,x+sprite.width,y+sprite.height}}
+  return SpriteTransform.build({kind="rect",
+    points={x,y,x+sprite.width,y+sprite.height}},
+    self.transformsByIndex[index])
 end
 
 function M:shapeForObject(id,position,scene)
@@ -155,7 +178,7 @@ function M:isOverriddenVectorHit(layer,shape,position)
 end
 
 -- Sprites are painted ABOVE vectors, so they are tested front-to-back first.
--- Current collision/hit-test is axis-aligned; transparent PNG pixels still hit.
+-- Inverse-map hits through rotation/scale/pivot; transparent pixels pass through.
 function M:hit(x,y,position,sampler)
   if not x or not y then return nil end
   local scene=nil
@@ -169,8 +192,8 @@ function M:hit(x,y,position,sampler)
       if rect then
         local p=rect.points
         if x>=p[1] and x<p[3] and y>=p[2] and y<p[4] and
-           PixelMask.contains(self:maskFor(self:imageAsset(index,position)),
-             rect,x,y) then
+           SpriteTransform.contains(rect,
+             self:maskFor(self:imageAsset(index,position)),x,y) then
           return {sprite=bind.id,kind="sprite",spriteIndex=index}
         end
       end
@@ -198,9 +221,7 @@ function M:draw(document,x,y,w,h,position,sampler)
       end
       local rect=self:spriteRect(index,position or 1,scene)
       if rect then
-        local p=rect.points
-        lg.draw(image,p[1],p[2],0,
-          sprite.width/image:getWidth(),sprite.height/image:getHeight())
+        SpriteTransform.draw(image,rect)
       end
     end
   end
