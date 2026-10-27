@@ -16,8 +16,9 @@ PLAYER = ROOT / "player-lua"
 REQUIRED = {
     "main.lua", "conf.lua", "src/model.lua", "src/runtime.lua",
     "src/demo.lua", "src/transport.lua", "src/interpolation.lua",
+    "src/input.lua", "src/target_game.lua",
 }
-VERSION = "0.2"
+VERSION = "0.3"
 
 
 def build(output: Path) -> None:
