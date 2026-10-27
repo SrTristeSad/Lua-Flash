@@ -93,6 +93,10 @@ local d2=route:pointer("down","mouse",1,p[1]+56,p[2]+32,
 local u2=route:pointer("up","mouse",1,p[1]+56,p[2]+32,
   game.document,1,vp,sampler,media)
 assert(d2.hit and d2.hit.sprite=="bola" and u2.clicked)
+local clickSession=Session.new(game,Transport.new(game.document))
+assert(not clickSession:dispatch(up),"transparent click must not trigger object rules")
+assert(clickSession.states.toques==0)
+assert(clickSession:dispatch(u2) and clickSession.states.toques==1)
 
 -- Collision with the barrier must be verified by the opaque pixels.
 local transport=Transport.new(game.document)
