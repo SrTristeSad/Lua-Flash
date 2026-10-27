@@ -19,11 +19,11 @@ REQUIRED = {
     "src/input.lua", "src/target_game.lua",
     "src/package.lua", "src/package_v2.lua", "src/package_v3.lua",
     "src/package_v4.lua", "src/package_v5.lua", "src/package_v6.lua", "src/media_runtime.lua",
-    "src/session.lua", "src/collision.lua",
+    "src/session.lua", "src/collision.lua", "src/pixel_mask.lua",
     "src/game_example.lua", "src/game_example_v2.lua",
     "src/game_example_v3.lua", "src/game_example_v4.lua", "src/game_example_v5.lua", "src/game_example_v6.lua",
 }
-VERSION = "0.9"
+VERSION = "0.10"
 
 
 def build(output: Path) -> None:
