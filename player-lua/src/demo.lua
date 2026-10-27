@@ -1,29 +1,29 @@
--- Cena de exemplo nativa, sem arquivos Adobe e sem scripts de terceiros.
+-- Animated native Player test; contains only five actor keyframes.
 local Model=require("src.model")
 local Demo={}
 function Demo.create()
   local d=Model.new(800,450,30)
   d.totalFrames=90
-  local back=d.layers[1]
-  back.name="Cenario"
-  local bg=Model.makeShape("rect",{.09,.16,.26},1,0,0)
-  bg.points={0,0,800,450}
+  local background=d.layers[1]
+  background.name="Paisagem"
+  local sky=Model.makeShape("rect",{.09,.16,.26},1,0,0)
+  sky.points={0,0,800,450}
   local floor=Model.makeShape("rect",{.14,.34,.29},1,0,360)
   floor.points={0,360,800,450}
   local sun=Model.makeShape("ellipse",{.99,.78,.29},1,565,32)
   sun.points={565,32,695,162}
-  back.keys[1]={bg,floor,sun}
+  background.keys[1]={sky,floor,sun}
   local actor=Model.addLayer(d)
-  actor.name="Animacao"
-  for n=1,d.totalFrames do
-    local phase=(n-1)/(d.totalFrames-1)
-    local x=30+660*phase
-    local y=190+math.sin(phase*math.pi*4)*40
+  actor.name="Bola animada"
+  for _,point in ipairs({
+    {1,80,230},{23,300,70},{45,580,225},{67,340,310},{90,82,230}
+  }) do
+    local n,x,y=point[1],point[2],point[3]
     local body=Model.makeShape("ellipse",{.31,.72,.99},1,x,y)
     body.points={x,y,x+94,y+94}
-    local shine=Model.makeShape("ellipse",{.78,.93,1},1,x+21,y+15)
-    shine.points={x+21,y+15,x+46,y+40}
-    actor.keys[n]={body,shine}
+    local highlight=Model.makeShape("ellipse",{.78,.93,1},1,x+21,y+15)
+    highlight.points={x+21,y+15,x+46,y+40}
+    actor.keys[n]={body,highlight}
   end
   d.currentFrame=1
   d.currentLayer=2

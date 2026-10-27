@@ -1,24 +1,29 @@
--- Lua-Flash Player 0.1: runtime independente do Studio; formato proprio .lflash.
-local Model = require("src.model")
-local Runtime = require("src.runtime")
-local Demo = require("src.demo")
-local doc = Demo.create()
-local runner = Runtime.new(doc)
-runner.playing = true
-local source = "Demonstracao interna"
-local notification = "Solte um projeto .lflash nesta janela para reproduzir."
-local loop = true
-local fonts = {}
-local palette = {
-  bg = {.075,.085,.11}, bar={.11,.13,.17}, panel={.13,.15,.19},
-  text={.90,.94,1}, muted={.64,.69,.76}, blue={.24,.67,.98},
-  highlight={.19,.35,.51}, line={.23,.28,.35}
-}
+-- Lua-Flash Player 0.2. Independent runtime for native .lflash animations.
+-- Does not execute SWF, ActionScript or embedded project code.
+local Model=require("src.model")
+local Runtime=require("src.runtime")
+local Demo=require("src.demo")
+local Transport=require("src.transport")
+local Interpolation=require("src.interpolation")
 
-local function size()
+local document=Demo.create()
+local transport=Transport.new(document)
+transport.playing=true
+local sampler=Interpolation.new(document)
+local smooth=true -- demo uses keyframed animation; imported projects start in exact mode.
+local source="Demonstracao interna"
+local notice="Solte um projeto .lflash na janela ou use o exemplo incluido."
+local fonts={}
+local C={
+  bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
+  text={.90,.94,1},muted={.62,.69,.77},accent={.25,.70,.99},
+  highlight={.19,.36,.52},line={.23,.28,.35},green={.35,.86,.65}
+}
+local MAX_FILE=25*1024*1024
+
+local function metrics()
   local w,h=love.graphics.getDimensions()
-  local top=90
-  local bottom=130
+  local top,bottom=90,151
   return w,h,top,math.max(80,h-top-bottom)
 end
 
@@ -26,169 +31,193 @@ local function inside(x,y,bx,by,bw,bh)
   return x>=bx and x<=bx+bw and y>=by and y<=by+bh
 end
 
-local function label(t,x,y,col,font)
+local function label(s,x,y,color,font)
   local lg=love.graphics
-  lg.setColor(col or palette.text)
+  lg.setColor(color or C.text)
   if font then lg.setFont(font) end
-  lg.print(t,x,y)
+  lg.print(tostring(s),x,y)
   if font then lg.setFont(fonts.regular) end
 end
 
-local function button(title,x,y,width,highlighted)
+local function button(s,x,y,w,h,active)
   local lg=love.graphics
-  lg.setColor(highlighted and palette.highlight or palette.panel)
-  lg.rectangle("fill",x,y,width,35,6,6)
-  lg.setColor(palette.line)
-  lg.rectangle("line",x+.5,y+.5,width-1,34,6,6)
-  label(title,x+12,y+9)
+  lg.setColor(active and C.highlight or C.panel)
+  lg.rectangle("fill",x,y,w,h,5,5)
+  lg.setColor(C.line)
+  lg.rectangle("line",x+.5,y+.5,w-1,h-1,5,5)
+  label(s,x+10,y+math.floor((h-14)/2))
 end
 
-local function openData(text, name)
-  local result, err=Model.decode(text)
-  if not result then
-    notification="Arquivo recusado: "..tostring(err)
+local function install(doc,name,isDemo)
+  document=doc
+  transport=Transport.new(document)
+  transport.playing=true
+  sampler=Interpolation.new(document)
+  source=name or "Projeto Lua-Flash"
+  smooth=isDemo == true
+  notice=isDemo and "Animacao de demonstracao carregada." or
+    "Projeto aberto. Aperte I para ativar ou desativar interpolacao visual."
+end
+
+local function openBytes(content,name)
+  if type(content)~="string" or #content>MAX_FILE then
+    notice="Arquivo rejeitado: tamanho invalido (maximo 25 MB)."
     return false
   end
-  doc=result
-  runner=Runtime.new(doc)
-  runner:seek(1)
-  runner.playing=true
-  source=name or "Projeto carregado"
-  notification="Projeto carregado com sucesso. Espaco pausa ou reproduz."
+  local ok,doc,err=pcall(Model.decode,content)
+  if not ok or not doc then
+    notice="Nao foi possivel abrir o projeto: "..tostring(ok and err or doc)
+    return false
+  end
+  install(doc,name,false)
   return true
 end
 
-local function savedProject()
+local function openSaved()
   local bytes,err=love.filesystem.read("projeto.lflash")
   if not bytes then
-    notification="Nenhum projeto salvo. Salve no Studio ou arraste um arquivo .lflash."
+    notice="Nenhum projeto salvo nesta instalacao: "..tostring(err)
     return
   end
-  openData(bytes,"projeto.lflash (Studio)")
+  openBytes(bytes,"projeto.lflash (Studio)")
 end
 
-local function resetDemo()
-  doc=Demo.create()
-  runner=Runtime.new(doc)
-  runner.playing=true
-  source="Demonstracao interna"
-  notification="Animacao de exemplo carregada."
+local function saveCopy()
+  local content=Model.encode(document)
+  local ok,err=love.filesystem.write("player_demo.lflash",content)
+  notice=ok and ("Copia salva: "..love.filesystem.getSaveDirectory().."/player_demo.lflash")
+    or ("Erro ao salvar: "..tostring(err))
 end
 
-local function previous()
-  runner.playing=false
-  runner:seek(runner.frame-1)
+local function seekFromX(x,w)
+  transport:seekProgress((x-32)/(w-64))
 end
 
-local function nextFrame()
-  runner.playing=false
-  runner:seek(runner.frame+1)
-end
-
-local function clickScrub(mx)
-  local w=love.graphics.getWidth()
-  local left,right=32,w-32
-  local n=1+math.floor(math.max(0,math.min(1,(mx-left)/(right-left)))*(doc.totalFrames-1)+.5)
-  runner:seek(n)
+local function toggleSmooth()
+  smooth=not smooth
+  notice=smooth and "Interpolacao visual ativada (nao altera seu arquivo)." or
+    "Interpolacao visual desativada: quadros exatos do projeto."
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.1")
-  love.window.setMode(1040,690,{resizable=true,minwidth=660,minheight=420})
+  love.window.setTitle("Lua-Flash Player 0.2")
+  love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
+  love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
   fonts.heading=love.graphics.newFont(22)
   fonts.small=love.graphics.newFont(12)
   love.graphics.setFont(fonts.regular)
-  love.graphics.setDefaultFilter("linear","linear")
 end
 
 function love.update(dt)
-  local previousFrame=runner.frame
-  runner:update(dt)
-  if runner.playing and not loop and runner.frame<previousFrame then
-    runner:seek(doc.totalFrames)
-    runner.playing=false
-    notification="Reproducao concluida."
+  transport:update(dt)
+end
+
+local function renderScene(x,y,w,h)
+  if smooth then
+    sampler:draw(transport.position,x,y,w,h)
+  else
+    Runtime.draw(document,transport:frame(),x,y,w,h)
   end
 end
 
 function love.draw()
   local lg=love.graphics
-  local w,h,top,stageHeight=size()
-  lg.clear(palette.bg)
-  lg.setColor(palette.bar)
+  local w,h,top,stageHeight=metrics()
+  lg.clear(C.bg)
+  lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
-  label("LUA-FLASH",20,17,palette.blue,fonts.heading)
-  label("PLAYER 0.1  |  Formato proprio .lflash",21,51,palette.muted,fonts.small)
+  label("LUA-FLASH",20,13,C.accent,fonts.heading)
+  label("PLAYER 0.2  |  Arquivos nativos .lflash",21,50,C.muted,fonts.small)
 
-  button("DEMO",w-395,25,80,false)
-  button("PROJETO SALVO",w-305,25,143,false)
-  button(loop and "LOOP: ON" or "LOOP: OFF",w-153,25,132,loop)
+  button("DEMO",w-395,24,80,36,false)
+  button("PROJETO SALVO",w-305,24,143,36,false)
+  button(transport.loop and "LOOP: ON" or "LOOP: OFF",w-153,24,132,36,transport.loop)
+  renderScene(18,top+10,w-36,stageHeight-15)
 
-  Runtime.draw(doc,runner.frame,18,top+10,w-36,stageHeight-15)
-  lg.setColor(palette.bar)
+  lg.setColor(C.top)
   lg.rectangle("fill",0,top+stageHeight,w,h-top-stageHeight)
+  local topPanel=top+stageHeight+12
+  label(source,25,topPanel,C.text)
+  label(string.format("Quadro %d/%d  |  %g FPS",transport:frame(),document.totalFrames,document.fps),
+    w-260,topPanel,C.muted,fonts.small)
 
-  local y=top+stageHeight+17
-  label(source,24,y,palette.text)
-  label(string.format("Quadro %d / %d  |  %g FPS  |  %dx%d",runner.frame,doc.totalFrames,doc.fps,doc.width,doc.height),
-    w-295,y,palette.muted,fonts.small)
+  local barY=topPanel+30
+  lg.setColor(C.line)
+  lg.rectangle("fill",32,barY,w-64,7,4,4)
+  local progress=math.max(0,math.min(1,transport:progress()))
+  lg.setColor(C.accent)
+  lg.rectangle("fill",32,barY,math.max(1,(w-64)*progress),7,4,4)
+  lg.circle("fill",32+(w-64)*progress,barY+3.5,7)
 
-  local sy=y+35
-  lg.setColor(palette.line)
-  lg.rectangle("fill",32,sy,w-64,8,4,4)
-  lg.setColor(palette.blue)
-  local completed=(runner.frame-1)/math.max(1,doc.totalFrames-1)
-  lg.rectangle("fill",32,sy,math.max(2,(w-64)*completed),8,4,4)
-  lg.circle("fill",32+(w-64)*completed,sy+4,8)
+  local ctrlY=barY+23
+  button("<<",27,ctrlY,52,32,false)
+  button(transport.playing and "PAUSAR" or "PLAY",85,ctrlY,94,32,transport.playing)
+  button(">>",185,ctrlY,52,32,false)
+  button("-",250,ctrlY,34,32,false)
+  button(string.format("%gx",transport.speed),289,ctrlY,58,32,false)
+  button("+",353,ctrlY,34,32,false)
+  button(smooth and "SUAVE: ON" or "SUAVE: OFF",w-155,ctrlY,135,32,smooth)
+  label("Espaco: play  |  Setas: quadro  |  I: interpolacao  |  F11: tela cheia",27,ctrlY+40,C.muted,fonts.small)
 
-  local controls=sy+23
-  label("ESPACO  "..(runner.playing and "Pausar" or "Reproduzir").."    |    SETAS  Passar quadros    |    HOME  Reiniciar",32,controls,palette.text,fonts.small)
-  label("ARRASTE .LFLASH  Abrir projeto    |    F11  Tela cheia",32,controls+19,palette.muted,fonts.small)
-
-  lg.setColor(palette.bar)
+  lg.setColor(C.top)
   lg.rectangle("fill",0,h-26,w,26)
-  label(notification,14,h-22,palette.muted,fonts.small)
+  label(notice,13,h-22,C.muted,fonts.small)
 end
 
 function love.mousepressed(x,y,key)
   if key~=1 then return end
-  local w,h,top,stageHeight=size()
-  if inside(x,y,w-395,25,80,35) then resetDemo()
-  elseif inside(x,y,w-305,25,143,35) then savedProject()
-  elseif inside(x,y,w-153,25,132,35) then loop=not loop
-  elseif inside(x,y,24,top+stageHeight+41,w-48,25) then clickScrub(x) end
+  local w,h,top,stageHeight=metrics()
+  if inside(x,y,w-395,24,80,36) then
+    install(Demo.create(),"Demonstracao interna",true)
+  elseif inside(x,y,w-305,24,143,36) then openSaved()
+  elseif inside(x,y,w-153,24,132,36) then transport.loop=not transport.loop
+  end
+  local topPanel=top+stageHeight+12
+  local barY=topPanel+30
+  local ctrlY=barY+23
+  if inside(x,y,28,barY-8,w-56,22) then seekFromX(x,w)
+  elseif inside(x,y,27,ctrlY,52,32) then transport:step(-1)
+  elseif inside(x,y,85,ctrlY,94,32) then transport:toggle()
+  elseif inside(x,y,185,ctrlY,52,32) then transport:step(1)
+  elseif inside(x,y,250,ctrlY,34,32) then transport:cycleSpeed(-1)
+  elseif inside(x,y,353,ctrlY,34,32) then transport:cycleSpeed(1)
+  elseif inside(x,y,w-155,ctrlY,135,32) then toggleSmooth() end
 end
 
 function love.keypressed(key)
-  if key=="space" then runner.playing=not runner.playing
-  elseif key=="left" then previous()
-  elseif key=="right" then nextFrame()
-  elseif key=="home" then runner:seek(1)
-  elseif key=="end" then runner:seek(doc.totalFrames)
+  local ctrl=love.keyboard.isDown("lctrl","rctrl")
+  if ctrl and key=="s" then saveCopy();return end
+  if key=="space" then transport:toggle()
+  elseif key=="left" then transport:step(-1)
+  elseif key=="right" then transport:step(1)
+  elseif key=="home" then transport.playing=false;transport:seek(1)
+  elseif key=="end" then transport.playing=false;transport:seek(document.totalFrames)
   elseif key=="f11" then love.window.setFullscreen(not love.window.getFullscreen())
   elseif key=="escape" then
     if love.window.getFullscreen() then love.window.setFullscreen(false) else love.event.quit() end
-  elseif key=="o" then savedProject()
-  elseif key=="d" then resetDemo()
-  elseif key=="l" then loop=not loop
-  elseif key=="s" and love.keyboard.isDown("lctrl","rctrl") then
-    local ok,err=love.filesystem.write("player_demo.lflash",Model.encode(doc))
-    notification=ok and ("Arquivo salvo: "..love.filesystem.getSaveDirectory().."/player_demo.lflash")
-      or ("Falha ao salvar: "..tostring(err))
-  end
+  elseif key=="d" then install(Demo.create(),"Demonstracao interna",true)
+  elseif key=="o" then openSaved()
+  elseif key=="l" then transport.loop=not transport.loop
+  elseif key=="i" then toggleSmooth()
+  elseif key=="-" or key=="kp-" then transport:cycleSpeed(-1)
+  elseif key=="=" or key=="kp+" then transport:cycleSpeed(1) end
+end
+
+function love.wheelmoved(_,dy)
+  if dy~=0 then transport:step(dy>0 and 1 or -1) end
 end
 
 function love.filedropped(file)
   local filename=file:getFilename() or ""
   if not filename:lower():match("%.lflash$") then
-    notification="Formato nao aceito. Arraste um arquivo .lflash."
+    notice="Arquivo nao suportado: use projetos do Lua-Flash (.lflash)."
     return
   end
   local ok,err=file:open("r")
-  if not ok then notification="Falha ao abrir arquivo: "..tostring(err);return end
-  local bytes=file:read(25*1024*1024+1)
+  if not ok then notice="Nao foi possivel abrir: "..tostring(err);return end
+  local bytes=file:read(MAX_FILE+1)
   file:close()
-  if not bytes then notification="Falha ao ler projeto.";return end
-  openData(bytes,filename:match("[^/\\]+$") or filename)
+  if not bytes then notice="Erro ao ler arquivo.";return end
+  openBytes(bytes,filename:match("[^/\\]+$") or filename)
 end
