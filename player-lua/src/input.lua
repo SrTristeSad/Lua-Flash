@@ -72,6 +72,7 @@ function Input.hitTest(doc,frame,x,y,sampler)
 end
 
 local function sameTarget(a,b)
+  if not a and not b then return true end -- valid click on empty stage
   return a and b and a.layer==b.layer and a.shape==b.shape
 end
 
