@@ -1,8 +1,10 @@
-# Lua-Flash Player 0.3 — eventos e minijogo
+# Lua-Flash Player 0.4 — jogos declarativos
 
-Runtime independente do **Lua-Flash**, criado em Lua com [LÖVE 11.5](https://love2d.org/). Esta versão **não** executa SWF/ActionScript nem código Lua fornecido por arquivos de terceiros: abre exclusivamente documentos nativos `.lflash`.
+Player independente, escrito principalmente em Lua e executado com [LÖVE 11.5](https://love2d.org/).
 
-## Iniciar
+**Não emula Adobe Flash nem executa SWF, FLA ou ActionScript.** O objetivo é criar uma plataforma nova, leve e portável.
+
+## Executar
 
 Na raiz do repositório:
 
@@ -10,74 +12,69 @@ Na raiz do repositório:
 love player-lua
 ```
 
-Ou execute o pacote `.love` gerado no GitHub Actions com LÖVE 11.5 instalado.
+O Player abre animações nativas `.lflash` e, **a partir da 0.4**, jogos declarativos `.lfgame`.
 
-## Novidade 0.3 — Interatividade real dentro do palco
+## Jogar agora
 
-- **Mouse:** clique, movimentação, soltura e detecção do objeto sob o ponteiro.
-- **Toque:** suporte aos callbacks `love.touchpressed`, `love.touchmoved` e `love.touchreleased`, com coordenadas em pixels, de acordo com o LÖVE 11.5.
-- **Teclado:** estados de teclas pressionadas/soltas e tratamento de eventos no Player.
-- **Transformação de coordenadas:** reconhece a área real do palco com centralização e letterboxing, inclusive após redimensionar a janela.
-- **Hit-testing:** respeita as camadas visíveis, a ordem de desenho e a geometria de retângulos, elipses, linhas e traços. Pode usar as formas interpoladas quando o modo suave está ativo.
-- **Captura de ponteiro:** cliques só são reconhecidos se a pressão e a soltura atingirem o mesmo objeto sem ultrapassar o limiar de movimento. Identificadores de toque são tratados separadamente.
+Clique no botão **PACOTE** para executar um jogo exportável: acerte a bola azul 8 vezes dentro de 30 segundos. Clique ou toque na bola, ou pressione `Z` para testar uma regra que volta ao quadro inicial. Há também o botão **JOGAR**, que preserva o antigo minijogo interno da versão 0.3.
 
-Esse sistema é usado por uma demonstração jogável local. **Ainda não é uma API pública de scripts para jogos produzidos por usuários.** A etapa seguinte inclui publicar a API de eventos, definir um modelo seguro de projetos interativos e uma forma de exportação.
+Você também pode **arrastar e soltar** arquivos `.lfgame` na janela. `Ctrl+S` salva uma cópia do jogo carregado em `player_game.lfgame` na pasta de dados LÖVE (não perde as regras); se uma animação simples estiver carregada, cria `player_demo.lflash`.
 
-## Minijogo: Acerte a Bola
+## Novo formato LUAFGAME 1
 
-Clique **JOGAR** ou pressione `G` para iniciar uma sessão de 30 segundos. Acerte a bola azul em movimento clicando ou tocando nela. Também é possível mover a mira com **WASD** e disparar com **Enter**. A pontuação e os erros aparecem sobre o palco. Clique novamente em JOGAR para reiniciar.
+Um pacote `.lfgame` é um arquivo textual com cabeçalho estruturado, comprimento da cena, projeto `.lflash` incorporado e regras. Os tipos de evento e ações são explicitamente permitidos:
 
-O jogo é código interno confiável (`src/target_game.lua`), criado somente como teste do runtime. Nenhum script recebido de arquivos `.lflash` é executado.
-
-## Controles normais
-
-| Comando | Ação |
+| Eventos | Ações |
 |---|---|
-| `Espaço` | Reproduzir / pausar |
-| `← / →` | Quadro anterior / próximo |
-| `Home / End` | Primeiro / último quadro |
-| `+ / -` | Velocidade entre 0,25× e 4× |
-| `I` | Interpolação visual ligada / desligada |
-| `L` | Repetição ligada / desligada |
-| `D` | Reiniciar demonstração de animação (fora do minijogo) |
-| `G` | Abrir ou reiniciar minijogo |
-| `O` | Abrir o último projeto salvo pelo Studio |
-| `Ctrl+S` | Salvar uma cópia como `player_demo.lflash` |
-| `F11` | Tela cheia |
-| `Esc` | Sair da tela cheia ou fechar aplicativo |
-| Arrastar arquivo `.lflash` | Abrir o projeto no Player |
-| Barra de progresso | Ir a um quadro |
-| Roda do mouse | Avançar / retroceder um quadro |
+| `CLICK layer shape` | `SCORE pontos`, `SEEK quadro`, `PAUSE`, `PLAY` |
+| `KEY tecla` | As mesmas ações |
 
-**Quando o minijogo estiver ativo**, as teclas `WASD` movimentam a mira, inclusive `D` (não reinicia a demonstração), e `Enter` dispara.
+O Player valida o conteúdo (versão, título, quantidade de regras, dimensões, alvos, tempo e integridade da cena) antes de instalar a sessão. Não chama `load`, `loadstring`, `dofile` ou `os.execute` nos dados carregados. **Não há execução de scripts externos.** Isso é um interpretador limitado de regras; não é uma sandbox Lua genérica.
 
-## Arquitetura
+Os objetos são identificados temporariamente pela camada e posição na lista de formas. O próximo formato deverá introduzir IDs estáveis para permitir alterações mais sofisticadas.
 
-- `src/model.lua`: modelo e codec nativo compartilhados com Studio.
-- `src/runtime.lua`: desenho e geometria de palco, compartilhados com Studio.
-- `src/transport.lua`: ritmo, quadros, velocidade e loop.
-- `src/interpolation.lua`: interpolação visual opcional.
-- `src/input.lua`: mapeamento de coordenadas, hit-testing e eventos de entrada.
-- `src/target_game.lua`: minijogo de demonstração, sem dependência do Studio.
-- `main.lua`: janela e ligação entre os módulos.
+## Criar seu próprio jogo usando uma animação do Studio
 
-Somente a pasta `player-lua/` foi modificada na evolução do runtime; o código do Studio foi preservado.
+1. Desenhe/anime normalmente no **Studio Lua**, salve um arquivo `.lflash`.
+2. Na raiz do repositório, crie um jogo clicável com a ferramenta de publicação:
+   
+   ```bash
+   lua tools/make_game.lua cena.lflash meu-jogo.lfgame 2 1 10 30 smooth
+   ```
 
-## Testar e gerar pacote
+   Os argumentos finais são: **camada 2, forma 1, meta de 10 pontos, duração 30 segundos**, com interpolação opcional ligada pelo argumento `smooth`. Sem esse último argumento, a reprodução mantém os quadros originais.
+3. Arraste `meu-jogo.lfgame` para a janela do Player.
 
-A partir da raiz do repositório:
+Esta etapa não modifica o Studio. Ela adiciona uma maneira inicial de publicar cenas existentes como jogos simples. Para regras mais complexas, o código-fonte pode construir uma tabela declarativa validada por `src/package.lua`.
+
+## Outros recursos preservados
+
+- Reprodução, pausa, scrub, loop e velocidade de 0,25× a 4×.
+- Interpolação visual opcional de formas compatíveis entre quadros-chave.
+- Mouse, teclado e toque com conversão correta de coordenadas do palco.
+- Reconhecimento de formas, respeito a camadas e captura de ponteiro.
+- Tela cheia e abertura de arquivos `.lflash` por arrastar e soltar.
+- Modo sem interpolação por padrão para cenas `.lflash` externas.
+- Arquivos inválidos não substituem o documento já carregado.
+
+## Gerar pacote executável pelo LÖVE
+
+```bash
+python3 tools/package_player.py
+lua tools/export_example.lua dist/Exemplo-0.4.lfgame
+```
+
+O primeiro comando cria `dist/Lua-Flash-Player-0.4.love` — **não** um executável Windows nativo. O segundo gera um jogo `.lfgame` separado. GitHub Actions envia ambos como artefatos e executa testes com o LÖVE real, numa tela virtual.
+
+## Testes
 
 ```bash
 lua tests/model_test.lua
 lua tests/player_test.lua
 lua tests/input_test.lua
+lua tests/package_test.lua
 lua tests/gui_smoke.lua
 python3 tools/sync_core.py --check
-python3 tools/package_player.py
 ```
 
-O pacote resultante é `dist/Lua-Flash-Player-0.3.love` e precisa do LÖVE instalado. Testes de código e simulações de callbacks executam na CI; ainda faltam testes gráficos manuais e medições de desempenho reais.
-
-## Limites
-
-Sem suporte a SWF, FLA, XFL e ActionScript antigos. Sem importação de mídia, áudio sincronizado, objetos hierárquicos, API de jogos externos, sandbox de scripts ou empacotamento nativo autossuficiente. A interface pode precisar de ajustes para tamanhos de tela reduzidos.
+Status: **experimental**. Ainda faltam jogos com objetos identificados por nomes, scripts com permissões, som, vídeo, controles de gamepad, vários recursos visuais e homologação manual em aparelhos reais.
