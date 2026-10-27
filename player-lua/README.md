@@ -1,60 +1,83 @@
-# Lua-Flash Player 0.2 (experimental)
+# Lua-Flash Player 0.3 — eventos e minijogo
 
-O **Player Lua** é a aplicação de execução do nosso novo ecossistema Flash, independente do editor em `../studio-lua/`. Não é um emulador do Flash da Adobe: aceita somente projetos próprios `.lflash` e não executa SWF, FLA ou ActionScript.
+Runtime independente do **Lua-Flash**, criado em Lua com [LÖVE 11.5](https://love2d.org/). Esta versão **não** executa SWF/ActionScript nem código Lua fornecido por arquivos de terceiros: abre exclusivamente documentos nativos `.lflash`.
 
 ## Iniciar
 
-Instale [LÖVE 11.5](https://love2d.org/) e execute a partir da raiz do repositório:
+Na raiz do repositório:
 
 ```bash
 love player-lua
 ```
 
-Ele inicia com uma demonstração nativa que possui apenas **cinco quadros-chave** e utiliza interpolação opcional para movimentar a bola suavemente.
+Ou execute o pacote `.love` gerado no GitHub Actions com LÖVE 11.5 instalado.
 
-Você pode arrastar um arquivo `.lflash` criado no Studio para a janela, ou clicar em **PROJETO SALVO** para abrir o último `projeto.lflash` gravado pelo Studio na pasta de dados do LÖVE. Os dois apps usam `lua-flash` como identidade de armazenamento local.
+## Novidade 0.3 — Interatividade real dentro do palco
 
-## Controles
+- **Mouse:** clique, movimentação, soltura e detecção do objeto sob o ponteiro.
+- **Toque:** suporte aos callbacks `love.touchpressed`, `love.touchmoved` e `love.touchreleased`, com coordenadas em pixels, de acordo com o LÖVE 11.5.
+- **Teclado:** estados de teclas pressionadas/soltas e tratamento de eventos no Player.
+- **Transformação de coordenadas:** reconhece a área real do palco com centralização e letterboxing, inclusive após redimensionar a janela.
+- **Hit-testing:** respeita as camadas visíveis, a ordem de desenho e a geometria de retângulos, elipses, linhas e traços. Pode usar as formas interpoladas quando o modo suave está ativo.
+- **Captura de ponteiro:** cliques só são reconhecidos se a pressão e a soltura atingirem o mesmo objeto sem ultrapassar o limiar de movimento. Identificadores de toque são tratados separadamente.
 
-| Controle | Ação |
+Esse sistema é usado por uma demonstração jogável local. **Ainda não é uma API pública de scripts para jogos produzidos por usuários.** A etapa seguinte inclui publicar a API de eventos, definir um modelo seguro de projetos interativos e uma forma de exportação.
+
+## Minijogo: Acerte a Bola
+
+Clique **JOGAR** ou pressione `G` para iniciar uma sessão de 30 segundos. Acerte a bola azul em movimento clicando ou tocando nela. Também é possível mover a mira com **WASD** e disparar com **Enter**. A pontuação e os erros aparecem sobre o palco. Clique novamente em JOGAR para reiniciar.
+
+O jogo é código interno confiável (`src/target_game.lua`), criado somente como teste do runtime. Nenhum script recebido de arquivos `.lflash` é executado.
+
+## Controles normais
+
+| Comando | Ação |
 |---|---|
-| `Espaço` | Pausar/reproduzir |
-| `←` e `→` | Avançar/retroceder um quadro e pausar |
-| `Home` e `End` | Ir ao primeiro/último quadro |
-| `-` e `+` | Reduzir/aumentar a velocidade (0,25× a 4×) |
-| `I` | Ativar/desativar interpolação visual |
-| `L` | Alternar reprodução em loop |
-| `D` | Reabrir a animação de demonstração |
+| `Espaço` | Reproduzir / pausar |
+| `← / →` | Quadro anterior / próximo |
+| `Home / End` | Primeiro / último quadro |
+| `+ / -` | Velocidade entre 0,25× e 4× |
+| `I` | Interpolação visual ligada / desligada |
+| `L` | Repetição ligada / desligada |
+| `D` | Reiniciar demonstração de animação (fora do minijogo) |
+| `G` | Abrir ou reiniciar minijogo |
 | `O` | Abrir o último projeto salvo pelo Studio |
-| `Ctrl+S` | Salvar cópia da cena atual como `player_demo.lflash` |
+| `Ctrl+S` | Salvar uma cópia como `player_demo.lflash` |
 | `F11` | Tela cheia |
-| `Esc` | Sair da tela cheia ou encerrar o programa |
-| Barra de progresso | Buscar um quadro específico |
-| Roda do mouse | Navegação quadro a quadro |
+| `Esc` | Sair da tela cheia ou fechar aplicativo |
+| Arrastar arquivo `.lflash` | Abrir o projeto no Player |
+| Barra de progresso | Ir a um quadro |
+| Roda do mouse | Avançar / retroceder um quadro |
 
-**Interpolação visual:** a opção `SUAVE` mistura posições, cores e dimensões de formas compatíveis entre quadros-chave da mesma camada. Se a lista de formas diferir em quantidade/tipo/número de pontos, o trecho é mantido sem interpolação. Não altera o arquivo `.lflash` e não é uma implementação completa de motion-tween (sem easing/curvas). O modo começa ligado apenas na demonstração interna; projetos externos são abertos em modo exato para preservar o comportamento criado no Studio.
+**Quando o minijogo estiver ativo**, as teclas `WASD` movimentam a mira, inclusive `D` (não reinicia a demonstração), e `Enter` dispara.
 
-**Transporte e estabilidade:** o relógio suporta velocidades configuráveis, repetição, modo sem loop e pausa no final. O delta de tempo por atualização é limitado a 0,25 s para evitar saltos grandes após minimizar a janela.
+## Arquitetura
 
-## Arquivos e segurança
+- `src/model.lua`: modelo e codec nativo compartilhados com Studio.
+- `src/runtime.lua`: desenho e geometria de palco, compartilhados com Studio.
+- `src/transport.lua`: ritmo, quadros, velocidade e loop.
+- `src/interpolation.lua`: interpolação visual opcional.
+- `src/input.lua`: mapeamento de coordenadas, hit-testing e eventos de entrada.
+- `src/target_game.lua`: minijogo de demonstração, sem dependência do Studio.
+- `main.lua`: janela e ligação entre os módulos.
 
-- Máximo de **25 MB** por projeto importado via Player.
-- Arquivos inválidos são recusados e o Player mantém o projeto atual.
-- Os projetos atuais contêm apenas dados de animação; scripts Lua externos **não são executados**.
-- Para formatos de publicação e scripts futuros, será necessário um sistema de isolamento e permissões.
+Somente a pasta `player-lua/` foi modificada na evolução do runtime; o código do Studio foi preservado.
 
-## Limites atuais
+## Testar e gerar pacote
 
-Renderização de quatro formas vetoriais (pincel, linha, retângulo, elipse), cores e camadas. Ainda não existe motor de áudio/vídeo, script de jogos, sprites hierárquicos, máscaras, gráficos acelerados avançados nem empacotamento de projetos finalizados. Interface e desempenho ainda precisam de testes em máquinas reais com LÖVE.
-
-## Testes
-
-Na raiz do repositório:
+A partir da raiz do repositório:
 
 ```bash
 lua tests/model_test.lua
 lua tests/player_test.lua
+lua tests/input_test.lua
 lua tests/gui_smoke.lua
+python3 tools/sync_core.py --check
+python3 tools/package_player.py
 ```
 
-O GitHub Actions também executa verificação de sintaxe de todos os arquivos Lua.
+O pacote resultante é `dist/Lua-Flash-Player-0.3.love` e precisa do LÖVE instalado. Testes de código e simulações de callbacks executam na CI; ainda faltam testes gráficos manuais e medições de desempenho reais.
+
+## Limites
+
+Sem suporte a SWF, FLA, XFL e ActionScript antigos. Sem importação de mídia, áudio sincronizado, objetos hierárquicos, API de jogos externos, sandbox de scripts ou empacotamento nativo autossuficiente. A interface pode precisar de ajustes para tamanhos de tela reduzidos.
