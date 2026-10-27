@@ -1,45 +1,42 @@
-# Lua-Flash — Player e Studio independentes
+# Lua-Flash — Player Lua e Studio Lua
 
-## Objetivo
+## Escopo
 
-Criar uma plataforma nova de criação e execução de jogos e animações em Lua, sem obrigação de compatibilidade com SWF/FLA/XFL e ActionScript do Adobe Flash. Estudamos comportamentos e ideias do Flash original, mas não reutilizamos seu código proprietário.
+Uma plataforma moderna de autoria e execução de jogos/animações usando Lua e formatos independentes. Não há obrigação de executar SWF/FLA/XFL ou ActionScript antigos. O Flash Player original é uma referência histórica de comportamento, não uma fonte de código fechado para redistribuição.
 
-## Projetos
+- [`player-lua/`](../player-lua/) — runtime (projeto atual).
+- [`studio-lua/`](../studio-lua/) — editor visual separado, mantido sem alterações nesta etapa.
+- `src/model.lua` e `src/runtime.lua` continuam iguais nos dois aplicativos, com teste de sincronização.
 
-- **[player-lua/](../player-lua/)**: foco de desenvolvimento atual, runtime em Lua + LÖVE.
-- **[studio-lua/](../studio-lua/)**: editor visual, preservado em pasta separada.
-- O modelo e a renderização compartilhados são verificados por `tools/sync_core.py`.
+## 0.1–0.3: etapas anteriores
 
-## Player 0.1–0.2 — fundação e reprodução
+- [x] Editor e Player separados, com formato nativo `.lflash`.
+- [x] Reprodução, interpolação opcional, scrub, velocidade e loop.
+- [x] Mouse, toque, teclado e hit-testing por forma/camada.
+- [x] Minijogo de exemplo integrado ao Player.
+- [x] CI com verificação de código, testes de callbacks e renderização real via LÖVE/Xvfb.
 
-- [x] Abre documentos nativos `.lflash` com formas e camadas.
-- [x] Player e Studio independentes.
-- [x] Controle de quadros, velocidade, loop, tela cheia e timeline.
-- [x] Interpolação visual opcional de formas compatíveis.
-- [x] Testes automatizados e pacote `.love` independente.
+## 0.4: jogos independentes do código do Player
 
-## Player 0.3 — entrada e interação
+- [x] **LUAFGAME 1** — primeiro formato próprio `.lfgame` contendo cena `.lflash` e regras.
+- [x] Interpretador restrito de ações de pontuação, busca de quadro, pausa e reprodução.
+- [x] Clique/toque em formas e eventos de teclado como gatilhos das regras.
+- [x] Vitória por meta, cronômetro, encerramento e placar sobre o palco.
+- [x] Carregamento de arquivos externos sem executar código Lua deles.
+- [x] Ferramentas `tools/export_example.lua` e `tools/make_game.lua`.
+- [x] Testes para arquivos truncados/ilegais e interoperabilidade do formato.
+- [x] Pacote Player 0.4 em `.love` e exemplos exportáveis.
+- [ ] Avaliação manual com usuários e verificação de desempenho em dispositivos reais.
 
-- [x] Mapeamento de coordenadas de palco com redimensionamento e letterboxing.
-- [x] Hit-testing de formas, camadas e quadros interpolados.
-- [x] Eventos de mouse, toque e teclado; captura e cancelamento de ponteiros.
-- [x] Minijogo de acerto ao alvo, com pontuação, cronômetro, clique, toque e mira pelo teclado.
-- [x] Testes unitários de interatividade e smoke test na CI.
-- [x] Empacotamento da versão 0.3 em `.love`.
-- [ ] Testes gráficos reais e benchmarks com LÖVE.
+## 0.5 — próximos fundamentos
 
-## Próximas prioridades — Player 0.4
+- [ ] IDs estáveis para objetos e instâncias, sem depender do índice da forma.
+- [ ] API de eventos e hierarquia de cenas.
+- [ ] Ações declarativas mais abrangentes com estados locais, colisões e transições.
+- [ ] Importar e gerenciar imagens, fontes e áudio.
+- [ ] Definir um mecanismo de permissões e isolamento antes de introduzir scripts de jogos fornecidos por terceiros.
+- [ ] Publicação e distribuição multiplataforma além do `.love`.
 
-- [ ] Especificar APIs de eventos para **conteúdos criados por terceiros**, com modelo de segurança e permissões.
-- [ ] Publicação de jogos em formato próprio, separado do documento do Studio.
-- [ ] Objetos e instâncias com nomes/IDs estáveis para interações.
-- [ ] Controles de gamepad e suporte móvel melhorado.
-- [ ] Áudio, sincronização da timeline e otimização de desenho.
+## Filosofia
 
-## Mais adiante
-
-- [ ] SDK/runtime para projetos Lua com sandbox.
-- [ ] Arte vetorial avançada, símbolos, sprites, máscaras e hierarquias.
-- [ ] Builds Windows/Linux/macOS testados; Android e web exigem trabalhos específicos.
-
-**O Player 0.3 é experimental.** Testes automatizados não garantem usabilidade ou estabilidade gráfica em todos os dispositivos.
+Compatibilidade entre nossos formatos próprios e nenhuma regressão voluntária das ferramentas já estáveis. **Formato declarativo não equivale a execução arbitrária de Lua**: a segurança é reforçada mantendo essa separação clara.
