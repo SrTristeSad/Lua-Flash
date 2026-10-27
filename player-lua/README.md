@@ -1,65 +1,40 @@
-# Lua-Flash Player 0.9 — animações PNG e efeitos de timeline
+# Lua-Flash Player 0.10 — transparência PNG e otimização
 
-Reprodutor independente em Lua + [LÖVE 11.5](https://love2d.org/) para arquivos `.lflash` e jogos `.lfgame`. Não executa projetos SWF/ActionScript antigos.
+O Player Lua é nosso runtime independente, desenvolvido em Lua com LÖVE 11.5. Executa animações `.lflash` e jogos declarativos `.lfgame` de versões 1 a 6, sem executar código Lua externo.
 
-## Uso
+## Novidades da versão 0.10
 
-Na raiz do repositório:
+**Detecção de pixels opacos.** O Player agora consulta o canal alfa de cada PNG antes de aceitar cliques e toques sobre sprites interativos. Pixels com alfa inferior a 10% não contam como alvo. Uma forma vetorial que possua um sprite interativo associado não permite contornar essa transparência: cliques transparentes podem chegar aos outros objetos realmente posicionados atrás dela.
+
+**Colisões mais precisas.** A caixa delimitadora é usada apenas para rejeitar pares distantes. Havendo interseção, o motor examina pixels opacos projetados no palco antes de acionar as regras `COLLIDE`. Sprites versus retângulos e elipses usam os testes geométricos dessas formas; linhas e pincéis ainda são aproximados por caixa delimitadora.
+
+**Controle de custo.** As máscaras alfa são montadas de forma **preguiçosa (lazy)** a partir de `love.image.newImageData` e guardadas como linhas compactas de bytes 0/1, uma máscara por PNG utilizado. Uma colisão muito grande possui limite de **65.536 amostras por par**; portanto, detalhes transparentes extremamente finos podem produzir falsos negativos em casos extremos. Esta versão não promete colisões exatas por pixel em todas as escalas possíveis.
+
+**Cache da timeline.** O cálculo de uma cena interpolada é reutilizado quando renderização, colisões e entrada consultam a mesma posição fracionária. A troca de posição invalida automaticamente a cena anterior. Nada é alterado no arquivo de edição do Studio.
+
+## Executar
+
+Instale [LÖVE 11.5](https://love2d.org/) e execute, na raiz do repositório:
 
 ```bash
 love player-lua
 ```
 
-Clique em **PACOTE**. Na demonstração 0.9, a imagem PNG acompanha a bola e alterna entre **dois desenhos** a cada **7 quadros**; dois efeitos WAV são programados nos quadros **23 e 45**. A velocidade e a pausa da timeline também controlam essa animação. O minijogo antigo continua em **JOGAR**.
+O botão **PACOTE** abre a demonstração com sprite animado, PNG transparente e áudio por quadro. Comandos preservados: espaço para play/pause, setas para navegar por quadros, I para interpolação, F8/F9 para volume, F10 para silenciar e F11 para tela cheia. Jogos podem ser arrastados para a janela.
 
-O áudio permanece controlável por **F8** (diminuir volume), **F9** (aumentar) e **F10** (silenciar/reativar).
+Para publicar jogos, continue utilizando `tools/make_game.lua`, `tools/attach_media.lua`, `tools/bind_sprite.lua` e `tools/animate_media.lua`. **Não houve alteração de formato** nesta versão: o formato mais recente continua sendo `LUAFGAME 6`.
 
-## LUAFGAME 6
-
-O novo formato `.lfgame` preserva integralmente uma cena e recursos do LUAFGAME 5, acrescentando:
-
-- `ANIMATION spriteIndex period count pngIDs`: sequência de 2 a 16 imagens PNG existentes no pacote; duração entre 1 e 120 quadros por imagem.
-- `TIMELINE_SOUND frame wavID`: efeito WAV associado a um quadro válido. Máximo de 128 agendamentos.
-- O sprite usa a posição fracionária atual da timeline para escolher o PNG. A cena principal e o vínculo de interação continuam os mesmos.
-- A reprodução dispara os sons **ao cruzar os quadros** em movimento normal. Não toca um efeito só por ficar parado no quadro ou arrastar a barra de progresso.
-- Ao retornar do fim para o começo em modo loop, a verificação considera os quadros finais e iniciais atravessados.
-- Os formatos v1, v2, v3, v4 e v5 continuam compatíveis, sem conversão exigida.
-
-**Limitações técnicas:** sons são efeitos WAV curtos com reinício ao retriggerar o mesmo recurso, não música em streaming. Ainda não há sincronismo por amostra de áudio, múltiplos loops completos em uma única atualização, máscara alfa de colisão, atlas de sprites ou rotação. O hit-testing e as colisões de sprites continuam usando retângulos.
-
-Veja a [especificação do LUAFGAME 6](../docs/FORMAT_LUAFGAME6.md).
-
-## Criar um jogo com PNGs animados
-
-Primeiro crie uma cena `.lflash` no Studio, converta-a em jogo, anexe imagem e áudio e vincule um sprite a um objeto:
+## Testes
 
 ```bash
-lua tools/make_game.lua cena.lflash base.lfgame 2 1 8 30 smooth
-lua tools/attach_media.lua base.lfgame com-midia.lfgame primeiro.png 600 260 64 64 efeito.wav CLICKID alvo
-lua tools/bind_sprite.lua com-midia.lfgame com-sprite.lfgame 1 alvo FOLLOW
-```
-
-Depois, adicione uma **segunda imagem PNG** à sequência e defina um quadro que dispara o WAV já incluído:
-
-```bash
-lua tools/animate_media.lua com-sprite.lfgame jogo-animado.lfgame 1 7 segundo.png som_1 23
-```
-
-O resultado contém os recursos e regras dentro de um único arquivo `jogo-animado.lfgame`. No exemplo, o sprite 1 alterna imagens a cada 7 quadros e `som_1` toca quando o avanço da timeline cruza o quadro 23. O nome `som_1` é criado pelo primeiro `attach_media.lua`; para um pacote diferente, use o ID de WAV correspondente.
-
-É possível arrastar o resultado para a janela do Player. Os arquivos de entrada permanecem intactos.
-
-## Gerar pacote e executar testes
-
-```bash
+lua tests/pixel_mask_test.lua
 lua tests/package_v6_test.lua
 lua tests/package_v5_test.lua
-lua tests/package_v4_test.lua
 lua tests/gui_smoke.lua
+python3 tools/sync_core.py --check
 python3 tools/package_player.py
-lua tools/export_example.lua dist/Exemplo-0.9.lfgame
 ```
 
-A CI verifica também testes de versões anteriores, sintaxe, renderização com **LÖVE real em display virtual**, importação de PNG/WAV e publicação de um jogo v6.
+A CI inclui testes de transparência, colisão, cache, compatibilidade com formatos anteriores e inicialização gráfica com LÖVE em display virtual.
 
-O Studio continua separado e não foi alterado nesta versão. Build `.love` precisa do LÖVE; ainda não há um executável nativo pronto para Windows nem APK.
+**Limitações conhecidas:** sem alpha máscaras rotacionadas, colisão contínua contra objetos muito rápidos, áudio sincronizado por amostra, scripts externos isolados ou EXE Windows autônomo. O desempenho em dispositivos reais continua pendente de testes manuais.

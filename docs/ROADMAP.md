@@ -1,36 +1,36 @@
 # Lua-Flash — roadmap do Player
 
-## Princípios
+## Estrutura
 
-Nova plataforma de jogos/animações baseada em Lua e formatos próprios. Não oferecer retrocompatibilidade obrigatória com SWF/FLA/ActionScript históricos. Os aplicativos `player-lua/` e `studio-lua/` são separados; a etapa 0.9 modifica apenas o Player e suas ferramentas/testes.
+A plataforma é composta por um reprodutor em `player-lua/` e um editor independente em `studio-lua/`. O formato de animações `.lflash` e o código do Studio permanecem intactos durante as alterações exclusivas do Player.
 
-## Player 0.1–0.8 — consolidado
+## Concluído — versões 0.1–0.9
 
-- [x] Reprodução de cenas vetoriais `.lflash`, timeline, controle de velocidade e loop.
-- [x] Eventos de mouse, teclado, toque, hit-testing e minijogo.
-- [x] LUAFGAME 1–3: dados interativos, estados, regras, objetos e colisões.
-- [x] LUAFGAME 4: PNG/WAV embutidos e efeitos por evento.
-- [x] LUAFGAME 5: sprites interativos com `STATIC`/`FOLLOW` e colisões retangulares.
-- [x] Testes automatizados em Lua e renderização real em LÖVE/Xvfb.
+- [x] Reprodução vetorial, timeline, interpolação e controle de velocidade.
+- [x] Jogos de dados LUAFGAME 1–3: objetos, IDs por quadro-chave, estados, eventos e colisões.
+- [x] LUAFGAME 4: PNG e WAV incorporados com reprodução por evento.
+- [x] LUAFGAME 5: sprites interativos com modos FOLLOW/STATIC.
+- [x] LUAFGAME 6: animação de sprite em sequências PNG e efeitos WAV por quadro.
+- [x] Compatibilidade, testes unitários, testes de integração e execução gráfica virtual em LÖVE.
 
-## Player 0.9 — animação e timeline sonora
+## Player 0.10 — transparência e eficiência
 
-- [x] **LUAFGAME 6**: sequências PNG para sprites existentes.
-- [x] Seleção determinística da imagem por quadro e período em frames.
-- [x] Sons WAV agendados para quadros, respeitando pausa e passagem de loop.
-- [x] Ferramenta `tools/animate_media.lua` para publicação de jogos v6.
-- [x] Exemplo com duas imagens originais e eventos WAV na timeline.
-- [x] Compatibilidade declarativa com LUAFGAME 1–5.
-- [ ] Hit-testing por pixels alfa opacos e colisões precisas entre sprites.
-- [ ] Benchmarks e testes manuais em computadores/dispositivos reais.
+- [x] Teste de canal alfa para cliques e toques em sprites.
+- [x] Evitar eventos indevidos da forma vetorial coberta por um PNG transparente.
+- [x] Colisão sprite/sprite e sprite/forma com máscara alfa e broad phase.
+- [x] Máscaras alfa compactas por recurso, montadas e reutilizadas sob demanda.
+- [x] Amostragem de interseção com limite de custo por par.
+- [x] Cache de cena interpolada para consultas repetidas à mesma posição.
+- [x] Testes de transparência, colisão e compatibilidade com jogos anteriores.
+- [ ] Benchmark e validação manual em aparelhos reais.
 
-## Próximos passos
+## Etapas seguintes
 
-- [ ] Máscaras alfa e otimização de colisão/hit-testing.
-- [ ] Múltiplas trilhas de áudio e gerenciamento de fontes/sincronismo.
-- [ ] Editor de vínculos e IDs persistentes no documento `.lflash`.
-- [ ] Cache de recursos/renderização, performance e builds desktop nativos.
-- [ ] API Lua segura com permissões, antes de permitir scripts de terceiros.
-- [ ] Android e web com backends específicos.
+- [ ] Colisões contínuas e máscaras ajustadas a rotação/transformações.
+- [ ] Suporte a hierarquia de sprites, atlas e múltiplas camadas dinâmicas.
+- [ ] Mistura de áudio, canais independentes e sincronismo por amostra.
+- [ ] IDs persistentes diretamente em documentos editáveis.
+- [ ] API de scripting Lua com isolamento/permissões antes de habilitar código externo.
+- [ ] Distribuições Windows/Linux/macOS, seguidas de Android/Web.
 
-Nada aqui usa binários da Adobe nem executa código Lua recebido de pacotes externos.
+Sem modificação do Studio, sem binários da Adobe e sem execução arbitrária de scripts contidos em arquivos de jogos.
