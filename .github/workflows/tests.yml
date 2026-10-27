@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Lua
-        run: sudo apt-get update && sudo apt-get install -y lua5.4
+        run: sudo apt-get update && sudo apt-get install -y lua5.4 love xvfb
       - name: Syntax check
         run: find . -type f -name '*.lua' -print0 | xargs -0 -n 1 luac -p
       - name: Shared model and renderer
@@ -21,6 +21,8 @@ jobs:
         run: lua tests/input_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
+      - name: Real LÖVE graphical smoke test (virtual display)
+        run: xvfb-run -a env SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 LUA_FLASH_SMOKE=1 timeout 30s love player-lua
       - name: Package standalone Player .love
         run: python3 tools/package_player.py
       - name: Upload Player test build
