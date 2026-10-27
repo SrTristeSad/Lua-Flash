@@ -29,6 +29,9 @@ jobs:
         run: |
           python3 tools/package_player.py
           lua tools/export_example.lua dist/Exemplo-0.4.lfgame
+          lua -e 'package.path="./player-lua/?.lua;"..package.path; local d=require("src.demo").create(); local f=assert(io.open("dist/cena-teste.lflash","wb")); assert(f:write(require("src.model").encode(d))); assert(f:close())'
+          lua tools/make_game.lua dist/cena-teste.lflash dist/Criado-0.4.lfgame 2 1 5 20 smooth
+          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Criado-0.4.lfgame","rb")); local g=assert(require("src.package").decode(f:read("*a"))); f:close(); assert(g.goal==5 and g.duration==20 and #g.rules==1)'
       - name: Upload Player test build
         uses: actions/upload-artifact@v4
         with:
@@ -36,4 +39,5 @@ jobs:
           path: |
             dist/Lua-Flash-Player-0.4.love
             dist/Exemplo-0.4.lfgame
+            dist/Criado-0.4.lfgame
           if-no-files-found: error
