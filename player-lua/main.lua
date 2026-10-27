@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.3. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.4. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -7,6 +7,9 @@ local Transport=require("src.transport")
 local Interpolation=require("src.interpolation")
 local Input=require("src.input")
 local TargetGame=require("src.target_game")
+local GamePackage=require("src.package")
+local Session=require("src.session")
+local GameExample=require("src.game_example")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -18,6 +21,8 @@ local notice="Solte um projeto .lflash na janela ou use o exemplo incluido."
 local fonts={}
 local input=Input.new()
 local game=nil
+local session=nil
+local packageDefinition=nil
 local C={
   bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
   text={.90,.94,1},muted={.62,.69,.77},accent={.25,.70,.99},
@@ -62,6 +67,8 @@ local function install(doc,name,isDemo)
   sampler=Interpolation.new(document)
   input:reset()
   game=nil
+  session=nil
+  packageDefinition=nil
   source=name or "Projeto Lua-Flash"
   smooth=isDemo == true
   notice=isDemo and "Animacao de demonstracao carregada." or
@@ -82,6 +89,29 @@ local function openBytes(content,name)
   return true
 end
 
+-- A .lfgame contains a validated native scene and data-only interaction rules.
+local function openGameBytes(content,name)
+  if type(content)~="string" or #content>MAX_FILE then
+    notice="Jogo recusado: pacote maior que 25 MB."
+    return false
+  end
+  local ok,definition,err=pcall(GamePackage.decode,content)
+  if not ok or not definition then
+    notice="Jogo recusado: "..tostring(ok and err or definition)
+    return false
+  end
+  install(definition.document,name or definition.title,false)
+  packageDefinition=definition
+  session=Session.new(definition,transport)
+  smooth=definition.smooth
+  notice="Jogo "..definition.title.." iniciado. Sem execucao de scripts externos."
+  return true
+end
+
+local function openGameExample()
+  openGameBytes(GameExample.bytes(),"Exemplo externo .lfgame")
+end
+
 local function openSaved()
   local bytes,err=love.filesystem.read("projeto.lflash")
   if not bytes then
@@ -92,9 +122,16 @@ local function openSaved()
 end
 
 local function saveCopy()
-  local content=Model.encode(document)
-  local ok,err=love.filesystem.write("player_demo.lflash",content)
-  notice=ok and ("Copia salva: "..love.filesystem.getSaveDirectory().."/player_demo.lflash")
+  local content,name
+  if packageDefinition then
+    content=assert(GamePackage.encode(packageDefinition))
+    name="player_game.lfgame"
+  else
+    content=Model.encode(document)
+    name="player_demo.lflash"
+  end
+  local ok,err=love.filesystem.write(name,content)
+  notice=ok and ("Copia salva: "..love.filesystem.getSaveDirectory().."/"..name)
     or ("Erro ao salvar: "..tostring(err))
 end
 
@@ -120,6 +157,11 @@ end
 
 local function onEvent(event)
   if event.clicked then
+    if session then
+      if session:dispatch(event) then notice=session.lastAction
+      else notice="Sem acao configurada neste objeto." end
+      return
+    end
     if game then
       local success=game:attempt(event.hit)
       notice=game.active and (success and "Acertou! +"..game.score.." pontos." or "Errou! Continue tentando.")
@@ -140,7 +182,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.3")
+  love.window.setTitle("Lua-Flash Player 0.4")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -156,6 +198,7 @@ function love.update(dt)
     game:update(dt,transport.playing)
     if not game.active then transport.playing=false end
   end
+  if session then session:update(dt) end
 end
 
 local function renderScene(x,y,w,h)
@@ -174,7 +217,8 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.3  |  Eventos de mouse, toque e teclado",21,50,C.muted,fonts.small)
+  label("PLAYER 0.4  |  Projetos .lflash e jogos .lfgame",21,60,C.muted,fonts.small)
+  button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
   button("DEMO",w-395,24,80,36,false)
@@ -211,6 +255,29 @@ function love.draw()
     lg.pop()
   end
 
+  if session then
+    local viewport=sceneViewport()
+    local x,y=viewport.x+12,viewport.y+12
+    lg.push("all")
+    lg.setScissor(viewport.x,viewport.y,viewport.w,viewport.h)
+    lg.setColor(0,0,0,.72)
+    lg.rectangle("fill",x,y,330,94,8,8)
+    label(session.definition.title,x+10,y+9,C.green)
+    label("Pontos: "..session.score.." / "..session.definition.goal,
+      x+10,y+33,C.text,fonts.small)
+    label(string.format("Tempo: %.1fs | Eventos: %d",session.remaining,session.events),
+      x+10,y+52,C.text,fonts.small)
+    label(session.lastAction,x+10,y+71,C.muted,fonts.small)
+    if not session.active then
+      lg.setColor(0,0,0,.74)
+      lg.rectangle("fill",viewport.x+viewport.w*.22,viewport.y+viewport.h*.40,
+        viewport.w*.56,75,9,9)
+      label(session.won and "VITORIA!" or "FIM DE JOGO",
+        viewport.x+viewport.w*.40,viewport.y+viewport.h*.40+24,C.text)
+    end
+    lg.pop()
+  end
+
   lg.setColor(C.top)
   lg.rectangle("fill",0,top+stageHeight,w,h-top-stageHeight)
   local topPanel=top+stageHeight+12
@@ -234,8 +301,9 @@ function love.draw()
   button(string.format("%gx",transport.speed),289,ctrlY,58,32,false)
   button("+",353,ctrlY,34,32,false)
   button(smooth and "SUAVE: ON" or "SUAVE: OFF",w-155,ctrlY,135,32,smooth)
-  label(game and "Clique/toque na bola | WASD: mira | ENTER: disparar | G: novo jogo" or
-    "Espaco: play | Setas: quadro | I: interpolacao | F11: tela cheia",
+  label(session and "Jogo declarativo: clique na bola | Z: reiniciar quadro | Ctrl+S: salvar pacote" or
+    (game and "Clique/toque na bola | WASD: mira | ENTER: disparar | G: novo jogo" or
+    "Espaco: play | Setas: quadro | I: interpolacao | F11: tela cheia"),
     27,ctrlY+40,C.muted,fonts.small)
 
   lg.setColor(C.top)
@@ -246,7 +314,8 @@ end
 function love.mousepressed(x,y,key,istouch)
   if istouch or key~=1 then return end
   local w,h,top,stageHeight=metrics()
-  if inside(x,y,w-486,24,83,36) then startGame();return
+  if inside(x,y,w-575,24,83,36) then openGameExample();return
+  elseif inside(x,y,w-486,24,83,36) then startGame();return
   elseif inside(x,y,w-395,24,80,36) then
     install(Demo.create(),"Demonstracao interna",true);return
   elseif inside(x,y,w-305,24,143,36) then openSaved();return
@@ -318,6 +387,10 @@ function love.keypressed(key)
   input:key("down",key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if ctrl and key=="s" then saveCopy();return end
+  if session and session:dispatch({type="keydown",key=key}) then
+    notice=session.lastAction
+    return
+  end
   if key=="g" then startGame();return end
   if game then
     local direction={w={0,-25},a={-25,0},s={0,25},d={25,0}}
@@ -355,8 +428,10 @@ end
 
 function love.filedropped(file)
   local filename=file:getFilename() or ""
-  if not filename:lower():match("%.lflash$") then
-    notice="Arquivo nao suportado: use projetos do Lua-Flash (.lflash)."
+  local isProject=filename:lower():match("%.lflash$")~=nil
+  local isGame=filename:lower():match("%.lfgame$")~=nil
+  if not isProject and not isGame then
+    notice="Arquivo nao suportado: use .lflash ou .lfgame."
     return
   end
   local ok,err=file:open("r")
@@ -364,5 +439,7 @@ function love.filedropped(file)
   local bytes=file:read(MAX_FILE+1)
   file:close()
   if not bytes then notice="Erro ao ler arquivo.";return end
-  openBytes(bytes,filename:match("[^/\\]+$") or filename)
+  local displayName=filename:match("[^/\\]+$") or filename
+  if isGame then openGameBytes(bytes,displayName)
+  else openBytes(bytes,displayName) end
 end
