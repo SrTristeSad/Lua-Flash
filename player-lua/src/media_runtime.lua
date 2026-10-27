@@ -5,13 +5,15 @@ local Model=require("src.model")
 local Collision=require("src.collision")
 local PixelMask=require("src.pixel_mask")
 local SpriteTransform=require("src.sprite_transform")
+local SpriteTween=require("src.sprite_tween")
 local M={}
 M.__index=M
 
 function M.new(definition)
   local self=setmetatable({definition=definition,images={},sounds={},muted=false,
     volume=1,bindingsByIndex={},bindingsById={},animationsByIndex={},
-    masks={},assetFiles={},maskBuilds=0,transformsByIndex={}},M)
+    masks={},assetFiles={},maskBuilds=0,transformsByIndex={},
+    tween=SpriteTween.new(definition)},M)
   for _,transform in ipairs(definition.transforms or {}) do
     self.transformsByIndex[transform.index]=transform
   end
@@ -148,9 +150,21 @@ function M:spriteRect(index,position,scene)
     x=(x1+x2-sprite.width)/2
     y=(y1+y2-sprite.height)/2
   end
+  -- A v8 tween adds stage offsets on top of the existing STATIC/FOLLOW
+  -- placement. Rotation and scale override v7 values while interpolating.
+  local key=self.tween:sample(index,position or 1)
+  local transform=self.transformsByIndex[index]
+  if key then
+    x=x+key.x
+    y=y+key.y
+    transform={
+      angle=key.angle,scaleX=key.scaleX,scaleY=key.scaleY,
+      pivotX=transform and transform.pivotX or 50,
+      pivotY=transform and transform.pivotY or 50
+    }
+  end
   return SpriteTransform.build({kind="rect",
-    points={x,y,x+sprite.width,y+sprite.height}},
-    self.transformsByIndex[index])
+    points={x,y,x+sprite.width,y+sprite.height}},transform)
 end
 
 function M:shapeForObject(id,position,scene)
