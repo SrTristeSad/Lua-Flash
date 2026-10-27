@@ -46,6 +46,7 @@ local function condition(self,when)
 end
 function S:objectForHit(hit,position)
   if not hit then return nil end
+  if hit.sprite then return hit.sprite end
   if not self.definition.version or self.definition.version<3 then
     return self.objects[hit.layer..":"..hit.shape]
   end
@@ -116,7 +117,7 @@ end
 
 -- Only relevant rule pairs are compared; collisions fire ON ENTER, not every update.
 -- Supports per-keyframe object bindings and optional visual interpolation.
-function S:checkCollisions(sampler)
+function S:checkCollisions(sampler,media)
   if not self.definition.version or self.definition.version<3 or not self.active then return false end
   local current,any={},false
   local scene=sampler and sampler:sample(self.transport.position) or nil
@@ -127,8 +128,10 @@ function S:checkCollisions(sampler)
       local key=a<b and (a..":"..b) or (b..":"..a)
       if not compared[key] then
         compared[key]=true
-        local left=Collision.resolve(self.definition,a,self.transport.position,scene)
-        local right=Collision.resolve(self.definition,b,self.transport.position,scene)
+        local left=(media and media:shapeForObject(a,self.transport.position,scene)) or
+          Collision.resolve(self.definition,a,self.transport.position,scene)
+        local right=(media and media:shapeForObject(b,self.transport.position,scene)) or
+          Collision.resolve(self.definition,b,self.transport.position,scene)
         local touching=left and right and Collision.overlap(left,right) or false
         if touching then
           current[key]=true
