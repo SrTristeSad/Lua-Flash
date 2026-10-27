@@ -13,7 +13,7 @@ function S.new(definition,transport)
   for _,variable in ipairs(definition.states or {}) do
     states[variable.id]=variable.value
   end
-  if definition.version~=3 then
+  if not definition.version or definition.version<3 then
     for _,obj in ipairs(definition.objects or {}) do
       objects[obj.layer..":"..obj.shape]=obj.id
     end
@@ -46,7 +46,7 @@ local function condition(self,when)
 end
 function S:objectForHit(hit,position)
   if not hit then return nil end
-  if self.definition.version~=3 then
+  if not self.definition.version or self.definition.version<3 then
     return self.objects[hit.layer..":"..hit.shape]
   end
   local layer=self.definition.document.layers[hit.layer]
@@ -117,7 +117,7 @@ end
 -- Only relevant rule pairs are compared; collisions fire ON ENTER, not every update.
 -- Supports per-keyframe object bindings and optional visual interpolation.
 function S:checkCollisions(sampler)
-  if self.definition.version~=3 or not self.active then return false end
+  if not self.definition.version or self.definition.version<3 or not self.active then return false end
   local current,any={},false
   local scene=sampler and sampler:sample(self.transport.position) or nil
   local compared={}
