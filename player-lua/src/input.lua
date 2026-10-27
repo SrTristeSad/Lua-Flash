@@ -73,15 +73,21 @@ end
 
 local function sameTarget(a,b)
   if not a and not b then return true end -- valid click on empty stage
+  if a and b and (a.sprite or b.sprite) then
+    return a.sprite~=nil and a.sprite==b.sprite
+  end
   return a and b and a.layer==b.layer and a.shape==b.shape
 end
 
 -- phase: "down", "move", "up" or "cancel".
 -- identifier is mouse number or LÖVE touch ID; source separates them.
-function Input:pointer(phase,source,identifier,wx,wy,doc,frame,viewport,sampler)
+function Input:pointer(phase,source,identifier,wx,wy,doc,frame,viewport,sampler,media)
   local x,y=Input.stagePoint(wx,wy,doc,viewport)
   -- Pointer moves only need coordinates: avoid allocating a tweened scene each mousemove.
-  local target=(phase=="down" or phase=="up") and x and Input.hitTest(doc,frame,x,y,sampler) or nil
+  local target=nil
+  if (phase=="down" or phase=="up") and x then
+    target=(media and media:hit(x,y,frame,sampler)) or Input.hitTest(doc,frame,x,y,sampler)
+  end
   local event={
     type="pointer"..phase, source=source, id=identifier,
     x=x,y=y, inside=x~=nil, hit=target, clicked=false
