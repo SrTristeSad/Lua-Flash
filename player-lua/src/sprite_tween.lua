@@ -6,6 +6,17 @@ Tween.__index=Tween
 local function between(a,b,t)
   return a+(b-a)*t
 end
+local function ease(mode,t)
+  if mode=="STEP" then return 0 end
+  if mode=="EASE_IN" then return t*t end
+  if mode=="EASE_OUT" then return 1-(1-t)*(1-t) end
+  if mode=="EASE_IN_OUT" then
+    if t<.5 then return 2*t*t end
+    return 1-2*(1-t)*(1-t)
+  end
+  if mode=="SMOOTH" then return t*t*(3-2*t) end
+  return t
+end
 local function shortestAngle(a,b,t)
   local delta=((b-a+180)%360)-180
   return a+delta*t
@@ -13,7 +24,11 @@ end
 function Tween.new(definition)
   local tracks={}
   for _,track in ipairs(definition.tweens or {}) do tracks[track.index]=track.keys end
-  return setmetatable({tracks=tracks,cache={}},Tween)
+  local curves={}
+  for _,entry in ipairs(definition.easings or {}) do
+    curves[entry.index..":"..entry.frame]=entry.mode
+  end
+  return setmetatable({tracks=tracks,curves=curves,cache={}},Tween)
 end
 function Tween:sample(index,position)
   local keys=self.tracks[index]
@@ -37,6 +52,7 @@ function Tween:sample(index,position)
     end
     local a,b=keys[lo],keys[lo+1]
     local t=(position-a.frame)/(b.frame-a.frame)
+    t=ease(self.curves[index..":"..a.frame] or "LINEAR",t)
     out={
       x=between(a.x,b.x,t),y=between(a.y,b.y,t),
       angle=shortestAngle(a.angle,b.angle,t),
