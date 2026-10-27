@@ -1,79 +1,73 @@
-# Lua-Flash Player 0.7 — PNG e WAV nos jogos
+# Lua-Flash Player 0.8 — PNG com interação e colisão
 
-O Player Lua é o reprodutor independente de animações `.lflash` e jogos `.lfgame`, utilizando Lua e [LÖVE 11.5](https://love2d.org/). Não implementa leitura de Flash/SWF da Adobe.
+O Player Lua executa animações autorais `.lflash` e jogos `.lfgame`, usando Lua e [LÖVE 11.5](https://love2d.org/). Não executa SWF ou scripts Lua contidos em arquivos externos.
 
-## Executar e experimentar
+## Executar
 
 ```bash
 love player-lua
 ```
 
-Clique **PACOTE** para abrir o exemplo LUAFGAME 4: o palco recebe um pequeno desenho em PNG e o jogo reproduz um efeito sonoro original ao clicar na bola azul ou ao colidir com a barreira. Também existe um efeito de vitória.
+Clique em **PACOTE** para abrir a demonstração LUAFGAME 5. O pequeno PNG passa a **seguir a bola**, pode ser clicado e pode provocar uma colisão com a barreira vermelha. A pontuação e os estados declarativos seguem funcionando.
 
-Pressione **F10** para silenciar ou reativar os sons. Os outros controles de reprodução, o minijogo **JOGAR**, os quadros-chave e a interpolação continuam disponíveis.
+Controles novos de áudio: **F8** diminui 10%, **F9** aumenta 10%, **F10** silencia/reativa. Esses ajustes atingem os efeitos WAV da partida. Os demais controles do Player (play/pause, timeline, velocidade, loop, tela cheia e importação por arrastar/soltar) continuam disponíveis.
 
-## LUAFGAME 4 — recursos embutidos
+## Formato LUAFGAME 5
 
-Os pacotes `.lfgame` contêm um jogo declarativo com regras LUAFGAME 3 e podem transportar seus próprios recursos gráficos e efeitos:
+Um jogo `.lfgame` v5 é um envelope binário do jogo v4, complementado por associações `SPRITE_BIND`.
 
-- `PNG` RGB/RGBA, 8 bits, largura e altura entre 1 e 1.024 pixels; cada recurso tem limite de 2 MB.
-- `WAV` PCM 16-bit, mono ou estéreo, 8.000–44.100 Hz, duração de até 10 segundos; limite de 2 MB por recurso.
-- `SPRITE`: desenha uma imagem acima das formas vetoriais, com posição e dimensão definidas em coordenadas do palco.
-- `CUE`: associa um WAV a uma regra `CLICKID`, `KEY` ou `COLLIDE`, ou ao evento de vitória `WIN`.
+- `SPRITE_BIND índice objeto STATIC` associa uma imagem ao ID de um objeto, preservando a posição x/y configurada no sprite.
+- `SPRITE_BIND índice objeto FOLLOW` mantém a imagem centralizada sobre a forma vetorial animada daquele objeto. Se a forma deixa de existir, o sprite associado deixa de aparecer naquele trecho.
+- **Hit-testing:** sprites associados aparecem na frente das formas vetoriais e capturam o clique primeiro, usando seu ID para regras `CLICKID`.
+- **Colisões:** para objetos associados a sprites, o retângulo do PNG substitui a forma vetorial no cálculo de contato. As demais formas continuam usando as regras geométricas da versão 0.6.
+- **Sem leitura de pixels transparentes:** o hit-testing e as colisões são por retângulos alinhados aos eixos, portanto regiões transparentes dentro do PNG também podem receber cliques.
+- O vínculo é salvo no `.lfgame`; **não** altera os documentos editáveis do Studio. Os formatos LUAFGAME 1–4 continuam compatíveis.
 
-Os sprites são **decorativos nesta versão**: ainda não entram no hit-testing ou nas colisões. Sons são efeitos curtos disparados por eventos; **não há trilha musical sincronizada à timeline** nem streaming de áudio.
+Limites: até 64 vínculos de sprite (um por índice e por objeto), seguindo os limites de mídia v4. Os arquivos são validados antes de serem instalados, e o Player não executa código de terceiros.
 
-Há limites gerais de 25 MB por pacote, 12 MB de mídia bruta, 24 recursos, 64 sprites e 64 associações de efeitos. A validação verifica formato, tamanho, dimensões e referências antes de carregar recursos por memória; arquivos importados não são executados como Lua.
+[Detalhes técnicos do LUAFGAME 5](../docs/FORMAT_LUAFGAME5.md).
 
-Os jogos v1, v2 e v3 seguem compatíveis. Para detalhes do envelope binário, leia [FORMAT_LUAFGAME4.md](../docs/FORMAT_LUAFGAME4.md).
+## Publicar um jogo com PNG interativo
 
-## Como publicar um jogo com PNG e WAV
-
-Primeiro produza uma cena `.lflash` no Studio e converta-a em um jogo declarativo:
+A partir da raiz do repositório:
 
 ```bash
+# 1. Converter animação do Studio para jogo.
 lua tools/make_game.lua cena.lflash base.lfgame 2 1 8 30 smooth
+
+# 2. Incorporar PNG e WAV originais.
+lua tools/attach_media.lua base.lfgame com-midia.lfgame imagem.png 600 260 64 64 efeito.wav CLICKID alvo
+
+# 3. Associar o primeiro sprite ao ID "alvo" e acompanhá-lo.
+lua tools/bind_sprite.lua com-midia.lfgame jogo-final.lfgame 1 alvo FOLLOW
 ```
 
-Agora incorpore uma imagem e um áudio existentes (seus ou com licença adequada):
+Abra `jogo-final.lfgame` no Player por arrastar/soltar. Se quiser um botão fixo no palco em vez de um sprite animado, substitua `FOLLOW` por `STATIC`.
 
-```bash
-lua tools/attach_media.lua base.lfgame completo.lfgame estrela.png 600 260 64 64 efeito.wav CLICKID alvo
-```
-
-O primeiro arquivo permanece intacto. O segundo contém ambos os recursos e pode ser arrastado diretamente para o Player, sem necessidade de manter os arquivos PNG e WAV separados.
-
-Para gerar **arquivos de teste originais** e uma demonstração já pronta:
+Para testar sem imagens externas, há um exemplo original:
 
 ```bash
 python3 tools/generate_media_fixtures.py --directory dist
-lua tools/export_example.lua dist/Exemplo-0.7.lfgame
+lua tools/export_example.lua dist/Exemplo-0.8.lfgame
 ```
 
-Também é possível associar um áudio a uma colisão declarada:
-
-```bash
-lua tools/attach_media.lua base.lfgame completo.lfgame estrela.png 600 260 64 64 efeito.wav COLLIDE bola barreira
-```
-
-Isso só será aceito se a cena já tiver objetos e uma regra de colisão com esses IDs.
-
-## Testes e distribuição
+## Testes e pacote
 
 ```bash
 lua tests/package_test.lua
 lua tests/package_v2_test.lua
 lua tests/package_v3_test.lua
 lua tests/package_v4_test.lua
+lua tests/package_v5_test.lua
 lua tests/gui_smoke.lua
 python3 tools/sync_core.py --check
 python3 tools/package_player.py
 ```
 
-O GitHub Actions ainda executa o **LÖVE real em uma tela virtual**, carrega o jogo com os recursos de mídia e testa a importação de PNG/WAV por arquivo.
+O GitHub Actions também inicia o Player usando o LÖVE real em ambiente gráfico virtual, verifica a importação de mídia e gera exemplos `.lfgame` v4/v5.
 
-O pacote `.love` não contém o Studio nem é um EXE Windows autônomo.
+## Limitações atuais
 
-## Limites conhecidos
+Os sprites ainda não têm máscaras de colisão precisas por pixel, animação própria de atlas/spritesheet ou rotação; o áudio ainda não segue uma linha do tempo dedicada. Falta integrar IDs ao formato editável do Studio, introduzir uma API Lua de jogos com isolamento adequado e disponibilizar builds desktop nativos ou para Android/Web.
 
-Ainda não há PNG como objeto interativo, colisões de sprites, áudio sincronizado a quadros, MP3/OGG ou vídeo, renderização hierárquica, isolamento de scripts de terceiros ou builds nativos Android/Web. O desempenho e os controles precisam de testes manuais em dispositivos reais.
+**Esta é uma versão experimental**; a CI não substitui testes manuais em dispositivos reais.
