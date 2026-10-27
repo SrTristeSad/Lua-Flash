@@ -1,0 +1,8 @@
+*.love
+*.log
+*.tmp
+*.swf
+*.fla
+*.xfl
+.DS_Store
+Thumbs.db
