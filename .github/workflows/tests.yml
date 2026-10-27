@@ -15,3 +15,5 @@ jobs:
         run: python3 tools/sync_core.py --check
       - name: Model and player tests
         run: lua tests/model_test.lua
+      - name: Player and Studio interface smoke tests
+        run: lua tests/gui_smoke.lua
