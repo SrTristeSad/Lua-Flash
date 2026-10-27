@@ -136,7 +136,7 @@ local function sweepSamples(first,last,total,wraps)
   local positions={}
   -- A numeric wrap count also detects complete loops that happen to finish
   -- at a frame greater than or equal to the starting frame.
-  local distance=wraps>0 and ((total-first)+(wraps-1)*total+(last-1))
+  local distance=wraps>0 and (total*wraps+last-first)
     or math.max(0,last-first)
   local steps=math.max(1,math.min(MAX_SWEEP_STEPS,
     math.ceil(distance*SUBSTEPS_PER_FRAME)))
