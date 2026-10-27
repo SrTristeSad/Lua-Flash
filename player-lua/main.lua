@@ -224,7 +224,7 @@ function love.update(dt)
   local before,playing=transport.position,transport.playing
   transport:update(dt)
   local wraps=playing and transport.lastWraps or 0
-  if media then media:timelineAdvance(before,transport.position,playing) end
+  if media then media:timelineAdvance(before,transport.position,playing,transport.lastWraps) end
   if game then
     game:update(dt,transport.playing)
     if not game.active then transport.playing=false end

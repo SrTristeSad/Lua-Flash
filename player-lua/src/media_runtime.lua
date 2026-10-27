@@ -56,12 +56,13 @@ end
 -- Fire when the actual playback CLOCK crosses the given frame. Seeking and
 -- scrubbing do not call this method; pause also cannot trigger new cues.
 -- Crossing a loop boundary visits the end of the timeline, then frame 1.
-function M:timelineAdvance(oldPosition,newPosition,wasPlaying)
+function M:timelineAdvance(oldPosition,newPosition,wasPlaying,wrapCount)
   if not wasPlaying or not self.definition.timelineSounds then return false end
   if type(oldPosition)~="number" or type(newPosition)~="number" then return false end
-  if oldPosition==newPosition then return false end
+  local wraps=type(wrapCount)=="number" and math.max(0,math.floor(wrapCount)) or 0
+  if oldPosition==newPosition and wraps==0 then return false end
   local previous,current=math.floor(oldPosition),math.floor(newPosition)
-  local wrapped=newPosition<oldPosition
+  local wrapped=wraps>0 or newPosition<oldPosition
   local fired=false
   for _,item in ipairs(self.definition.timelineSounds) do
     if (not wrapped and item.frame>previous and item.frame<=current) or
