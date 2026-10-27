@@ -90,7 +90,7 @@ stepping.easings={{index=1,frame=1,mode="STEP"}}
 local sample=Tween.new(stepping)
 assert(sample:sample(1,22.99).x==0)
 assert(sample:sample(1,23).x==30)
-assert(sample:sample(1,23.01).x>30,"step only belongs to its chosen segment")
+assert(sample:sample(1,23.01).x<30,"step only belongs to its chosen segment")
 local passthrough=Tween.new(Ex8.definition())
 assert(passthrough:sample(1,frame).x==7.5,"old packages remain LINEAR")
 
