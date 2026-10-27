@@ -12,6 +12,7 @@ _G.love={
     getDimensions=function() return 1040,690 end,
     newFont=function() return {} end,
     getFont=function() return {} end,
+    newImage=function() return {setFilter=function() end,getWidth=function() return 16 end,getHeight=function() return 16 end} end,
   },{__index=function() return nop end}),
   window={
     setTitle=nop,setMode=nop,
@@ -20,11 +21,14 @@ _G.love={
   },
   filesystem={
     write=function(name, data) saved[name]=data;return true end,
+    newFileData=function(data,name) return {data=data,name=name} end,
     read=function(name) return saved[name],saved[name] and nil or "not found" end,
     getSaveDirectory=function() return "/test/lua-flash" end,
   },
   keyboard={isDown=function() return ctrl end},
   mouse={getPosition=function() return 200,100 end},
+  sound={newSoundData=function(data) return data end},
+  audio={newSource=function() return {stop=nop,play=nop} end},
   event={quit=nop}
 }
 
@@ -73,13 +77,15 @@ love.keypressed("g")
 -- 0.4: load declarative example, dispatch key rule, click, draw, and save it.
 love.mousepressed(470,31,1,false)
 love.keypressed("z")
+love.keypressed("f10")
+love.keypressed("f10")
 love.update(1/24)
 love.draw()
 ctrl=true
 love.keypressed("s")
 ctrl=false
 assert(saved["player_game.lfgame"])
-local GamePackage=require("src.package_v3")
+local GamePackage=require("src.package_v4")
 assert(GamePackage.decode(saved["player_game.lfgame"]))
 love.keyreleased("w")
 love.focus(false)
