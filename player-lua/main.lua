@@ -209,6 +209,7 @@ function love.load()
   fonts.heading=love.graphics.newFont(22)
   fonts.small=love.graphics.newFont(12)
   love.graphics.setFont(fonts.regular)
+  if os.getenv("LUA_FLASH_SMOKE_MEDIA")=="1" then openGameExample() end
 end
 
 function love.update(dt)
