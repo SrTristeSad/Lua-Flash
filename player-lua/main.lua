@@ -7,10 +7,11 @@ local Transport=require("src.transport")
 local Interpolation=require("src.interpolation")
 local Input=require("src.input")
 local TargetGame=require("src.target_game")
-local GamePackage=require("src.package_v8")
+local GamePackage=require("src.package_v9")
+local SpriteTween=require("src.sprite_tween")
 local MediaRuntime=require("src.media_runtime")
 local Session=require("src.session")
-local GameExample=require("src.game_example_v8")
+local GameExample=require("src.game_example_v9")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -25,6 +26,7 @@ local game=nil
 local session=nil
 local packageDefinition=nil
 local media=nil
+local editor={open=false,track=1,segment=1,scroll=0}
 local C={
   bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
   text={.90,.94,1},muted={.62,.69,.77},accent={.25,.70,.99},
@@ -65,6 +67,7 @@ end
 local function install(doc,name,isDemo)
   if media then media:release() end
   media=nil
+  editor={open=false,track=1,segment=1,scroll=0}
   document=doc
   transport=Transport.new(document)
   transport.playing=true
@@ -195,6 +198,138 @@ local function onEvent(event)
   end
 end
 
+-- A compact visual segment/curve editor, intentionally scoped to the Player.
+-- It changes only game data, and Ctrl+S saves the edited .lfgame package.
+local function editorTrack()
+  return packageDefinition and packageDefinition.tweens and
+    packageDefinition.tweens[editor.track] or nil
+end
+local function editorSelection()
+  local track=editorTrack()
+  if not track then return nil,nil,nil end
+  editor.segment=math.max(1,math.min(#track.keys-1,editor.segment))
+  local key=track.keys[editor.segment]
+  if not key then return nil,nil,nil end
+  local mode="LINEAR"
+  for _,e in ipairs(packageDefinition.easings or {}) do
+    if e.index==track.index and e.frame==key.frame then
+      mode=e.mode;break
+    end
+  end
+  return track,key,mode
+end
+local function editorNavigateTracks(delta)
+  if not packageDefinition or not packageDefinition.tweens then return end
+  local n=#packageDefinition.tweens
+  if n==0 then return end
+  editor.track=((editor.track-1+delta)%n)+1
+  editor.segment=1;editor.scroll=0
+  notice="Sprite "..editorTrack().index.." selecionado."
+end
+local function editorNavigateSegments(delta)
+  local track=editorTrack()
+  if not track then return end
+  editor.segment=math.max(1,math.min(#track.keys-1,editor.segment+delta))
+  if editor.segment<editor.scroll+1 then editor.scroll=editor.segment-1 end
+  if editor.segment>editor.scroll+6 then editor.scroll=editor.segment-6 end
+  notice="Trecho selecionado: "..track.keys[editor.segment].frame
+end
+local function editorCycleCurve()
+  local track,key,mode=editorSelection()
+  if not track then return end
+  if packageDefinition.version==8 then
+    packageDefinition.version=9
+    packageDefinition.easings={}
+  end
+  local modes=GamePackage.MODES
+  local nextIndex=1
+  for i,value in ipairs(modes) do
+    if value==mode then nextIndex=(i%#modes)+1;break end
+  end
+  local nextMode=modes[nextIndex]
+  for i=#packageDefinition.easings,1,-1 do
+    local e=packageDefinition.easings[i]
+    if e.index==track.index and e.frame==key.frame then
+      table.remove(packageDefinition.easings,i)
+    end
+  end
+  if nextMode~="LINEAR" then
+    packageDefinition.easings[#packageDefinition.easings+1]={
+      index=track.index,frame=key.frame,mode=nextMode
+    }
+  end
+  media.tween=SpriteTween.new(packageDefinition)
+  notice="Curva do sprite "..track.index.." (quadro "..key.frame.."): "..nextMode..
+    " | Ctrl+S para salvar"
+end
+local function editorBounds()
+  local viewport=sceneViewport()
+  return viewport.x+viewport.w-314,viewport.y+10,302,309
+end
+local function drawCurveEditor()
+  if not editor.open then return end
+  local track,key,mode=editorSelection()
+  if not track then return end
+  local x,y,w,h=editorBounds()
+  local lg=love.graphics
+  lg.push("all")
+  lg.setColor(.065,.085,.115,.96)
+  lg.rectangle("fill",x,y,w,h,9,9)
+  lg.setColor(C.accent)
+  lg.rectangle("line",x+.5,y+.5,w-1,h-1,9,9)
+  label("CURVAS DE ANIMACAO [E]",x+12,y+10,C.text,fonts.regular)
+  button("<",x+12,y+36,35,30,false)
+  button(">",x+w-47,y+36,35,30,false)
+  label(string.format("Sprite %d  |  %d trechos",track.index,#track.keys-1),
+    x+56,y+43,C.green,fonts.small)
+  label("Clique no trecho para editar:",x+12,y+78,C.muted,fonts.small)
+  local max=math.min(6,#track.keys-1-editor.scroll)
+  for row=1,max do
+    local i=editor.scroll+row
+    local start,finish=track.keys[i],track.keys[i+1]
+    local current="LINEAR"
+    for _,e in ipairs(packageDefinition.easings or {}) do
+      if e.index==track.index and e.frame==start.frame then
+        current=e.mode;break
+      end
+    end
+    local yy=y+99+(row-1)*26
+    if i==editor.segment then
+      lg.setColor(C.highlight)
+      lg.rectangle("fill",x+8,yy,w-16,25,4,4)
+    end
+    label(string.format("%3d > %3d    %s",start.frame,finish.frame,current),
+      x+17,yy+4,i==editor.segment and C.text or C.muted,fonts.small)
+  end
+  button("CURVA: "..mode,x+12,y+h-39,170,29,true)
+  button("SALVAR",x+w-105,y+h-39,93,29,false)
+  lg.pop()
+end
+local function editorClick(x,y)
+  if not editor.open then return false end
+  local bx,by,bw,bh=editorBounds()
+  if not inside(x,y,bx,by,bw,bh) then return false end
+  local track=editorTrack()
+  if not track then return true end
+  if inside(x,y,bx+12,by+36,35,30) then editorNavigateTracks(-1)
+  elseif inside(x,y,bx+bw-47,by+36,35,30) then editorNavigateTracks(1)
+  elseif inside(x,y,bx+12,by+bh-39,170,29) then editorCycleCurve()
+  elseif inside(x,y,bx+bw-105,by+bh-39,93,29) then saveCopy()
+  else
+    for row=1,math.min(6,#track.keys-1-editor.scroll) do
+      if inside(x,y,bx+8,by+99+(row-1)*26,bw-16,25) then
+        editor.segment=editor.scroll+row
+        transport.playing=false
+        transport:seek(track.keys[editor.segment].frame)
+        notice="Trecho "..track.keys[editor.segment].frame..
+          " a "..track.keys[editor.segment+1].frame
+        break
+      end
+    end
+  end
+  return true
+end
+
 local function toggleSmooth()
   smooth=not smooth
   notice=smooth and "Interpolacao visual ativada (nao altera seu arquivo)." or
@@ -202,7 +337,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.13")
+  love.window.setTitle("Lua-Flash Player 0.14")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -260,7 +395,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.13  |  Movimento e rotacao por quadros-chave",21,60,C.muted,fonts.small)
+  label("PLAYER 0.14  |  Easing e editor de curvas",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -330,6 +465,8 @@ function love.draw()
     lg.pop()
   end
 
+  drawCurveEditor()
+
   lg.setColor(C.top)
   lg.rectangle("fill",0,top+stageHeight,w,h-top-stageHeight)
   local topPanel=top+stageHeight+12
@@ -353,7 +490,7 @@ function love.draw()
   button(string.format("%gx",transport.speed),289,ctrlY,58,32,false)
   button("+",353,ctrlY,34,32,false)
   button(smooth and "SUAVE: ON" or "SUAVE: OFF",w-155,ctrlY,135,32,smooth)
-  label(session and "Jogo v8: tween de sprite | F8/F9/F10 audio" or
+  label(session and "Jogo v9: pressione E para editar easing | Ctrl+S salva" or
     (game and "Clique/toque na bola | WASD: mira | ENTER: disparar | G: novo jogo" or
     "Espaco: play | Setas: quadro | I: interpolacao | F11: tela cheia"),
     27,ctrlY+40,C.muted,fonts.small)
@@ -365,6 +502,7 @@ end
 
 function love.mousepressed(x,y,key,istouch)
   if istouch or key~=1 then return end
+  if editorClick(x,y) then return end
   local w,h,top,stageHeight=metrics()
   if inside(x,y,w-575,24,83,36) then openGameExample();return
   elseif inside(x,y,w-486,24,83,36) then startGame();return
@@ -439,6 +577,23 @@ function love.keypressed(key)
   input:key("down",key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if ctrl and key=="s" then saveCopy();return end
+  if key=="e" and packageDefinition and packageDefinition.version>=8 and
+      packageDefinition.tweens and #packageDefinition.tweens>0 then
+    editor.open=not editor.open
+    if editor.open then transport.playing=false end
+    notice=editor.open and "Editor de curvas aberto. Clique em um trecho." or
+      "Editor de curvas fechado."
+    return
+  end
+  if editor.open then
+    if key=="escape" then editor.open=false;notice="Editor fechado.";return
+    elseif key=="c" then editorCycleCurve();return
+    elseif key=="up" then editorNavigateSegments(-1);return
+    elseif key=="down" then editorNavigateSegments(1);return
+    elseif key=="pageup" then editorNavigateTracks(-1);return
+    elseif key=="pagedown" then editorNavigateTracks(1);return
+    end
+  end
   if key=="f8" and media then
     notice="Volume: "..math.floor(media:setVolume(media.volume-.1)*100+.5).."%"
     return
@@ -491,6 +646,18 @@ function love.keyreleased(key)
 end
 
 function love.wheelmoved(_,dy)
+  if editor.open and dy~=0 then
+    local x,y=love.mouse.getPosition()
+    local bx,by,bw,bh=editorBounds()
+    if inside(x,y,bx,by,bw,bh) then
+      local track=editorTrack()
+      if track then
+        editor.scroll=math.max(0,math.min(math.max(0,#track.keys-7),
+          editor.scroll-(dy>0 and 1 or -1)))
+      end
+      return
+    end
+  end
   if dy~=0 then transport:step(dy>0 and 1 or -1) end
 end
 
