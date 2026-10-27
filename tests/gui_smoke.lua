@@ -56,6 +56,23 @@ love.keypressed("s")
 ctrl=false
 assert(saved["player_demo.lflash"])
 love.keypressed("d")
+-- Player 0.3: test interactive game callbacks before opening Studio.
+love.mousepressed(560,31,1,false)
+love.mousemoved(257,367,0,0,false)
+love.mousepressed(257,367,1,false)
+love.mousereleased(257,367,1,false)
+love.touchpressed("touch-A",257,367)
+love.touchmoved("touch-A",257,367)
+love.touchreleased("touch-A",257,367)
+love.keypressed("a")
+love.keypressed("w")
+love.keypressed("d")
+love.keypressed("s")
+love.keypressed("return")
+love.keypressed("g")
+love.keyreleased("w")
+love.focus(false)
+love.draw()
 
 local function fakeFile(content,name)
   return {
