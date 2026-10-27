@@ -1,55 +1,63 @@
-# Lua-Flash Player 0.13 — animação de transformações
+# Lua-Flash Player 0.14 — easing e painel de curvas
 
-Runtime autoral em Lua com [LÖVE 11.5](https://love2d.org/). Abre animações `.lflash` e jogos declarativos `.lfgame`, inclusive os formatos LUAFGAME 1–8. Não abre SWF/ActionScript.
+Runtime Lua + LÖVE para animações `.lflash` e jogos `.lfgame`, com compatibilidade de leitura LUAFGAME 1–9. O Player não executa ActionScript/SWF nem scripts Lua fornecidos por jogos.
 
-## Novo na 0.13
+## Curvas disponíveis
 
-Agora os sprites podem ter sua própria sequência de *quadros-chave de transformação*, além da animação de PNGs da versão 0.9:
+Cada trecho entre **duas chaves consecutivas** pode receber uma curva própria. As seis opções são:
 
-- **Posição:** deslocamentos X e Y em unidades do palco, adicionados à posição STATIC ou FOLLOW.
-- **Rotação:** graus com interpolação pelo caminho mais curto entre dois keyframes. O pivô é herdado da transformação v7 ou, na ausência dela, fica no centro da imagem.
-- **Escala:** valores X/Y em porcentagem, interpolados linearmente de forma independente.
-- **Interação:** pintura, cliques e máscaras alfa usam a mesma transformação da posição atual da timeline.
-- **Colisões:** a verificação temporal da versão 0.11 consulta as posições intermediárias dos sprites, aplicando também a transformação interpolada.
+| Curva | Comportamento |
+|---|---|
+| `LINEAR` | Velocidade constante (padrão dos jogos v8). |
+| `EASE_IN` | Começa lentamente e acelera. |
+| `EASE_OUT` | Começa rapidamente e desacelera. |
+| `EASE_IN_OUT` | Acelera e depois desacelera. |
+| `SMOOTH` | Transição suave com derivadas nulas nos extremos (*smoothstep*). |
+| `STEP` | Mantém a pose inicial até atingir o próximo quadro-chave. |
 
-A interpolação acontece mesmo quando a interpolação visual das formas vetoriais está desligada; o parâmetro da animação de sprites é independente da opção de suavização de vetores.
+A curva atua sobre deslocamento X/Y, escala X/Y e avanço de rotação entre chaves. A rotação ainda utiliza o arco angular mais curto. A posição `FOLLOW` e os dados da animação vetorial continuam funcionando.
 
-A demonstração **PACOTE** exibe uma estrela PNG com movimento e variações de rotação e tamanho ao longo de 90 quadros. A animação da bola vetorial e os sons por quadro continuam disponíveis.
+## Painel visual de curvas
 
-## Criar um jogo LUAFGAME 8
+1. Execute `love player-lua`, clique em **PACOTE** ou arraste um jogo LUAFGAME 8/9 com uma trilha de transformação.
+2. Pressione **E** para abrir/fechar o painel. A reprodução é pausada para facilitar a inspeção.
+3. Use **‹/›** para escolher a trilha (sprite). Clique em um dos trechos da lista para selecioná-lo; o Player vai para o quadro-chave inicial.
+4. Clique no botão **CURVA** para alternar entre os seis modos. Também é possível pressionar **C**, usar setas para cima/baixo para escolher trechos, PageUp/PageDown para outras trilhas e a roda do mouse dentro do painel para percorrer uma lista longa.
+5. Clique em **SALVAR** ou use **Ctrl+S**. A cópia editada é gravada em `player_game.lfgame`, no diretório de salvamento do LÖVE.
 
-Após preparar um jogo v7 com sprites, defina uma sequência de quadros-chave:
+Um jogo v8 aberto continua no formato antigo até a primeira alteração; quando se edita uma curva, ele passa para **LUAFGAME 9**. Os jogos antigos não são regravados automaticamente. O Studio permanece intocado.
 
-```bash
-lua tools/animate_transform.lua entrada.lfgame saida.lfgame 1 \
-  1,0,0,0,100,100 \
-  23,30,-45,90,150,85 \
-  45,-20,30,180,75,150 \
-  90,0,0,360,100,100
-```
+Este painel é um **editor inicial de curvas**, não um editor completo de keyframes: você seleciona intervalos e muda o easing, mas a criação, movimentação ou exclusão visual das chaves ainda não está disponível.
 
-Depois do índice do sprite (`1`), cada parâmetro representa:
+## Publicação via linha de comando
 
-```text
-frame,x,y,anguloGraus,escalaXPercent,escalaYPercent
-```
-
-As posições são deslocamentos em relação ao sprite original, não coordenadas absolutas; ângulo e escalas são valores absolutos. O arquivo original é preservado e o resultado pode ser arrastado para o Player.
-
-O formato exige ao menos dois keyframes por sprite e o primeiro no quadro 1. Aceita até 64 trilhas e 128 quadros-chave por trilha, respeitando um limite total de 2.048 keyframes.
-
-## Executar e testar
+A ferramenta `tools/set_easing.lua` pode adicionar ou atualizar uma curva sem abrir o Player:
 
 ```bash
+lua tools/set_easing.lua jogo-v8.lfgame jogo-v9.lfgame 1 1 EASE_IN_OUT
+```
+
+Os parâmetros finais são `spriteIndex`, `quadroInicialDoTrecho` e `modo`. Para restaurar a interpolação padrão, use `LINEAR`. O quadro informado deve existir na trilha e não pode ser o último quadro-chave.
+
+Para ver o exemplo:
+
+```bash
+lua tools/export_example.lua dist/Exemplo-0.14.lfgame
 love player-lua
+```
+
+O botão **PACOTE** abre a demonstração 0.14, com trechos de aceleração, desaceleração e suavização diferentes.
+
+## Testes e limites
+
+```bash
+lua tests/package_v9_test.lua
 lua tests/package_v8_test.lua
-lua tests/package_v7_test.lua
-lua tests/swept_collision_test.lua
 lua tests/gui_smoke.lua
 python3 tools/sync_core.py --check
 python3 tools/package_player.py
 ```
 
-A CI verifica versões antigas, formatos inválidos, interações com PNG transformado, colisões com deslocamento e a inicialização gráfica do LÖVE real.
+A CI executa a suíte completa de versões anteriores e um smoke test com LÖVE real em display virtual, além de publicar o `.love` e jogos `.lfgame`.
 
-**Limitações:** a animação interpola linearmente posição/escala e o ângulo pelo arco mais curto; não há curvas Bézier ou easing configurável, rotação de formas vetoriais, hierarquia pai-filho, fusão de keyframes em GUI, máscara exata para colisão contínua ou EXE nativo. O Studio continua sem alterações.
+**Pendente para o 1.0:** editor visual completo de poses, estabilidade/performance em PCs reais, áudio avançado, suporte a projetos maiores e uma distribuição nativa Windows sem instalação separada de LÖVE. Colisões continuam aproximadas por amostragem; o formato não oferece Bézier editável ou scripting externo.
