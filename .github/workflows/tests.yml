@@ -11,5 +11,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y lua5.4
       - name: Syntax check
         run: find . -type f -name '*.lua' -print0 | xargs -0 -n 1 luac -p
+      - name: Shared model and renderer
+        run: python3 tools/sync_core.py --check
       - name: Model and player tests
         run: lua tests/model_test.lua

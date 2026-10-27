@@ -1,5 +1,5 @@
 -- Run from repository root: lua tests/model_test.lua
-package.path="./?.lua;./?/init.lua;"..package.path
+package.path="./player-lua/?.lua;./player-lua/?/init.lua;"..package.path
 local Model=require("src.model")
 local Runtime=require("src.runtime")
 
@@ -45,4 +45,11 @@ player:update(1/24)
 assert(player.frame==1,"playback loops")
 local x,y,scale=Runtime.geometry(doc,0,0,1280,720)
 assert(x==0 and y==0 and scale==2)
-print("OK: .lflash codec, frames, keys, SVG, native player clock")
+local Demo=require("src.demo")
+local sample=Demo.create()
+assert(#sample.layers==2 and sample.totalFrames==90)
+assert(#Model.frame(sample.layers[2],1)==2)
+assert(Model.frame(sample.layers[2],1)[1].points[1]~=Model.frame(sample.layers[2],90)[1].points[1])
+local sampleRoundTrip=assert(Model.decode(Model.encode(sample)))
+assert(#Model.frame(sampleRoundTrip.layers[2],90)==2)
+print("OK: native player and studio codec, timeline, sample, frames")

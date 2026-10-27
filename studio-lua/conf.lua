@@ -1,7 +1,7 @@
 function love.conf(t)
   t.identity = "lua-flash"
   t.version = "11.5"
-  t.window.title = "Lua-Flash Player + Studio"
+  t.window.title = "Lua-Flash Studio"
   t.window.width = 1200
   t.window.height = 780
   t.window.resizable = true

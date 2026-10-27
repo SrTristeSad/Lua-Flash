@@ -1,4 +1,4 @@
--- Lua-Flash 0.1: new Player + Studio for the native .lflash format.
+-- Lua-Flash Studio 0.1 with built-in preview for the native .lflash format.
 -- No legacy Adobe SWF/FLA/ActionScript compatibility by design.
 local Model = require("src.model")
 local Runtime = require("src.runtime")
@@ -104,7 +104,7 @@ local function button(s,x,y,w,h,activeButton)
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash | Player + Studio 0.1")
+  love.window.setTitle("Lua-Flash Studio 0.1 (com pre-visualizacao)")
   love.window.setMode(1200,780,{resizable=true,minwidth=850,minheight=590})
   love.graphics.setDefaultFilter("linear","linear")
   font=love.graphics.newFont(13)

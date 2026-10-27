@@ -1,53 +1,43 @@
-# Lua-Flash — Player + Studio próprios, em Lua
+# Lua-Flash: Player Lua + Studio Lua
 
-## Missão
+## Escopo
 
-Ressuscitar a **ideia do Flash Player e do Flash Professional**: plataforma simples de criação, publicação e execução de experiências interativas. Não existe exigência de suporte a projetos antigos da Adobe.
+Criar um novo ecossistema de autoria e execucao visual usando Lua e um formato proprio `.lflash`. **Nao oferecer compatibilidade com SWF, FLA, XFL ou ActionScript da Adobe.** A engenharia reversa do Flash original serve para estudar conceitos e comportamento, nao para reutilizar executaveis ou codigo fechado.
 
-**Fora do escopo, por decisão do projeto:** SWF, FLA, XFL, ActionScript, AVM1/AVM2 e compatibilidade retroativa com o Flash Player original.
+## Estrutura (a partir de 0.1)
 
-## Produtos
+- `player-lua/`: aplicativo independente de reproducao (foco atual).
+- `studio-lua/`: aplicativo independente para criar e editar animacoes.
+- `tools/sync_core.py`: mantem o modelo e o renderizador identicos nos dois apps.
+- `tests/`: testes de interoperabilidade e logica (sem precisar de GPU).
 
-- **Player:** motor próprio de exibição/interação para conteúdos desenvolvidos em Lua-Flash.
-- **Studio:** editor visual familiar a quem utilizou Flash, com palco, ferramentas, timeline, camadas e recursos de autoria.
-- **Núcleo:** modelo de cena, animação e arquivos `.lflash` compartilhados. A publicação final terá formato próprio, separado do documento de edição.
+Os aplicativos sao independentes no LÖVE. Os modulos `src/model.lua` e `src/runtime.lua` existem em ambos para empacotamento autonomo, com verificacao automatizada de igualdade de conteudo. **Nao editar copias divergentes.**
 
-## Implementação inicial
+## 0.1 — separacao e reproducao basica
 
-- Lua como linguagem do núcleo.
-- LÖVE 11.5 como biblioteca gráfica/entrada para a versão desktop inicial.
-- Projeto .lflash textual experimental; ainda sujeito a evolução.
-- Modelos e cenas criadas no Studio são desenhados pela **mesma implementação** no Player.
-- Scripts de terceiros deverão ter sandbox/permissões antes de qualquer suporte público.
+- [x] Player e Studio em pastas separadas, ambos com `main.lua` e `conf.lua`.
+- [x] Player com animacao propria de demonstracao, play/pause, barra de navegacao, loop e tela cheia.
+- [x] Player carrega `.lflash` por arrastar e soltar ou ultimo projeto salvo no Studio.
+- [x] Studio preserva ferramentas de desenho e quadros-chave.
+- [x] Compartilham modelo de documento, formato nativo e renderizador.
+- [x] Testes de codec e frame-clock em CI.
+- [ ] Testes graficos manuais completos no LÖVE desktop.
 
-## Marcos
+## 0.2 — Player Lua
 
-### 0.1 — Primeira base
-- [x] Modelo de projeto, camadas e quadros-chave (`src/model.lua`).
-- [x] Codec de arquivo próprio .lflash.
-- [x] Renderizador compartilhado de formas e controle de quadros (`src/runtime.lua`).
-- [x] Código inicial de interface de Studio e Player (`main.lua`).
-- [x] Testes automatizados de modelo, codec e tempo de quadro.
-- [ ] Verificação gráfica da interface com LÖVE instalado.
-- [ ] Verificação manual da experiência de desenho e salvamento.
+- [ ] Interpolacao, mascaras, instancias e transformacoes.
+- [ ] Video/audio e sincronizacao robusta de timeline.
+- [ ] Eventos de mouse, teclado e touch e interface para jogos.
+- [ ] Formato de publicacao proprio, diferente do projeto de edicao.
+- [ ] Sandbox para scripts Lua que forem embutidos por autores.
 
-### 0.2 — Studio usável
-- [ ] Ferramentas vetoriais completas, símbolos e biblioteca.
-- [ ] Interpolação de movimento/forma, camadas de máscara, som e sprites.
-- [ ] Sistema confiável de estados e projetos recuperáveis.
-- [ ] Exportação de projeto para um formato de publicação específico.
+## 0.3 — Studio Lua
 
-### 0.3 — Player de jogos e aplicações
-- [ ] API Lua para cenas, eventos de teclado/mouse/toque, animação e áudio.
-- [ ] Scripts de terceiros em ambiente isolado, com permissões explícitas.
-- [ ] Recursos de distribuição de projetos e gestão de assets.
-- [ ] Otimização de memória, carga e FPS.
+- [ ] Biblioteca e simbolos reutilizaveis, interpolacao editavel, curvas e layers.
+- [ ] Publicacao para o runtime comum e validacao cruzada com Player.
 
-### 1.0 — Multiplataforma
-- [ ] Windows, Linux e macOS testados e empacotados.
-- [ ] Android com runtime/pacote próprio.
-- [ ] Web via backend adequado e comprovado.
+## 1.0
 
-## Política de compatibilidade
-
-Não oferecer compatibilidade legada; **preservar compatibilidade entre versões do próprio Lua-Flash** e escrever migrações quando o formato próprio evoluir. A pesquisa de engenharia reversa é para aprender com a experiência de criação/uso do Flash, não reaproveitar arquivos ou código fechado da Adobe.
+- [ ] Desktop validado: Windows/Linux/macOS.
+- [ ] Android e web por backends dedicados testados.
+- [ ] Empacotamento e performance de producao.
