@@ -19,15 +19,21 @@ jobs:
         run: lua tests/player_test.lua
       - name: Player 0.3 events and minigame tests
         run: lua tests/input_test.lua
+      - name: Player 0.4 safe game package tests
+        run: lua tests/package_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical smoke test (virtual display)
         run: xvfb-run -a env SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 LUA_FLASH_SMOKE=1 timeout 30s love player-lua
-      - name: Package standalone Player .love
-        run: python3 tools/package_player.py
+      - name: Package standalone Player .love and example .lfgame
+        run: |
+          python3 tools/package_player.py
+          lua tools/export_example.lua dist/Exemplo-0.4.lfgame
       - name: Upload Player test build
         uses: actions/upload-artifact@v4
         with:
-          name: lua-flash-player-0.3-love
-          path: dist/Lua-Flash-Player-0.3.love
+          name: lua-flash-player-0.4-love-and-game
+          path: |
+            dist/Lua-Flash-Player-0.4.love
+            dist/Exemplo-0.4.lfgame
           if-no-files-found: error
