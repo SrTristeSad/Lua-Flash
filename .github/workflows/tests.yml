@@ -23,6 +23,8 @@ jobs:
         run: lua tests/package_test.lua
       - name: Player 0.5 named objects and game states
         run: lua tests/package_v2_test.lua
+      - name: Player 0.6 object identity and collision tests
+        run: lua tests/package_v3_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical smoke test (virtual display)
@@ -30,16 +32,16 @@ jobs:
       - name: Package standalone Player .love and example .lfgame
         run: |
           python3 tools/package_player.py
-          lua tools/export_example.lua dist/Exemplo-0.5.lfgame
+          lua tools/export_example.lua dist/Exemplo-0.6.lfgame
           lua -e 'package.path="./player-lua/?.lua;"..package.path; local d=require("src.demo").create(); local f=assert(io.open("dist/cena-teste.lflash","wb")); assert(f:write(require("src.model").encode(d))); assert(f:close())'
-          lua tools/make_game.lua dist/cena-teste.lflash dist/Criado-0.5.lfgame 2 1 5 20 smooth
-          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Criado-0.5.lfgame","rb")); local g=assert(require("src.package_v2").decode(f:read("*a"))); f:close(); assert(g.goal==5 and g.duration==20 and #g.rules==1)'
+          lua tools/make_game.lua dist/cena-teste.lflash dist/Criado-0.6.lfgame 2 1 5 20 smooth
+          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Criado-0.6.lfgame","rb")); local g=assert(require("src.package_v3").decode(f:read("*a"))); f:close(); assert(g.version==3 and g.goal==5 and g.duration==20 and #g.rules==1 and #g.bindings>0)'
       - name: Upload Player test build
         uses: actions/upload-artifact@v4
         with:
-          name: lua-flash-player-0.5-love-and-game
+          name: lua-flash-player-0.6-love-and-game
           path: |
-            dist/Lua-Flash-Player-0.5.love
-            dist/Exemplo-0.5.lfgame
-            dist/Criado-0.5.lfgame
+            dist/Lua-Flash-Player-0.6.love
+            dist/Exemplo-0.6.lfgame
+            dist/Criado-0.6.lfgame
           if-no-files-found: error

@@ -73,12 +73,13 @@ love.keypressed("g")
 -- 0.4: load declarative example, dispatch key rule, click, draw, and save it.
 love.mousepressed(470,31,1,false)
 love.keypressed("z")
+love.update(1/24)
 love.draw()
 ctrl=true
 love.keypressed("s")
 ctrl=false
 assert(saved["player_game.lfgame"])
-local GamePackage=require("src.package_v2")
+local GamePackage=require("src.package_v3")
 assert(GamePackage.decode(saved["player_game.lfgame"]))
 love.keyreleased("w")
 love.focus(false)
