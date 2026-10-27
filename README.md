@@ -1,34 +1,34 @@
 # Lua-Flash
 
-**O Flash renasce em Lua** — uma plataforma independente para criar e executar animações e jogos, sem emular SWF, FLA, XFL ou ActionScript da Adobe.
+**O Flash renasce em Lua** — plataforma independente para criar e executar animações e jogos com formatos próprios. Não emula SWF, FLA, XFL ou ActionScript antigos.
 
-## Projetos separados
+## Projetos
 
-| Aplicação | Diretório | Comando | Status |
+| Aplicação | Pasta | Executar | Estado |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.12 experimental — desenvolvimento atual** |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.13 experimental** |
 | **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-## Player 0.12 — sprites transformados
+## Player 0.13 — sprites animados por quadros-chave
 
-A novidade é o formato **LUAFGAME 7**, que incorpora transformações declarativas para sprites PNG: **rotação, escalas X/Y independentes e pivô configurável**. As mesmas transformações são utilizadas pelo desenho, pelo reconhecimento de cliques e pelas colisões com outros objetos.
+O **LUAFGAME 8** permite definir *quadros-chave próprios para sprites* com **deslocamento, rotação e escalas X/Y**, interpolados de acordo com a posição na timeline. O sprite continua podendo acompanhar uma forma vetorial via `FOLLOW`, mas agora pode receber seu próprio movimento adicional.
 
-A demonstração **PACOTE** agora mostra um sprite que acompanha um objeto animado com rotação de 45° e escala de 130%. Os formatos LUAFGAME 1–6 e os arquivos `.lflash` permanecem suportados.
+Os cliques, a verificação do alfa, as colisões e a renderização usam o mesmo estado interpolado. O algoritmo de rotação utiliza o caminho angular mais curto entre keyframes, enquanto ângulo e escala permanecem definidos em dados validados.
 
-**Os jogos recebidos continuam sendo apenas dados validados**: nenhum script Lua externo é executado.
+Jogos LUAFGAME 1–7 e animações `.lflash` continuam abrindo sem conversão obrigatória. Nenhum pacote executa Lua externo.
 
-## Executar
+## Rodar ou gerar pacote
 
-Instale [LÖVE 11.5](https://love2d.org/) e, na raiz do projeto:
+Instale [LÖVE 11.5](https://love2d.org/).
 
 ```bash
 love player-lua
 python3 tools/package_player.py
-lua tools/export_example.lua dist/Exemplo-0.12.lfgame
+lua tools/export_example.lua dist/Exemplo-0.13.lfgame
 ```
 
-`dist/Lua-Flash-Player-0.12.love` requer o LÖVE instalado, não sendo um executável Windows nativo. Os arquivos são publicados como artefatos dos testes no [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
+`dist/Lua-Flash-Player-0.13.love` ainda exige LÖVE instalado; não é um EXE autossuficiente. Veja o [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions) para pacotes de teste.
 
-[Manual do Player](player-lua/README.md) · [LUAFGAME 7](docs/FORMAT_LUAFGAME7.md) · [Roadmap](docs/ROADMAP.md)
+[Manual do Player](player-lua/README.md) · [Especificação LUAFGAME 8](docs/FORMAT_LUAFGAME8.md) · [Roadmap](docs/ROADMAP.md).
 
-Lua-Flash é um projeto independente, não afiliado à Adobe.
+Projeto independente, sem vínculo com a Adobe.
