@@ -275,7 +275,8 @@ function love.mousemoved(mx,my,dx,dy)
   elseif dragged.kind=="brush" then
     local p=dragged.points
     if math.abs(p[#p-1]-x)+math.abs(p[#p]-y)>1 then
-      p[#p+1],p[#p+1]=x,y
+      p[#p+1]=x
+      p[#p+1]=y
     end
   else
     dragged.points[3],dragged.points[4]=x,y
