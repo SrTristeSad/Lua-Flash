@@ -1,43 +1,39 @@
-# Lua-Flash: Player Lua + Studio Lua
+# Lua-Flash — desenvolvimento por projetos
 
-## Escopo
+## Objetivo
 
-Criar um novo ecossistema de autoria e execucao visual usando Lua e um formato proprio `.lflash`. **Nao oferecer compatibilidade com SWF, FLA, XFL ou ActionScript da Adobe.** A engenharia reversa do Flash original serve para estudar conceitos e comportamento, nao para reutilizar executaveis ou codigo fechado.
+Criar um novo ecossistema Flash em Lua, com projeto autoral próprio (`.lflash`), **sem retrocompatibilidade obrigatória com o Adobe Flash Player, SWF, FLA, XFL ou ActionScript**. Engenharia reversa de programas antigos serve como estudo de comportamento, não reprodução de código proprietário.
 
-## Estrutura (a partir de 0.1)
+## Organização
 
-- `player-lua/`: aplicativo independente de reproducao (foco atual).
-- `studio-lua/`: aplicativo independente para criar e editar animacoes.
-- `tools/sync_core.py`: mantem o modelo e o renderizador identicos nos dois apps.
-- `tests/`: testes de interoperabilidade e logica (sem precisar de GPU).
+- [`player-lua/`](../player-lua/) — **foco atual**. Executa projetos de animação Lua-Flash.
+- [`studio-lua/`](../studio-lua/) — editor visual preservado em pasta independente.
+- Modelo `model.lua` e renderizador `runtime.lua` espelhados, com igualdade validada pelo `tools/sync_core.py`.
 
-Os aplicativos sao independentes no LÖVE. Os modulos `src/model.lua` e `src/runtime.lua` existem em ambos para empacotamento autonomo, com verificacao automatizada de igualdade de conteudo. **Nao editar copias divergentes.**
+## Player 0.2 — núcleo e controles
 
-## 0.1 — separacao e reproducao basica
+- [x] Aplicativos Player e Studio separados.
+- [x] Player com demo animada própria, arrastar/soltar `.lflash`, timeline e tela cheia.
+- [x] Transporte independente para play/pause, speed 0,25×–4×, scrub, loop e encerramento.
+- [x] Interpolação visual opcional por camada entre keyframes com shapes compatíveis.
+- [x] Exibição exata por padrão de projetos externos, para evitar mudanças não solicitadas.
+- [x] Testes automatizados do modelo, transporte, visualização simulada e interoperabilidade.
+- [ ] Validação visual real e benchmarks em Windows/Linux/macOS.
 
-- [x] Player e Studio em pastas separadas, ambos com `main.lua` e `conf.lua`.
-- [x] Player com animacao propria de demonstracao, play/pause, barra de navegacao, loop e tela cheia.
-- [x] Player carrega `.lflash` por arrastar e soltar ou ultimo projeto salvo no Studio.
-- [x] Studio preserva ferramentas de desenho e quadros-chave.
-- [x] Compartilham modelo de documento, formato nativo e renderizador.
-- [x] Testes de codec e frame-clock em CI.
-- [ ] Testes graficos manuais completos no LÖVE desktop.
+## Player 0.3 — funções prioritárias
 
-## 0.2 — Player Lua
+- [ ] Suporte a símbolos e instâncias independentes de objetos.
+- [ ] Interpolação controlada por metadados do projeto (com easing e propriedades por objeto).
+- [ ] Mouse, teclado e touch dentro do palco, com APIs estáveis para jogos.
+- [ ] Áudio e sincronização com a timeline.
+- [ ] Formato próprio de publicação separando dados editáveis e conteúdo distribuído.
+- [ ] Sistema de permissões/sandbox antes de permitir scripts de terceiros.
 
-- [ ] Interpolacao, mascaras, instancias e transformacoes.
-- [ ] Video/audio e sincronizacao robusta de timeline.
-- [ ] Eventos de mouse, teclado e touch e interface para jogos.
-- [ ] Formato de publicacao proprio, diferente do projeto de edicao.
-- [ ] Sandbox para scripts Lua que forem embutidos por autores.
+## Futuro
 
-## 0.3 — Studio Lua
+- [ ] Manter editor e Player compatíveis **com nossos próprios projetos**.
+- [ ] Empacotar Player Windows/Linux/macOS.
+- [ ] Backends Android e Web, com testes específicos.
+- [ ] Otimização de CPU/GPU e recuperação de arquivos.
 
-- [ ] Biblioteca e simbolos reutilizaveis, interpolacao editavel, curvas e layers.
-- [ ] Publicacao para o runtime comum e validacao cruzada com Player.
-
-## 1.0
-
-- [ ] Desktop validado: Windows/Linux/macOS.
-- [ ] Android e web por backends dedicados testados.
-- [ ] Empacotamento e performance de producao.
+A versão 0.2 é experimental, e testes unitários não substituem homologação gráfica.
