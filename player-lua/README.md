@@ -1,73 +1,65 @@
-# Lua-Flash Player 0.8 — PNG com interação e colisão
+# Lua-Flash Player 0.9 — animações PNG e efeitos de timeline
 
-O Player Lua executa animações autorais `.lflash` e jogos `.lfgame`, usando Lua e [LÖVE 11.5](https://love2d.org/). Não executa SWF ou scripts Lua contidos em arquivos externos.
+Reprodutor independente em Lua + [LÖVE 11.5](https://love2d.org/) para arquivos `.lflash` e jogos `.lfgame`. Não executa projetos SWF/ActionScript antigos.
 
-## Executar
+## Uso
+
+Na raiz do repositório:
 
 ```bash
 love player-lua
 ```
 
-Clique em **PACOTE** para abrir a demonstração LUAFGAME 5. O pequeno PNG passa a **seguir a bola**, pode ser clicado e pode provocar uma colisão com a barreira vermelha. A pontuação e os estados declarativos seguem funcionando.
+Clique em **PACOTE**. Na demonstração 0.9, a imagem PNG acompanha a bola e alterna entre **dois desenhos** a cada **7 quadros**; dois efeitos WAV são programados nos quadros **23 e 45**. A velocidade e a pausa da timeline também controlam essa animação. O minijogo antigo continua em **JOGAR**.
 
-Controles novos de áudio: **F8** diminui 10%, **F9** aumenta 10%, **F10** silencia/reativa. Esses ajustes atingem os efeitos WAV da partida. Os demais controles do Player (play/pause, timeline, velocidade, loop, tela cheia e importação por arrastar/soltar) continuam disponíveis.
+O áudio permanece controlável por **F8** (diminuir volume), **F9** (aumentar) e **F10** (silenciar/reativar).
 
-## Formato LUAFGAME 5
+## LUAFGAME 6
 
-Um jogo `.lfgame` v5 é um envelope binário do jogo v4, complementado por associações `SPRITE_BIND`.
+O novo formato `.lfgame` preserva integralmente uma cena e recursos do LUAFGAME 5, acrescentando:
 
-- `SPRITE_BIND índice objeto STATIC` associa uma imagem ao ID de um objeto, preservando a posição x/y configurada no sprite.
-- `SPRITE_BIND índice objeto FOLLOW` mantém a imagem centralizada sobre a forma vetorial animada daquele objeto. Se a forma deixa de existir, o sprite associado deixa de aparecer naquele trecho.
-- **Hit-testing:** sprites associados aparecem na frente das formas vetoriais e capturam o clique primeiro, usando seu ID para regras `CLICKID`.
-- **Colisões:** para objetos associados a sprites, o retângulo do PNG substitui a forma vetorial no cálculo de contato. As demais formas continuam usando as regras geométricas da versão 0.6.
-- **Sem leitura de pixels transparentes:** o hit-testing e as colisões são por retângulos alinhados aos eixos, portanto regiões transparentes dentro do PNG também podem receber cliques.
-- O vínculo é salvo no `.lfgame`; **não** altera os documentos editáveis do Studio. Os formatos LUAFGAME 1–4 continuam compatíveis.
+- `ANIMATION spriteIndex period count pngIDs`: sequência de 2 a 16 imagens PNG existentes no pacote; duração entre 1 e 120 quadros por imagem.
+- `TIMELINE_SOUND frame wavID`: efeito WAV associado a um quadro válido. Máximo de 128 agendamentos.
+- O sprite usa a posição fracionária atual da timeline para escolher o PNG. A cena principal e o vínculo de interação continuam os mesmos.
+- A reprodução dispara os sons **ao cruzar os quadros** em movimento normal. Não toca um efeito só por ficar parado no quadro ou arrastar a barra de progresso.
+- Ao retornar do fim para o começo em modo loop, a verificação considera os quadros finais e iniciais atravessados.
+- Os formatos v1, v2, v3, v4 e v5 continuam compatíveis, sem conversão exigida.
 
-Limites: até 64 vínculos de sprite (um por índice e por objeto), seguindo os limites de mídia v4. Os arquivos são validados antes de serem instalados, e o Player não executa código de terceiros.
+**Limitações técnicas:** sons são efeitos WAV curtos com reinício ao retriggerar o mesmo recurso, não música em streaming. Ainda não há sincronismo por amostra de áudio, múltiplos loops completos em uma única atualização, máscara alfa de colisão, atlas de sprites ou rotação. O hit-testing e as colisões de sprites continuam usando retângulos.
 
-[Detalhes técnicos do LUAFGAME 5](../docs/FORMAT_LUAFGAME5.md).
+Veja a [especificação do LUAFGAME 6](../docs/FORMAT_LUAFGAME6.md).
 
-## Publicar um jogo com PNG interativo
+## Criar um jogo com PNGs animados
 
-A partir da raiz do repositório:
+Primeiro crie uma cena `.lflash` no Studio, converta-a em jogo, anexe imagem e áudio e vincule um sprite a um objeto:
 
 ```bash
-# 1. Converter animação do Studio para jogo.
 lua tools/make_game.lua cena.lflash base.lfgame 2 1 8 30 smooth
-
-# 2. Incorporar PNG e WAV originais.
-lua tools/attach_media.lua base.lfgame com-midia.lfgame imagem.png 600 260 64 64 efeito.wav CLICKID alvo
-
-# 3. Associar o primeiro sprite ao ID "alvo" e acompanhá-lo.
-lua tools/bind_sprite.lua com-midia.lfgame jogo-final.lfgame 1 alvo FOLLOW
+lua tools/attach_media.lua base.lfgame com-midia.lfgame primeiro.png 600 260 64 64 efeito.wav CLICKID alvo
+lua tools/bind_sprite.lua com-midia.lfgame com-sprite.lfgame 1 alvo FOLLOW
 ```
 
-Abra `jogo-final.lfgame` no Player por arrastar/soltar. Se quiser um botão fixo no palco em vez de um sprite animado, substitua `FOLLOW` por `STATIC`.
-
-Para testar sem imagens externas, há um exemplo original:
+Depois, adicione uma **segunda imagem PNG** à sequência e defina um quadro que dispara o WAV já incluído:
 
 ```bash
-python3 tools/generate_media_fixtures.py --directory dist
-lua tools/export_example.lua dist/Exemplo-0.8.lfgame
+lua tools/animate_media.lua com-sprite.lfgame jogo-animado.lfgame 1 7 segundo.png som_1 23
 ```
 
-## Testes e pacote
+O resultado contém os recursos e regras dentro de um único arquivo `jogo-animado.lfgame`. No exemplo, o sprite 1 alterna imagens a cada 7 quadros e `som_1` toca quando o avanço da timeline cruza o quadro 23. O nome `som_1` é criado pelo primeiro `attach_media.lua`; para um pacote diferente, use o ID de WAV correspondente.
+
+É possível arrastar o resultado para a janela do Player. Os arquivos de entrada permanecem intactos.
+
+## Gerar pacote e executar testes
 
 ```bash
-lua tests/package_test.lua
-lua tests/package_v2_test.lua
-lua tests/package_v3_test.lua
-lua tests/package_v4_test.lua
+lua tests/package_v6_test.lua
 lua tests/package_v5_test.lua
+lua tests/package_v4_test.lua
 lua tests/gui_smoke.lua
-python3 tools/sync_core.py --check
 python3 tools/package_player.py
+lua tools/export_example.lua dist/Exemplo-0.9.lfgame
 ```
 
-O GitHub Actions também inicia o Player usando o LÖVE real em ambiente gráfico virtual, verifica a importação de mídia e gera exemplos `.lfgame` v4/v5.
+A CI verifica também testes de versões anteriores, sintaxe, renderização com **LÖVE real em display virtual**, importação de PNG/WAV e publicação de um jogo v6.
 
-## Limitações atuais
-
-Os sprites ainda não têm máscaras de colisão precisas por pixel, animação própria de atlas/spritesheet ou rotação; o áudio ainda não segue uma linha do tempo dedicada. Falta integrar IDs ao formato editável do Studio, introduzir uma API Lua de jogos com isolamento adequado e disponibilizar builds desktop nativos ou para Android/Web.
-
-**Esta é uma versão experimental**; a CI não substitui testes manuais em dispositivos reais.
+O Studio continua separado e não foi alterado nesta versão. Build `.love` precisa do LÖVE; ainda não há um executável nativo pronto para Windows nem APK.
