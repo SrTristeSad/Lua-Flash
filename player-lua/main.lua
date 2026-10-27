@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.7. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.8. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -7,10 +7,10 @@ local Transport=require("src.transport")
 local Interpolation=require("src.interpolation")
 local Input=require("src.input")
 local TargetGame=require("src.target_game")
-local GamePackage=require("src.package_v4")
+local GamePackage=require("src.package_v5")
 local MediaRuntime=require("src.media_runtime")
 local Session=require("src.session")
-local GameExample=require("src.game_example_v4")
+local GameExample=require("src.game_example_v5")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -105,7 +105,7 @@ local function openGameBytes(content,name)
     return false
   end
   local prepared=nil
-  if definition.version==4 then
+  if definition.version>=4 then
     local ready,result=pcall(MediaRuntime.new,definition)
     if not ready then
       notice="Falha ao decodificar PNG/WAV: "..tostring(result)
@@ -202,7 +202,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.7")
+  love.window.setTitle("Lua-Flash Player 0.8")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -221,7 +221,7 @@ function love.update(dt)
   end
   if session then
     session:update(dt)
-    if session:checkCollisions(smooth and sampler or nil) then
+    if session:checkCollisions(smooth and sampler or nil,media) then
       notice=session.lastAction
       if media and session.lastCollision then
         media:trigger({type="collision",
@@ -238,7 +238,7 @@ local function renderScene(x,y,w,h)
   else
     Runtime.draw(document,transport:frame(),x,y,w,h)
   end
-  if media then media:draw(document,x,y,w,h) end
+  if media then media:draw(document,x,y,w,h,transport.position,smooth and sampler or nil) end
 end
 
 function love.draw()
@@ -249,7 +249,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.7  |  PNG, WAV e eventos de audio",21,60,C.muted,fonts.small)
+  label("PLAYER 0.8  |  Sprites interativos e colisoes",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -296,7 +296,7 @@ function love.draw()
     lg.rectangle("fill",x,y,330,128,8,8)
     label(session.definition.title,x+10,y+9,C.green)
     label("Pontos: "..session.score.." / "..session.definition.goal..
-      (media and (media.muted and "  |  SOM: OFF" or "  |  SOM: ON") or ""),
+      (media and (media.muted and "  |  SOM: OFF" or ("  |  VOL: "..math.floor(media.volume*100+.5).."%")) or ""),
       x+10,y+33,C.text,fonts.small)
     label(string.format("Tempo: %.1fs | Eventos: %d",session.remaining,session.events),
       x+10,y+52,C.text,fonts.small)
@@ -342,7 +342,7 @@ function love.draw()
   button(string.format("%gx",transport.speed),289,ctrlY,58,32,false)
   button("+",353,ctrlY,34,32,false)
   button(smooth and "SUAVE: ON" or "SUAVE: OFF",w-155,ctrlY,135,32,smooth)
-  label(session and "Jogo v4: clique / colisao toca efeito | F10: mutar som" or
+  label(session and "Jogo v5: sprite segue bola | F8/F9 volume | F10 mudo" or
     (game and "Clique/toque na bola | WASD: mira | ENTER: disparar | G: novo jogo" or
     "Espaco: play | Setas: quadro | I: interpolacao | F11: tela cheia"),
     27,ctrlY+40,C.muted,fonts.small)
@@ -374,14 +374,14 @@ function love.mousepressed(x,y,key,istouch)
   elseif inside(x,y,w-155,ctrlY,135,32) then toggleSmooth();return
   end
   local event=input:pointer("down","mouse",1,x,y,document,transport.position,
-    sceneViewport(),smooth and sampler or nil)
+    sceneViewport(),smooth and sampler or nil,media)
   if game and event.inside then game:setReticle(event.x,event.y) end
 end
 
 function love.mousereleased(x,y,key,istouch)
   if istouch or key~=1 then return end
   onEvent(input:pointer("up","mouse",1,x,y,document,transport.position,
-    sceneViewport(),smooth and sampler or nil))
+    sceneViewport(),smooth and sampler or nil,media))
 end
 
 function love.mousemoved(x,y,dx,dy,istouch)
@@ -389,7 +389,7 @@ function love.mousemoved(x,y,dx,dy,istouch)
   local sx,sy=Input.stagePoint(x,y,document,sceneViewport())
   if game and sx then game:setReticle(sx,sy) end
   input:pointer("move","mouse",1,x,y,document,transport.position,
-    sceneViewport(),smooth and sampler or nil)
+    sceneViewport(),smooth and sampler or nil,media)
 end
 
 function love.touchpressed(id,x,y)
@@ -399,7 +399,7 @@ function love.touchpressed(id,x,y)
     return
   end
   input:pointer("down","touch",id,x,y,document,transport.position,
-    sceneViewport(),smooth and sampler or nil)
+    sceneViewport(),smooth and sampler or nil,media)
   if game then game:setReticle(sx,sy) end
 end
 
@@ -407,17 +407,17 @@ function love.touchmoved(id,x,y)
   local sx,sy=Input.stagePoint(x,y,document,sceneViewport())
   if game and sx then game:setReticle(sx,sy) end
   input:pointer("move","touch",id,x,y,document,transport.position,
-    sceneViewport(),smooth and sampler or nil)
+    sceneViewport(),smooth and sampler or nil,media)
 end
 
 function love.touchreleased(id,x,y)
   onEvent(input:pointer("up","touch",id,x,y,document,transport.position,
-    sceneViewport(),smooth and sampler or nil))
+    sceneViewport(),smooth and sampler or nil,media))
 end
 
 function love.touchcancelled(id,x,y)
   input:pointer("cancel","touch",id,x,y,document,transport.position,
-    sceneViewport(),smooth and sampler or nil)
+    sceneViewport(),smooth and sampler or nil,media)
 end
 
 function love.focus(focused)
@@ -428,6 +428,13 @@ function love.keypressed(key)
   input:key("down",key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if ctrl and key=="s" then saveCopy();return end
+  if key=="f8" and media then
+    notice="Volume: "..math.floor(media:setVolume(media.volume-.1)*100+.5).."%"
+    return
+  elseif key=="f9" and media then
+    notice="Volume: "..math.floor(media:setVolume(media.volume+.1)*100+.5).."%"
+    return
+  end
   if key=="f10" and media then
     notice=media:toggleMute() and "Efeitos sonoros silenciados." or "Efeitos sonoros ativados."
     return
