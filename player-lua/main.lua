@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.11. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.12. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -7,10 +7,10 @@ local Transport=require("src.transport")
 local Interpolation=require("src.interpolation")
 local Input=require("src.input")
 local TargetGame=require("src.target_game")
-local GamePackage=require("src.package_v6")
+local GamePackage=require("src.package_v7")
 local MediaRuntime=require("src.media_runtime")
 local Session=require("src.session")
-local GameExample=require("src.game_example_v6")
+local GameExample=require("src.game_example_v7")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -202,7 +202,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.11")
+  love.window.setTitle("Lua-Flash Player 0.12")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -260,7 +260,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.11  |  Colisao por movimento e desempenho",21,60,C.muted,fonts.small)
+  label("PLAYER 0.12  |  Rotacao e escala de sprites",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -353,7 +353,7 @@ function love.draw()
   button(string.format("%gx",transport.speed),289,ctrlY,58,32,false)
   button("+",353,ctrlY,34,32,false)
   button(smooth and "SUAVE: ON" or "SUAVE: OFF",w-155,ctrlY,135,32,smooth)
-  label(session and "Jogo v6: colisao continua amostrada | F8/F9/F10" or
+  label(session and "Jogo v7: sprite giratorio | F8/F9/F10 audio" or
     (game and "Clique/toque na bola | WASD: mira | ENTER: disparar | G: novo jogo" or
     "Espaco: play | Setas: quadro | I: interpolacao | F11: tela cheia"),
     27,ctrlY+40,C.muted,fonts.small)

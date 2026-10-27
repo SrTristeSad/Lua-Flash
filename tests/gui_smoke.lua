@@ -87,7 +87,7 @@ ctrl=true
 love.keypressed("s")
 ctrl=false
 assert(saved["player_game.lfgame"])
-local GamePackage=require("src.package_v6")
+local GamePackage=require("src.package_v7")
 assert(GamePackage.decode(saved["player_game.lfgame"]))
 love.keyreleased("w")
 love.focus(false)
