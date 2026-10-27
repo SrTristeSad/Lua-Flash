@@ -70,6 +70,16 @@ love.keypressed("d")
 love.keypressed("s")
 love.keypressed("return")
 love.keypressed("g")
+-- 0.4: load declarative example, dispatch key rule, click, draw, and save it.
+love.mousepressed(470,31,1,false)
+love.keypressed("z")
+love.draw()
+ctrl=true
+love.keypressed("s")
+ctrl=false
+assert(saved["player_game.lfgame"])
+local GamePackage=require("src.package")
+assert(GamePackage.decode(saved["player_game.lfgame"]))
 love.keyreleased("w")
 love.focus(false)
 love.draw()
@@ -83,6 +93,10 @@ local function fakeFile(content,name)
   }
 end
 
+love.filedropped(fakeFile(saved["player_game.lfgame"],"exported.lfgame"))
+love.draw()
+love.filedropped(fakeFile("LUAFGAME 1\nINVALID\n","broken.lfgame"))
+love.draw()
 love.filedropped(fakeFile(source,"demo.lflash"))
 love.draw()
 love.filedropped(fakeFile("BAD FILE","bad.lflash"))
