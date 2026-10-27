@@ -24,6 +24,9 @@ local C={
   highlight={.19,.36,.52},line={.23,.28,.35},green={.35,.86,.65}
 }
 local MAX_FILE=25*1024*1024
+-- CI-only graphical smoke mode; runs regular LÖVE graphics before exiting.
+local ciSmoke=(os.getenv("LUA_FLASH_SMOKE")=="1")
+local drawnFrames=0
 
 local function metrics()
   local w,h=love.graphics.getDimensions()
@@ -147,6 +150,7 @@ function love.load()
 end
 
 function love.update(dt)
+  if ciSmoke and drawnFrames>=5 then love.event.quit();return end
   transport:update(dt)
   if game then
     game:update(dt,transport.playing)
@@ -163,6 +167,7 @@ local function renderScene(x,y,w,h)
 end
 
 function love.draw()
+  drawnFrames=drawnFrames+1
   local lg=love.graphics
   local w,h,top,stageHeight=metrics()
   lg.clear(C.bg)
