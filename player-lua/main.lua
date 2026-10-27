@@ -209,7 +209,14 @@ function love.load()
   fonts.heading=love.graphics.newFont(22)
   fonts.small=love.graphics.newFont(12)
   love.graphics.setFont(fonts.regular)
-  if os.getenv("LUA_FLASH_SMOKE_MEDIA")=="1" then openGameExample() end
+  if os.getenv("LUA_FLASH_SMOKE_MEDIA")=="1" then
+    openGameExample()
+    if not media then error("media demo failed to load") end
+    local first=media:maskFor("estrela")
+    local second=media:maskFor("estrela_alt")
+    assert(first and second and first.w==16 and second.h==16,
+      "LÖVE PNG alpha decoding failed")
+  end
 end
 
 function love.update(dt)
