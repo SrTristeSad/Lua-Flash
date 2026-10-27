@@ -142,7 +142,7 @@ local function parse(data)
     return split(s)
   end
   if table.concat(line(),"\t")~="LUAFGAME 2" then error("invalid version",0) end
-  local attributes={}, objects={},states={},rules={}
+  local attributes,objects,states,rules={},{},{},{}
   while true do
     local f=line()
     local kind=f[1]
