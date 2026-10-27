@@ -30,12 +30,14 @@ function I.new(doc)
     table.sort(indices)
     keys[i]=indices
   end
-  return setmetatable({doc=doc,keys=keys},I)
+  return setmetatable({doc=doc,keys=keys,cachePosition=nil,cacheScene=nil,computations=0},I)
 end
 
 function I:sample(position)
   local doc=self.doc
   position=math.max(1,math.min(doc.totalFrames,position))
+  if self.cachePosition==position then return self.cacheScene end
+  self.computations=self.computations+1
   local sampled={
     width=doc.width,height=doc.height, layers={}
   }
@@ -73,6 +75,8 @@ function I:sample(position)
       keys={[1]=output}
     }
   end
+  self.cachePosition=position
+  self.cacheScene=sampled
   return sampled
 end
 

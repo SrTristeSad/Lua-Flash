@@ -133,6 +133,9 @@ function S:checkCollisions(sampler,media)
         local right=(media and media:shapeForObject(b,self.transport.position,scene)) or
           Collision.resolve(self.definition,b,self.transport.position,scene)
         local touching=left and right and Collision.overlap(left,right) or false
+        if touching and media and (media.bindingsById[a] or media.bindingsById[b]) then
+          touching=media:collides(a,b,self.transport.position,scene)
+        end
         if touching then
           current[key]=true
           if not self.colliding[key] then
