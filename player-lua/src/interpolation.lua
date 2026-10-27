@@ -51,12 +51,20 @@ function I:sample(position)
       local dest=layer.keys[nextKey]
       -- Blend only an entire compatible shape list to avoid accidental morphs
       -- when objects appear, disappear or change type.
-      if #shapes==#dest then
+      local compatible=#shapes==#dest
+      if compatible then
+        for j,a in ipairs(shapes) do
+          if a.kind~=dest[j].kind or #a.points~=#dest[j].points then
+            compatible=false
+            break
+          end
+        end
+      end
+      if compatible then
         local t=(position-previous)/(nextKey-previous)
         output={}
         for j,s in ipairs(shapes) do
-          local b=dest[j]
-          output[j]=mixShape(s,b,t)
+          output[j]=mixShape(s,dest[j],t)
         end
       end
     end
