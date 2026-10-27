@@ -3,12 +3,14 @@
 local Runtime=require("src.runtime")
 local Model=require("src.model")
 local Collision=require("src.collision")
+local PixelMask=require("src.pixel_mask")
 local M={}
 M.__index=M
 
 function M.new(definition)
   local self=setmetatable({definition=definition,images={},sounds={},muted=false,
-    volume=1,bindingsByIndex={},bindingsById={},animationsByIndex={}},M)
+    volume=1,bindingsByIndex={},bindingsById={},animationsByIndex={},
+    masks={},assetFiles={},maskBuilds=0},M)
   for _,anim in ipairs(definition.animations or {}) do
     self.animationsByIndex[anim.index]=anim
   end
@@ -19,6 +21,7 @@ function M.new(definition)
   for _,asset in ipairs(definition.resources or {}) do
     local ext=asset.kind=="PNG" and ".png" or ".wav"
     local data=love.filesystem.newFileData(asset.data,asset.id..ext)
+    if asset.kind=="PNG" then self.assetFiles[asset.id]=data end
     if asset.kind=="PNG" then
       local image=love.graphics.newImage(data)
       image:setFilter("nearest","nearest")
@@ -69,6 +72,38 @@ function M:timelineAdvance(oldPosition,newPosition,wasPlaying)
   return fired
 end
 
+-- PNG alpha masks are generated only when needed and reused across frames.
+-- Missing love.image in test doubles retains the old bounding-box semantics.
+function M:maskFor(assetId)
+  local existing=self.masks[assetId]
+  if existing then return existing end
+  if not love.image or not love.image.newImageData then return nil end
+  local data=self.assetFiles[assetId]
+  if not data then return nil end
+  local decoded=love.image.newImageData(data)
+  local mask=PixelMask.build(decoded)
+  self.masks[assetId]=mask
+  self.maskBuilds=self.maskBuilds+1
+  return mask
+end
+
+-- Alpha-tested sprite against another sprite or vector shape.
+-- Broad-phase stays in native geometry; the fine phase checks opaque pixels.
+function M:collides(idA,idB,position,scene)
+  local boundA,boundB=self.bindingsById[idA],self.bindingsById[idB]
+  local a=(boundA and self:shapeForObject(idA,position,scene)) or
+    Collision.resolve(self.definition,idA,position,scene)
+  local b=(boundB and self:shapeForObject(idB,position,scene)) or
+    Collision.resolve(self.definition,idB,position,scene)
+  if not a or not b or not Collision.overlap(a,b) then return false end
+  if not boundA and not boundB then return true end
+  local ma=boundA and self:maskFor(self:imageAsset(boundA.index,position)) or nil
+  local mb=boundB and self:maskFor(self:imageAsset(boundB.index,position)) or nil
+  if boundA and boundB then return PixelMask.overlap(ma,a,mb,b) end
+  if boundA then return PixelMask.overlapShape(ma,a,b) end
+  return PixelMask.overlapShape(mb,b,a)
+end
+
 function M:release()
   for _,sound in pairs(self.sounds) do sound:stop() end
 end
@@ -113,7 +148,9 @@ function M:hit(x,y,position,sampler)
       local rect=self:spriteRect(index,position,scene)
       if rect then
         local p=rect.points
-        if x>=p[1] and x<=p[3] and y>=p[2] and y<=p[4] then
+        if x>=p[1] and x<p[3] and y>=p[2] and y<p[4] and
+           PixelMask.contains(self:maskFor(self:imageAsset(index,position)),
+             rect,x,y) then
           return {sprite=bind.id,kind="sprite",spriteIndex=index}
         end
       end
