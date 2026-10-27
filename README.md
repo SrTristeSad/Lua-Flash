@@ -2,34 +2,61 @@
 
 **O Flash renasce em Lua: novo Player + novo Studio.**
 
-O projeto recupera a proposta que tornou o Flash popular: uma ferramenta simples e poderosa para **criar, publicar e executar** jogos, animações e experiências interativas.
+O projeto recupera a proposta que tornou o Flash popular: uma ferramenta para **criar, publicar e executar** jogos, animações e experiências interativas com ferramentas visuais e linguagem Lua.
 
-Este é um software **independente**, escrito principalmente em Lua. **Não é um emulador do Adobe Flash Player**, nem pretende abrir os antigos arquivos `.swf`, `.fla` ou `.xfl`, tampouco executar ActionScript.
+Este é um software **independente**. **Não é um emulador do Adobe Flash Player** e **não pretende abrir SWF, FLA ou XFL**, nem executar ActionScript. O formato e as APIs são novos e pertencem ao Lua-Flash.
 
-## A arquitetura
+## Produtos e arquitetura
 
 | Componente | Papel |
 |---|---|
-| **Lua-Flash Player** | Executar obras produzidas na nossa plataforma, com gráficos, animações, eventos e interação |
-| **Lua-Flash Studio** | Criar essas obras visualmente: palco, timeline, ferramentas, camadas, símbolos e Lua |
-| **Núcleo comum** | Compartilhar formato de projeto, modelo de cena e renderização |
+| **Lua-Flash Player** | Executar cenas do nosso formato, com a linha do tempo e o renderizador compartilhado |
+| **Lua-Flash Studio** | Criar essas cenas visualmente com palco, timeline, camadas e ferramentas |
+| **Núcleo comum** | Documento `.lflash`, modelo de quadros e renderização |
 
-A referência histórica é a **experiência de criação e distribuição de Flash**, não a retrocompatibilidade.
+Na arquitetura inicial, Lua e [LÖVE 11.5](https://love2d.org/) implementam a aplicação desktop. Outras plataformas exigem desenvolvimento e testes próprios.
 
-## Situação da implementação
+## Estado — versão 0.1 experimental
 
-**0.1 experimental, em desenvolvimento.** O modelo de documentos `.lflash` já está no repositório. O Player/Studio gráfico será construído sobre LÖVE, ainda sem garantia de funcionamento em todas as plataformas.
+O repositório contém **uma base de código para executar**, ainda não validada graficamente em uma instalação real do LÖVE:
 
-Não confundir o protótipo com um Flash Player completo: ainda faltam recursos de autoria, scripting, sincronização multimídia e empacotamento final.
+- Alternância **Studio/Player** pelo botão da interface ou `Tab`.
+- Palco 2D, desenho com pincel, linhas, retângulos e elipses; seleção, movimento e borracha.
+- Camadas, visibilidade no modelo, quadros-chave e linha do tempo.
+- Reprodução em FPS configurável (modelo) e preview dentro do Player.
+- Salvar e reabrir projetos no formato próprio `.lflash`, exportar um quadro para SVG.
+- Testes automatizados para o formato, quadros-chave e relógio do Player.
 
-## Como será usado
+**Ainda não há:** scripting de projetos, sistema de eventos, áudio, interpolação avançada, formato de publicação final, importação de assets e distribuição Android/Web. Não rode projetos Lua arbitrários baixados da internet — não existe sandbox de scripts de terceiros.
 
-1. Criar um projeto no **Lua-Flash Studio**, com palco, camadas, desenhos e código Lua.
-2. Testar com o **Lua-Flash Player**, que executa o próprio projeto.
-3. Publicar num formato de distribuição próprio para os sistemas suportados.
+## Rodar (desktop)
 
-Veja [o roteiro de desenvolvimento](docs/ROADMAP.md).
+Instale [LÖVE 11.5](https://love2d.org/), clone o repositório e execute na pasta raiz:
 
-## Licenciamento e marcas
+```bash
+love .
+```
 
-A plataforma será desenvolvida de forma independente, sem redistribuir arquivos do software Adobe. "Flash" é usado aqui como referência histórica; não existe vínculo com a Adobe.
+O botão **STUDIO** abre a edição e **PLAYER** a visualização. Os comandos de arquivo utilizam a pasta de dados privada do LÖVE (exibida na barra de status após salvar). É possível arrastar um `.lflash` para a janela.
+
+### Atalhos
+
+- `Tab`: alternar Studio/Player. `Espaço`: reproduzir/pausar. `← / →`: navegar quadros.
+- `V` seleção, `B` pincel, `L` linha, `R` retângulo, `O` elipse, `E` borracha.
+- `F6`: adicionar quadro-chave. `Shift+F6`: retirar quadro-chave.
+- `Ctrl+S`: salvar. `Ctrl+O`: abrir último salvo. `Ctrl+E`: exportar SVG.
+- `Ctrl+Z / Ctrl+Y`: desfazer/refazer. `+/-`: espessura do traço.
+
+## Testes
+
+```bash
+lua tests/model_test.lua
+```
+
+O teste é independente do LÖVE. O pipeline no GitHub Actions verifica sintaxe e testa o modelo em Lua 5.4. A interface ainda precisa de validação em dispositivos reais.
+
+## Evolução
+
+Veja o [roadmap do Player + Studio](docs/ROADMAP.md).
+
+Lua-Flash não é afiliado nem endossado pela Adobe e não redistribui programas, marcas gráficas ou arquivos proprietários dela.
