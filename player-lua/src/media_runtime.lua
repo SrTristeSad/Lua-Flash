@@ -8,7 +8,10 @@ M.__index=M
 
 function M.new(definition)
   local self=setmetatable({definition=definition,images={},sounds={},muted=false,
-    volume=1,bindingsByIndex={},bindingsById={}},M)
+    volume=1,bindingsByIndex={},bindingsById={},animationsByIndex={}},M)
+  for _,anim in ipairs(definition.animations or {}) do
+    self.animationsByIndex[anim.index]=anim
+  end
   for _,b in ipairs(definition.spriteBindings or {}) do
     self.bindingsByIndex[b.index]=b
     self.bindingsById[b.id]=b
@@ -27,6 +30,45 @@ function M.new(definition)
   end
   return self
 end
+-- Select the PNG based on the current native timeline position (not wall time).
+function M:imageAsset(index,position)
+  local sprite=self.definition.sprites[index]
+  if not sprite then return nil end
+  local anim=self.animationsByIndex[index]
+  if not anim then return sprite.asset end
+  local frame=math.max(1,math.floor(position or 1))
+  local sequence=math.floor((frame-1)/anim.period)%#anim.frames+1
+  return anim.frames[sequence]
+end
+
+function M:playAsset(id)
+  if self.muted then return false end
+  local sound=self.sounds[id]
+  if not sound then return false end
+  sound:stop()
+  sound:play()
+  return true
+end
+
+-- Fire when the actual playback CLOCK crosses the given frame. Seeking and
+-- scrubbing do not call this method; pause also cannot trigger new cues.
+-- Crossing a loop boundary visits the end of the timeline, then frame 1.
+function M:timelineAdvance(oldPosition,newPosition,wasPlaying)
+  if not wasPlaying or not self.definition.timelineSounds then return false end
+  if type(oldPosition)~="number" or type(newPosition)~="number" then return false end
+  if oldPosition==newPosition then return false end
+  local previous,current=math.floor(oldPosition),math.floor(newPosition)
+  local wrapped=newPosition<oldPosition
+  local fired=false
+  for _,item in ipairs(self.definition.timelineSounds) do
+    if (not wrapped and item.frame>previous and item.frame<=current) or
+       (wrapped and (item.frame>previous or item.frame<=current)) then
+      fired=self:playAsset(item.asset) or fired
+    end
+  end
+  return fired
+end
+
 function M:release()
   for _,sound in pairs(self.sounds) do sound:stop() end
 end
@@ -91,7 +133,7 @@ function M:draw(document,x,y,w,h,position,sampler)
   lg.setColor(1,1,1,1)
   local scene=nil
   for index,sprite in ipairs(self.definition.sprites) do
-    local image=self.images[sprite.asset]
+    local image=self.images[self:imageAsset(index,position)]
     if image then
       local bind=self.bindingsByIndex[index]
       if bind and bind.mode=="FOLLOW" and sampler and not scene then
@@ -135,8 +177,7 @@ function M:trigger(event,session)
          (event.a==cue.other and event.b==cue.target))
     end
     if matched then
-      local sound=self.sounds[cue.asset]
-      if sound then sound:stop();sound:play();fired=true end
+      fired=self:playAsset(cue.asset) or fired
     end
   end
   return fired
