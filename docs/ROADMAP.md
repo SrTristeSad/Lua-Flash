@@ -1,38 +1,40 @@
-# Lua-Flash — desenvolvimento do Player em Lua
+# Lua-Flash — roteiro do Player
 
 ## Direção
 
-Criar uma plataforma moderna de animações e jogos com motor próprio em Lua. O antigo Adobe Flash serve como referência de experiência; arquivos SWF, FLA, XFL e ActionScript não são objetivos de compatibilidade.
+Recriar o conceito de plataforma Flash com formatos e runtime próprios em Lua, sem exigir retrocompatibilidade com SWF/FLA/XFL ou ActionScript antigos.
 
-- **[player-lua/](../player-lua/)** — produto em desenvolvimento.
-- **[studio-lua/](../studio-lua/)** — editor visual separado; sem alterações nesta etapa.
-- Renderizador e codec `.lflash` continuam compartilhados sem divergência.
+- [`player-lua/`](../player-lua/) — desenvolvimento do runtime (atual).
+- [`studio-lua/`](../studio-lua/) — editor separado, mantido intacto nesta atualização.
+- Codec de projetos `.lflash` e renderizador continuam sincronizados sem mudança no formato original.
 
-## 0.1–0.4
+## Base 0.1–0.5
 
-- [x] Reprodução de cenas, camadas e quadros-chave, controle de tempo e interpolação opcional.
-- [x] Entrada de mouse, teclado e toque, com hit-testing de formas.
-- [x] Formato `LUAFGAME 1` com regras declarativas sem execução de código externo.
-- [x] Publicação de jogos simples a partir de cenas do Studio.
-- [x] Testes automatizados e inicialização gráfica no LÖVE com Xvfb.
+- [x] Linha do tempo, reprodução, loop, velocidade e interpolação.
+- [x] Eventos de teclado/mouse/touch, hit-testing e minijogo.
+- [x] LUAFGAME 1 e 2: regras declarativas, pontuação, estados e condições.
+- [x] Exportação e reimportação de jogos com formato próprio.
+- [x] Testes Lua e inicialização gráfica com LÖVE/Xvfb na CI.
 
-## 0.5 — LUAFGAME 2
+## Player 0.6 — identidade por quadro-chave e colisões
 
-- [x] Nomes de objetos (`OBJECT`) usados por gatilhos `CLICKID`.
-- [x] Estado local de partida (`STATE`), com ações `SET` e `ADD`.
-- [x] Regras condicionais `WHEN` usando comparadores `GE`, `EQ` e `LE`.
-- [x] Continuidade de leitura e gravação de jogos `LUAFGAME 1`.
-- [x] Demonstração interativa e ferramenta de publicação `make_game.lua` usando v2.
-- [x] Validação estrita de pacotes, limites e testes de arquivos inválidos.
-- [ ] Identificadores de objetos persistentes no **modelo visual** independentemente da ordem da camada.
-- [ ] Testes manuais e benchmarks em dispositivos reais.
+- [x] **LUAFGAME 3**: IDs de objetos mais `BIND` explícito por quadro-chave.
+- [x] Permite o mesmo objeto ocupar índices diferentes em quadros-chave distintos.
+- [x] **COLLIDE**: eventos de entrada em colisão entre objetos nomeados.
+- [x] Ações declarativas existentes acionáveis por colisão e teclado/mouse.
+- [x] Interpolação opcional também usada na detecção de colisão.
+- [x] Testes de entrada/saída/reentrada em colisão, vínculos e arquivos inválidos.
+- [x] Leitura de LUAFGAME 1, 2 e 3 sem conversão obrigatória.
+- [x] Pacote `.love` autônomo em relação ao Studio e demo de barreira.
+- [ ] IDs gravados no modelo visual `.lflash` e preservados ao editar no Studio.
+- [ ] Testes manuais e benchmarks em máquinas reais.
 
-## Prioridades de 0.6
+## Próximas versões
 
-- [ ] Objetos persistentes, hierarquia de instâncias e camadas interativas.
-- [ ] Melhores regras e tratamento de colisão para jogos mais elaborados.
-- [ ] Importação de imagens/áudio com sincronização.
-- [ ] Modelo de permissões e sandbox antes de aceitar Lua escrito por terceiros.
-- [ ] Otimização, builds desktop nativos e planejamento Android/Web.
+- [ ] Audiovisual: áudio e efeitos sincronizados, importação de imagens.
+- [ ] Formas e colisões precisas: traços, curvas e hierarquia de objetos.
+- [ ] API de objetos e cenas em Lua **com isolamento definido antes de habilitar scripts externos**.
+- [ ] Runtime nativo para Windows, Linux, macOS e depois Android/Web.
+- [ ] Sistema de permissões, documentação de autoria e publicação estável.
 
-O Studio não deve ser modificado apenas para acrescentar recursos específicos do Player, exceto quando houver plano de migração de arquivos compartilhados.
+A engenharia reversa de tecnologia Flash serve como referência histórica de comportamento, não para redistribuir binários/código da Adobe.

@@ -1,6 +1,6 @@
-# Lua-Flash Player 0.5 — Objetos, estado e jogos próprios
+# Lua-Flash Player 0.6 — IDs de objetos e colisões
 
-O **Lua-Flash Player** executa animações `.lflash` e jogos declarativos `.lfgame` usando Lua + [LÖVE 11.5](https://love2d.org/). É uma plataforma nova, sem execução de SWF, FLA, XFL ou ActionScript da Adobe.
+Player independente em Lua, com renderização LÖVE 11.5. Abre projetos autorais `.lflash` e jogos `.lfgame`, **sem execução de SWF nem scripts Lua externos**.
 
 ## Executar
 
@@ -8,61 +8,59 @@ O **Lua-Flash Player** executa animações `.lflash` e jogos declarativos `.lfga
 love player-lua
 ```
 
-Abra a demonstração **PACOTE**: clique na bola azul. O primeiro toque incrementa o estado `toques`; a partir do segundo toque, acertos no corpo da bola dão pontos. O brilho também dá pontos. Clique no cenário para perder um ponto, ou pressione `Z` para voltar ao primeiro quadro. A meta é 6 pontos em 40 segundos.
+Na demonstração **PACOTE**, a bola azul passa por uma barreira vermelha. O motor conta um evento de colisão **na entrada em contato**, não em cada frame sobreposto. Cliques na bola incrementam `toques`; depois do segundo clique, a bola passa a valer pontos. A pontuação e os estados ficam no painel do palco.
 
-Você pode soltar arquivos `.lfgame` ou `.lflash` na janela e salvá-los com `Ctrl+S`.
+Os botões **JOGAR** e **DEMO** mantêm as demonstrações anteriores. É possível arrastar `.lfgame` (jogo) e `.lflash` (animação). `Ctrl+S` salva a cópia do conteúdo aberto.
 
-## LUAFGAME 2 — Novo formato 0.5
+## LUAFGAME 3
 
-Os jogos `.lfgame` são arquivos de **dados**, com cena `.lflash` incorporada e regras de execução limitadas.
+O pacote possui uma cena `.lflash`, uma lista de objetos com IDs legíveis e uma tabela **BIND** que associa cada ID a uma forma para um quadro-chave específico. Assim, `bola` pode referenciar a forma 1 num quadro-chave e a forma 2 em outro sem perder a identidade no jogo exportado.
 
-- **OBJECT:** atribui um nome a uma combinação camada/forma, por exemplo `bola`.
-- **STATE:** variável inteira local da partida, por exemplo `toques=0`.
-- **RULE:** uma condição acionada por clique num objeto nomeado (`CLICKID`) ou tecla (`KEY`).
-- **Ações:** `SCORE`, `SEEK`, `PLAY`, `PAUSE`, `ADD`, `SET`.
-- **Condições:** executar ações somente se uma variável for `GE` (maior ou igual), `LE` (menor ou igual) ou `EQ` (igual) ao valor indicado.
+A regra `COLLIDE bola barreira` detecta a entrada de um contato. Regras condicionais, contadores `STATE` e ações `ADD`, `SET`, `SCORE`, `SEEK`, `PLAY`, `PAUSE` continuam disponíveis.
 
-Limites: 256 objetos, 64 variáveis, 128 regras, títulos de até 120 bytes e pacotes de até 25 MB. Variáveis são limitadas entre 0 e 1.000.000, e as regras são verificadas antes da execução.
+**Limite importante:** os IDs persistem no próprio pacote `.lfgame` ao longo dos quadros-chave mapeados, não nos arquivos `.lflash` do Studio. Ao alterar o índice de uma forma **dentro do mesmo quadro-chave** ou republicar um arquivo editado, o autor deve atualizar seus vínculos BIND. A integração de IDs diretamente no modelo de autoria é uma etapa futura.
 
-O formato **LUAFGAME 1 (Player 0.4)** continua sendo aceito. Não é preciso converter arquivos antigos. A preservação dos bytes na regravação também é testada.
+As colisões usam formas geométricas em coordenadas do palco: retângulo-retângulo, elipse-retângulo e elipse-elipse têm testes geométricos; linhas e pincéis ainda usam caixas delimitadoras (aproximação). Há tratamento de camadas e quadros, incluindo interpolação opcional.
 
-**Sobre os IDs:** nesta primeira versão, nomes como `bola` dão identidade estável *dentro do pacote* às regras e ao objeto associado. A associação ainda aponta para a posição da forma na camada. Se o autor reordenar as formas e publicar novamente, precisará revisar essa associação. A próxima etapa deve introduzir identificadores persistentes no modelo de objetos.
+Pacotes v1 (0.4) e v2 (0.5) abrem normalmente; o formato antigo não precisa ser refeito. A documentação técnica está em [LUAFGAME 3](../docs/FORMAT_LUAFGAME3.md).
 
-Nenhum código Lua externo é executado. `LUAFGAME 2` não é um interpretador de Lua genérico nem uma sandbox para scripts arbitrários.
+## Criar jogos
 
-## Criar um jogo a partir de um documento existente
+Converter uma animação simples do Studio:
 
 ```bash
-lua tools/make_game.lua cena.lflash meu-jogo.lfgame 2 1 10 30 smooth
+lua tools/make_game.lua cena.lflash meu-jogo.lfgame 2 1 8 30 smooth
 ```
 
-Isso cria um `.lfgame` **versão 2** com o objeto `alvo` associado à forma 1 da camada 2, uma regra para pontuar ao clicar, meta de 10 pontos e 30 segundos de duração. O argumento `smooth` ativa interpolação. Não são necessários ajustes no Studio.
+A ferramenta gera um jogo LUAFGAME 3 com ID `alvo`, criando vínculos para a forma indicada em cada quadro-chave onde ela exista. Se o objeto trocar de índice em quadros diferentes, edite os vínculos por meio de um gerador próprio usando `src/package_v3.lua`. Regras complexas podem ser elaboradas em um script **local de autoria**, mas o arquivo exportado contém apenas dados.
 
-Para uma demonstração das regras condicionais:
+Exportar a demonstração com colisões:
 
 ```bash
-lua tools/export_example.lua dist/Exemplo-0.5.lfgame
+lua tools/export_example.lua dist/Exemplo-0.6.lfgame
 ```
-
-Abra o `.lfgame` no Player por arrastar/soltar.
 
 ## Recursos anteriores preservados
 
-Reprodução, pausa, navegação de quadros, velocidade de 0,25× a 4×, repetição, tela cheia, interpolação visual opcional, mouse, toque, teclado, detecção de objetos e minijogo original no botão **JOGAR**.
+- Player/Studio em pastas independentes.
+- Reprodução, pausa, velocidade de 0,25× a 4×, loop, scrub e tela cheia.
+- Formas vetoriais, camadas, quadros-chave e interpolação visual opcional.
+- Mouse, teclado e touch com hit-testing do palco.
+- Sessões com placar, limite de tempo, vitória e regras condicionais.
+- Carregamento de conteúdo sem execução arbitrária de scripts.
 
-## Testes e pacote
+## Build e testes
 
 ```bash
-lua tests/model_test.lua
-lua tests/player_test.lua
-lua tests/input_test.lua
-lua tests/package_test.lua
+lua tests/package_v3_test.lua
 lua tests/package_v2_test.lua
+lua tests/package_test.lua
+lua tests/input_test.lua
 lua tests/gui_smoke.lua
 python3 tools/sync_core.py --check
 python3 tools/package_player.py
 ```
 
-O último comando gera `dist/Lua-Flash-Player-0.5.love`. O pacote não é um EXE autônomo e precisa do LÖVE.
+O GitHub Actions também inicia o Player com **LÖVE real em um display virtual** e anexa uma distribuição `.love`.
 
-**Estado experimental:** faltam áudio sincronizado, imagens e fontes importáveis, um sistema de instâncias com IDs persistentes no modelo visual, scripts isolados para jogos, publicação para Android/Web e testes de desempenho em dispositivos reais.
+Versão experimental: faltam colisões geométricas precisas para linhas/curvas, IDs dentro do editor, áudio sincronizado, recursos importados, motor de scripts isolados e builds nativos desktop/Android/Web. Testes visuais manuais e benchmarks em dispositivos reais ainda são necessários.

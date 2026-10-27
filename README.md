@@ -1,32 +1,34 @@
 # Lua-Flash
 
-O **Flash renasce em Lua**: plataforma independente para criar, publicar e executar jogos e animações próprios, sem compatibilidade obrigatória com os arquivos antigos da Adobe.
+O **Flash renasce em Lua**: uma nova plataforma independente para criar e executar animações e jogos, **sem compatibilidade obrigatória com SWF/FLA/XFL ou ActionScript** antigos.
 
-## Projetos separados
+## Aplicações
 
-| Projeto | Pasta | Executar | Versão |
+| Aplicação | Diretório | Comando | Versão |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.5 experimental** |
-| **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental (preservado) |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.6 experimental** |
+| **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-## Player 0.5
+### Novidades do Player 0.6
 
-Além das animações `.lflash`, o Player abre jogos `.lfgame`. O novo **LUAFGAME 2** permite nomes para objetos clicáveis, estados locais, comandos `ADD`/`SET` e regras condicionais de pontuação. Os jogos v1 continuam funcionando. O Player nunca executa código Lua incluído em pacotes externos.
+O **LUAFGAME 3** permite **IDs nomeados para um mesmo objeto em quadros-chave diferentes**. O nome `bola` pode ser associado a índices de forma distintos em cada quadro-chave. Também introduz **colisões entre objetos nomeados**, com regras `COLLIDE` disparadas apenas ao iniciar o contato.
 
-A demonstração **PACOTE** mostra como um objeto pode acumular toques e pontuar somente depois de uma condição. Também há minijogo tradicional (**JOGAR**) e importação de projetos por arrastar/soltar.
+Os pacotes `LUAFGAME 1` e `LUAFGAME 2` continuam abrindo, sem converter os arquivos antigos. O Player executa apenas **regras declarativas previamente autorizadas**, nunca scripts Lua trazidos por `.lfgame`.
 
-## Executar e testar
+A demonstração **PACOTE** exibe uma bola azul e uma barreira vermelha, contando contatos e toques. O botão **JOGAR** preserva o minijogo tradicional.
 
-Instale [LÖVE 11.5](https://love2d.org/) para abrir o Player:
+## Executar e distribuir
+
+Instale [LÖVE 11.5](https://love2d.org/). Na raiz do repositório:
 
 ```bash
 love player-lua
 python3 tools/package_player.py
-lua tools/export_example.lua dist/Exemplo-0.5.lfgame
+lua tools/export_example.lua dist/Exemplo-0.6.lfgame
 ```
 
-A saída é `dist/Lua-Flash-Player-0.5.love` (requer LÖVE) e um jogo de exemplo `.lfgame`. O [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions) executa testes e publica os arquivos de demonstração como artefatos.
+A distribuição `dist/Lua-Flash-Player-0.6.love` exige LÖVE instalado. Builds e jogos de exemplo estão nos artefatos das execuções do [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
 
-[Manual do Player](player-lua/README.md) · [Roadmap](docs/ROADMAP.md) · [Análise histórica](docs/ANALISE_FLASH_PLAYER_32.md).
+Consulte o [manual do Player](player-lua/README.md), a [especificação LUAFGAME 3](docs/FORMAT_LUAFGAME3.md) e o [roteiro de desenvolvimento](docs/ROADMAP.md).
 
-Este projeto não é afiliado à Adobe.
+Projeto independente, sem vínculo com a Adobe.
