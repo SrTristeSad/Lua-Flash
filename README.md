@@ -1,34 +1,39 @@
 # Lua-Flash
 
-O **Flash renasce em Lua**: uma nova plataforma independente para criar e executar animações e jogos, **sem compatibilidade obrigatória com SWF/FLA/XFL ou ActionScript** antigos.
+**O Flash renasce em Lua** — uma nova plataforma independente para criar e executar animações e jogos, sem necessidade de compatibilidade com SWF, FLA, XFL ou ActionScript antigos.
 
-## Aplicações
+## Projetos separados
 
-| Aplicação | Diretório | Comando | Versão |
+| Aplicação | Pasta | Comando | Estado |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.6 experimental** |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.7 experimental — foco atual** |
 | **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-### Novidades do Player 0.6
+## Player Lua 0.7: imagens e sons de jogos
 
-O **LUAFGAME 3** permite **IDs nomeados para um mesmo objeto em quadros-chave diferentes**. O nome `bola` pode ser associado a índices de forma distintos em cada quadro-chave. Também introduz **colisões entre objetos nomeados**, com regras `COLLIDE` disparadas apenas ao iniciar o contato.
+O Player passa a reconhecer o **LUAFGAME 4**, um pacote de dados que contém uma cena `.lflash`, regras de interação e recursos gráficos/sonoros internos. Imagens **PNG** podem ser sobrepostas ao palco; sons **WAV** podem tocar em eventos de clique, colisão e vitória.
 
-Os pacotes `LUAFGAME 1` e `LUAFGAME 2` continuam abrindo, sem converter os arquivos antigos. O Player executa apenas **regras declarativas previamente autorizadas**, nunca scripts Lua trazidos por `.lfgame`.
+O formato mantém compatibilidade de leitura com jogos `LUAFGAME 1`, `2` e `3`. Pacotes não executam scripts Lua externos.
 
-A demonstração **PACOTE** exibe uma bola azul e uma barreira vermelha, contando contatos e toques. O botão **JOGAR** preserva o minijogo tradicional.
+O botão **PACOTE** abre uma demonstração com uma imagem e um efeito sonoro originais. **F10** silencia ou reativa os efeitos.
 
-## Executar e distribuir
+## Executar
 
-Instale [LÖVE 11.5](https://love2d.org/). Na raiz do repositório:
+Instale [LÖVE 11.5](https://love2d.org/) e execute, na raiz do repositório:
 
 ```bash
 love player-lua
-python3 tools/package_player.py
-lua tools/export_example.lua dist/Exemplo-0.6.lfgame
 ```
 
-A distribuição `dist/Lua-Flash-Player-0.6.love` exige LÖVE instalado. Builds e jogos de exemplo estão nos artefatos das execuções do [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
+Para montar uma distribuição `.love` independente do Studio e gerar um exemplo:
 
-Consulte o [manual do Player](player-lua/README.md), a [especificação LUAFGAME 3](docs/FORMAT_LUAFGAME3.md) e o [roteiro de desenvolvimento](docs/ROADMAP.md).
+```bash
+python3 tools/package_player.py
+lua tools/export_example.lua dist/Exemplo-0.7.lfgame
+```
 
-Projeto independente, sem vínculo com a Adobe.
+A distribuição `dist/Lua-Flash-Player-0.7.love` **não é um EXE autônomo**: exige LÖVE instalado. Os arquivos estão disponíveis como artefatos nas execuções aprovadas do [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
+
+[Manual do Player](player-lua/README.md) · [Especificação LUAFGAME 4](docs/FORMAT_LUAFGAME4.md) · [Roadmap](docs/ROADMAP.md).
+
+Lua-Flash é um projeto próprio, sem vínculo com a Adobe.

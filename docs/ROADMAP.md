@@ -1,40 +1,37 @@
 # Lua-Flash — roteiro do Player
 
-## Direção
+## Objetivo
 
-Recriar o conceito de plataforma Flash com formatos e runtime próprios em Lua, sem exigir retrocompatibilidade com SWF/FLA/XFL ou ActionScript antigos.
+Desenvolver uma plataforma de animação/jogos em Lua com formatos próprios, sem precisar emular SWF/FLA/ActionScript históricos. O Player é trabalhado em `player-lua/`, preservando o Studio em `studio-lua/`.
 
-- [`player-lua/`](../player-lua/) — desenvolvimento do runtime (atual).
-- [`studio-lua/`](../studio-lua/) — editor separado, mantido intacto nesta atualização.
-- Codec de projetos `.lflash` e renderizador continuam sincronizados sem mudança no formato original.
+## Versões 0.1–0.6
 
-## Base 0.1–0.5
+- [x] Reprodução vetorial, timeline, interpolação visual e controles de velocidade/loop.
+- [x] Mouse, toque, teclado, hit-testing e minijogo interno.
+- [x] Jogos `LUAFGAME 1/2/3`: objetos nomeados, estados, condições, identidades por quadro-chave.
+- [x] Eventos de entrada em colisão com regras declarativas.
+- [x] Exportação de jogos próprios e testes automatizados (Lua/LÖVE).
 
-- [x] Linha do tempo, reprodução, loop, velocidade e interpolação.
-- [x] Eventos de teclado/mouse/touch, hit-testing e minijogo.
-- [x] LUAFGAME 1 e 2: regras declarativas, pontuação, estados e condições.
-- [x] Exportação e reimportação de jogos com formato próprio.
-- [x] Testes Lua e inicialização gráfica com LÖVE/Xvfb na CI.
+## Player 0.7 — imagens e efeitos
 
-## Player 0.6 — identidade por quadro-chave e colisões
+- [x] **LUAFGAME 4**: mídia embutida em um pacote binário seguro.
+- [x] Carregamento e renderização de imagens PNG em posições do palco.
+- [x] Reprodução de WAV PCM curto em cliques, colisões e vitória.
+- [x] Volume ligado/silenciado com F10 e limpeza de fontes de áudio ao abrir outro jogo.
+- [x] Ferramenta `tools/attach_media.lua` para publicar um jogo com imagem/som.
+- [x] Gerador de PNG e WAV originais para testes e exemplo interativo.
+- [x] Compatibilidade de leitura com LUAFGAME 1, 2 e 3.
+- [x] Testes de arquivos inválidos e inicialização gráfica real com mídia.
+- [ ] Audio sincronizado com timeline, trilhas longas, sprites interativos e colisões.
+- [ ] Validação de desempenho em dispositivos reais.
 
-- [x] **LUAFGAME 3**: IDs de objetos mais `BIND` explícito por quadro-chave.
-- [x] Permite o mesmo objeto ocupar índices diferentes em quadros-chave distintos.
-- [x] **COLLIDE**: eventos de entrada em colisão entre objetos nomeados.
-- [x] Ações declarativas existentes acionáveis por colisão e teclado/mouse.
-- [x] Interpolação opcional também usada na detecção de colisão.
-- [x] Testes de entrada/saída/reentrada em colisão, vínculos e arquivos inválidos.
-- [x] Leitura de LUAFGAME 1, 2 e 3 sem conversão obrigatória.
-- [x] Pacote `.love` autônomo em relação ao Studio e demo de barreira.
-- [ ] IDs gravados no modelo visual `.lflash` e preservados ao editar no Studio.
-- [ ] Testes manuais e benchmarks em máquinas reais.
+## Próximas prioridades (0.8)
 
-## Próximas versões
+- [ ] Hit-testing e colisões em sprites com IDs próprios.
+- [ ] Sistema de áudio com múltiplos canais, reprodução agendada e volume por jogo.
+- [ ] Objetos com IDs diretamente no formato de autoria e integração planejada com Studio.
+- [ ] Otimizar desenho, cache de frames e carga de recursos.
+- [ ] Projetar runtime Lua para jogos com sandbox antes de aceitar scripts externos.
+- [ ] Distribuição Windows/Linux/macOS, Android e Web.
 
-- [ ] Audiovisual: áudio e efeitos sincronizados, importação de imagens.
-- [ ] Formas e colisões precisas: traços, curvas e hierarquia de objetos.
-- [ ] API de objetos e cenas em Lua **com isolamento definido antes de habilitar scripts externos**.
-- [ ] Runtime nativo para Windows, Linux, macOS e depois Android/Web.
-- [ ] Sistema de permissões, documentação de autoria e publicação estável.
-
-A engenharia reversa de tecnologia Flash serve como referência histórica de comportamento, não para redistribuir binários/código da Adobe.
+O Studio **não foi alterado** nesta versão.
