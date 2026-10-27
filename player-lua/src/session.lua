@@ -4,6 +4,8 @@ local Collision=require("src.collision")
 local S={}
 S.__index=S
 local MAX_STATE=1000000
+local MAX_SWEEP_STEPS=80
+local SUBSTEPS_PER_FRAME=4
 local function clamp(x)
   return math.max(0,math.min(MAX_STATE,x))
 end
@@ -18,10 +20,22 @@ function S.new(definition,transport)
       objects[obj.layer..":"..obj.shape]=obj.id
     end
   end
+  -- Compile unique unordered collision pairs once per session.
+  local pairs,seen={},{}
+  for _,rule in ipairs(definition.rules) do
+    if rule.event=="COLLIDE" then
+      local a,b=rule.target,rule.other
+      local key=a<b and (a..":"..b) or (b..":"..a)
+      if not seen[key] then
+        seen[key]=true
+        pairs[#pairs+1]={a=a,b=b,key=key}
+      end
+    end
+  end
   return setmetatable({
     definition=definition,transport=transport,remaining=definition.duration,
     active=true,won=false,score=0,events=0,states=states,objects=objects,
-    colliding={},lastCollision=nil,
+    colliding={},collisionPairs=pairs,lastCollision=nil,
     lastAction="Clique nos objetos do palco"
   },S)
 end
@@ -115,38 +129,85 @@ function S:dispatch(event)
   return consumed
 end
 
--- Only relevant rule pairs are compared; collisions fire ON ENTER, not every update.
--- Supports per-keyframe object bindings and optional visual interpolation.
-function S:checkCollisions(sampler,media)
-  if not self.definition.version or self.definition.version<3 or not self.active then return false end
-  local current,any={},false
-  local scene=sampler and sampler:sample(self.transport.position) or nil
-  local compared={}
-  for _,rule in ipairs(self.definition.rules) do
-    if rule.event=="COLLIDE" then
-      local a,b=rule.target,rule.other
-      local key=a<b and (a..":"..b) or (b..":"..a)
-      if not compared[key] then
-        compared[key]=true
-        local left=(media and media:shapeForObject(a,self.transport.position,scene)) or
-          Collision.resolve(self.definition,a,self.transport.position,scene)
-        local right=(media and media:shapeForObject(b,self.transport.position,scene)) or
-          Collision.resolve(self.definition,b,self.transport.position,scene)
-        local touching=left and right and Collision.overlap(left,right) or false
-        if touching and media and (media.bindingsById[a] or media.bindingsById[b]) then
-          touching=media:collides(a,b,self.transport.position,scene)
-        end
-        if touching then
-          current[key]=true
-          if not self.colliding[key] then
-            self.lastCollision={a=a,b=b}
-            if self:dispatch({type="collision",a=a,b=b}) then any=true end
-          end
-        end
-      end
+-- Temporal collision sampling: for regular playback only, sample intermediate
+-- positions instead of checking the final frame alone. The bounded budget limits
+-- work for very high speed playback. Seeking stays instantaneous.
+local function sweepSamples(first,last,total,looped)
+  local samples={}
+  local function segment(startPos,endPos,count)
+    if count<=0 then return end
+    for n=1,count do
+      samples[#samples+1]=startPos+(endPos-startPos)*n/count
     end
   end
-  self.colliding=current
+  if not looped then
+    local distance=math.max(0,last-first)
+    local count=math.max(1,math.min(MAX_SWEEP_STEPS,
+      math.ceil(distance*SUBSTEPS_PER_FRAME)))
+    segment(first,last,count)
+  else
+    local firstLength=math.max(0,total-first)
+    local lastLength=math.max(0,last-1)
+    local length=firstLength+lastLength
+    if length==0 then return {last} end
+    local allowed=math.min(MAX_SWEEP_STEPS,math.ceil(length*SUBSTEPS_PER_FRAME))
+    local a=firstLength>0 and math.max(1,math.floor(allowed*firstLength/length)) or 0
+    local b=math.max(0,allowed-a)
+    segment(first,total,a)
+    samples[#samples+1]=1 -- preserve exact first-frame contact at the wrap
+    segment(1,last,b)
+  end
+  if #samples==0 then samples[1]=last end
+  return samples
+end
+
+local function intersects(self,pair,position,sampler,media,scene)
+  local left=(media and media:shapeForObject(pair.a,position,scene)) or
+    Collision.resolve(self.definition,pair.a,position,scene)
+  local right=(media and media:shapeForObject(pair.b,position,scene)) or
+    Collision.resolve(self.definition,pair.b,position,scene)
+  if not left or not right or not Collision.overlap(left,right) then return false end
+  if media and (media.bindingsById[pair.a] or media.bindingsById[pair.b]) then
+    return media:collides(pair.a,pair.b,position,scene)
+  end
+  return true
+end
+
+-- previousPosition is supplied ONLY during automatic playback. A manual seek
+-- passes nil, preventing false collisions along a teleport path.
+-- wrapped is true only when the transport clock traversed its loop boundary.
+function S:checkCollisions(sampler,media,previousPosition,wrapped)
+  if not self.definition.version or self.definition.version<3 or not self.active then
+    return false
+  end
+  if #self.collisionPairs==0 then return false end
+  local currentPos=self.transport.position
+  local positions
+  if type(previousPosition)=="number" and previousPosition==previousPosition and
+     previousPosition>=1 and previousPosition<=self.definition.document.totalFrames and
+     (wrapped or currentPos>=previousPosition) then
+    positions=sweepSamples(previousPosition,currentPos,
+      self.definition.document.totalFrames,wrapped==true)
+  else
+    positions={currentPos}
+  end
+  local any=false
+  for _,position in ipairs(positions) do
+    local scene=sampler and sampler:sample(position) or nil
+    for _,pair in ipairs(self.collisionPairs) do
+      local touching=intersects(self,pair,position,sampler,media,scene)
+      local wasTouching=self.colliding[pair.key] or false
+      if touching and not wasTouching then
+        self.lastCollision={a=pair.a,b=pair.b}
+        local triggered=self:dispatch({
+          type="collision",a=pair.a,b=pair.b,frame=position
+        })
+        any=triggered or any
+      end
+      self.colliding[pair.key]=touching or nil
+      if not self.active then return any end
+    end
+  end
   return any
 end
 return S

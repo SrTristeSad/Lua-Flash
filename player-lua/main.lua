@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.10. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.11. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -202,7 +202,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.10")
+  love.window.setTitle("Lua-Flash Player 0.11")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -223,6 +223,7 @@ function love.update(dt)
   if ciSmoke and drawnFrames>=5 then love.event.quit();return end
   local before,playing=transport.position,transport.playing
   transport:update(dt)
+  local wrapped=playing and transport.loop and transport.position<before
   if media then media:timelineAdvance(before,transport.position,playing) end
   if game then
     game:update(dt,transport.playing)
@@ -230,7 +231,8 @@ function love.update(dt)
   end
   if session then
     session:update(dt)
-    if session:checkCollisions(smooth and sampler or nil,media) then
+    if session:checkCollisions(smooth and sampler or nil,media,
+      playing and before or nil,wrapped) then
       notice=session.lastAction
       if media and session.lastCollision then
         media:trigger({type="collision",
@@ -258,7 +260,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.10  |  Colisao alfa e cache de quadros",21,60,C.muted,fonts.small)
+  label("PLAYER 0.11  |  Colisao por movimento e desempenho",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -351,7 +353,7 @@ function love.draw()
   button(string.format("%gx",transport.speed),289,ctrlY,58,32,false)
   button("+",353,ctrlY,34,32,false)
   button(smooth and "SUAVE: ON" or "SUAVE: OFF",w-155,ctrlY,135,32,smooth)
-  label(session and "Jogo v6: transparencia PNG e som | F8/F9/F10" or
+  label(session and "Jogo v6: colisao continua amostrada | F8/F9/F10" or
     (game and "Clique/toque na bola | WASD: mira | ENTER: disparar | G: novo jogo" or
     "Espaco: play | Setas: quadro | I: interpolacao | F11: tela cheia"),
     27,ctrlY+40,C.muted,fonts.small)
