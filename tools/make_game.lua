@@ -3,7 +3,7 @@
 -- No code loading, shell execution or network. This runs only locally for authors.
 package.path="./player-lua/?.lua;./player-lua/?/init.lua;"..package.path
 local Model=require("src.model")
-local Package=require("src.package")
+local Package=require("src.package_v2")
 local a=arg or {}
 if not a[1] or not a[2] or not a[3] or not a[4] or not a[5] or not a[6] then
   io.stderr:write("Usage: lua tools/make_game.lua scene.lflash output.lfgame layer shape goal seconds [smooth]\n")
@@ -26,10 +26,12 @@ assert(doc,parseErr)
 local title=(a[2]:match("[^/\\]+$") or a[2]):gsub("%.lfgame$","")
 if #title>120 then title=title:sub(1,120) end
 local game={
-  title=title,
+  version=2,title=title,
   duration=number(a[6]),goal=number(a[5]),smooth=a[7]=="smooth",
   document=doc,
-  rules={{event="CLICK",layer=number(a[3]),shape=number(a[4]),action="SCORE",value=1}}
+  objects={{id="alvo",layer=number(a[3]),shape=number(a[4])}},
+  states={},
+  rules={{event="CLICKID",target="alvo",action="SCORE",value=1}}
 }
 local data,encodeErr=Package.encode(game)
 assert(data,encodeErr)
