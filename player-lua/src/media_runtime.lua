@@ -134,6 +134,25 @@ function M:shapeForObject(id,position,scene)
   return b and self:spriteRect(b.index,position,scene) or nil
 end
 
+-- When a vector is represented by an interactive PNG, its underlying vector
+-- cannot bypass the PNG's alpha transparency during pointer hit testing.
+function M:isOverriddenVectorHit(layer,shape,position)
+  if not self.definition.bindings then return false end
+  local layerData=self.definition.document.layers[layer]
+  if not layerData then return false end
+  local current=-1
+  for frame in pairs(layerData.keys) do
+    if frame<=position and frame>current then current=frame end
+  end
+  for _,binding in ipairs(self.definition.bindings) do
+    if binding.layer==layer and binding.frame==current and
+       binding.shape==shape and self.bindingsById[binding.id] then
+      return true
+    end
+  end
+  return false
+end
+
 -- Sprites are painted ABOVE vectors, so they are tested front-to-back first.
 -- Current collision/hit-test is axis-aligned; transparent PNG pixels still hit.
 function M:hit(x,y,position,sampler)

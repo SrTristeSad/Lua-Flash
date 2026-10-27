@@ -54,7 +54,7 @@ function Input.stagePoint(wx,wy,doc,viewport)
   return x,y
 end
 
-function Input.hitTest(doc,frame,x,y,sampler)
+function Input.hitTest(doc,frame,x,y,sampler,media)
   if not finite(x) or not finite(y) or x<0 or y<0 or x>doc.width or y>doc.height then return nil end
   local target=sampler and sampler:sample(frame) or doc
   for layerIndex=#target.layers,1,-1 do
@@ -62,7 +62,8 @@ function Input.hitTest(doc,frame,x,y,sampler)
     if layer.visible then
       local shapes=Model.frame(layer,sampler and 1 or math.floor(frame))
       for shapeIndex=#shapes,1,-1 do
-        if insideShape(shapes[shapeIndex],x,y) then
+        if (not media or not media:isOverriddenVectorHit(layerIndex,shapeIndex,frame)) and
+           insideShape(shapes[shapeIndex],x,y) then
           return {layer=layerIndex,shape=shapeIndex,kind=shapes[shapeIndex].kind}
         end
       end
@@ -86,7 +87,7 @@ function Input:pointer(phase,source,identifier,wx,wy,doc,frame,viewport,sampler,
   -- Pointer moves only need coordinates: avoid allocating a tweened scene each mousemove.
   local target=nil
   if (phase=="down" or phase=="up") and x then
-    target=(media and media:hit(x,y,frame,sampler)) or Input.hitTest(doc,frame,x,y,sampler)
+    target=(media and media:hit(x,y,frame,sampler)) or Input.hitTest(doc,frame,x,y,sampler,media)
   end
   local event={
     type="pointer"..phase, source=source, id=identifier,
