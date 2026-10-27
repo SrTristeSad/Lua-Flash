@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.6. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.7. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -7,9 +7,10 @@ local Transport=require("src.transport")
 local Interpolation=require("src.interpolation")
 local Input=require("src.input")
 local TargetGame=require("src.target_game")
-local GamePackage=require("src.package_v3")
+local GamePackage=require("src.package_v4")
+local MediaRuntime=require("src.media_runtime")
 local Session=require("src.session")
-local GameExample=require("src.game_example_v3")
+local GameExample=require("src.game_example_v4")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -23,6 +24,7 @@ local input=Input.new()
 local game=nil
 local session=nil
 local packageDefinition=nil
+local media=nil
 local C={
   bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
   text={.90,.94,1},muted={.62,.69,.77},accent={.25,.70,.99},
@@ -61,6 +63,8 @@ local function button(s,x,y,w,h,active)
 end
 
 local function install(doc,name,isDemo)
+  if media then media:release() end
+  media=nil
   document=doc
   transport=Transport.new(document)
   transport.playing=true
@@ -100,9 +104,19 @@ local function openGameBytes(content,name)
     notice="Jogo recusado: "..tostring(ok and err or definition)
     return false
   end
+  local prepared=nil
+  if definition.version==4 then
+    local ready,result=pcall(MediaRuntime.new,definition)
+    if not ready then
+      notice="Falha ao decodificar PNG/WAV: "..tostring(result)
+      return false
+    end
+    prepared=result
+  end
   install(definition.document,name or definition.title,false)
   packageDefinition=definition
   session=Session.new(definition,transport)
+  media=prepared
   smooth=definition.smooth
   notice="Jogo "..definition.title.." iniciado. Sem execucao de scripts externos."
   return true
@@ -159,7 +173,12 @@ local function onEvent(event)
   if event.clicked then
     if session then
       event.frame=transport.position
-      if session:dispatch(event) then notice=session.lastAction
+      local consumed=session:dispatch(event)
+      if media then
+        media:trigger(event,session)
+        if session.won then media:trigger({type="win"},session) end
+      end
+      if consumed then notice=session.lastAction
       else notice="Sem acao configurada neste objeto." end
       return
     end
@@ -183,7 +202,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.6")
+  love.window.setTitle("Lua-Flash Player 0.7")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -203,6 +222,11 @@ function love.update(dt)
     session:update(dt)
     if session:checkCollisions(smooth and sampler or nil) then
       notice=session.lastAction
+      if media and session.lastCollision then
+        media:trigger({type="collision",
+          a=session.lastCollision.a,b=session.lastCollision.b},session)
+        if session.won then media:trigger({type="win"},session) end
+      end
     end
   end
 end
@@ -213,6 +237,7 @@ local function renderScene(x,y,w,h)
   else
     Runtime.draw(document,transport:frame(),x,y,w,h)
   end
+  if media then media:draw(document,x,y,w,h) end
 end
 
 function love.draw()
@@ -223,7 +248,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.6  |  Colisoes e IDs por quadro-chave",21,60,C.muted,fonts.small)
+  label("PLAYER 0.7  |  PNG, WAV e eventos de audio",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -269,7 +294,8 @@ function love.draw()
     lg.setColor(0,0,0,.72)
     lg.rectangle("fill",x,y,330,128,8,8)
     label(session.definition.title,x+10,y+9,C.green)
-    label("Pontos: "..session.score.." / "..session.definition.goal,
+    label("Pontos: "..session.score.." / "..session.definition.goal..
+      (media and (media.muted and "  |  SOM: OFF" or "  |  SOM: ON") or ""),
       x+10,y+33,C.text,fonts.small)
     label(string.format("Tempo: %.1fs | Eventos: %d",session.remaining,session.events),
       x+10,y+52,C.text,fonts.small)
@@ -315,7 +341,7 @@ function love.draw()
   button(string.format("%gx",transport.speed),289,ctrlY,58,32,false)
   button("+",353,ctrlY,34,32,false)
   button(smooth and "SUAVE: ON" or "SUAVE: OFF",w-155,ctrlY,135,32,smooth)
-  label(session and "Jogo v3: bola e barreira colidem | Clique na bola | Z: quadro 1" or
+  label(session and "Jogo v4: clique / colisao toca efeito | F10: mutar som" or
     (game and "Clique/toque na bola | WASD: mira | ENTER: disparar | G: novo jogo" or
     "Espaco: play | Setas: quadro | I: interpolacao | F11: tela cheia"),
     27,ctrlY+40,C.muted,fonts.small)
@@ -401,9 +427,18 @@ function love.keypressed(key)
   input:key("down",key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if ctrl and key=="s" then saveCopy();return end
-  if session and session:dispatch({type="keydown",key=key}) then
-    notice=session.lastAction
+  if key=="f10" and media then
+    notice=media:toggleMute() and "Efeitos sonoros silenciados." or "Efeitos sonoros ativados."
     return
+  end
+  if session then
+    local event={type="keydown",key=key}
+    local handled=session:dispatch(event)
+    if media then
+      media:trigger(event,session)
+      if session.won then media:trigger({type="win"},session) end
+    end
+    if handled then notice=session.lastAction;return end
   end
   if key=="g" then startGame();return end
   if game then
