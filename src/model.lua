@@ -169,7 +169,8 @@ function M.decode(data)
         local a, b = pair:match("^([^,]+),([^,]+)$")
         local x, y = tonumber(a), tonumber(b)
         if not x or not y or #pts > 8192 then return nil, "invalid shape points" end
-        pts[#pts + 1], pts[#pts + 1] = x, y
+        pts[#pts + 1] = x
+        pts[#pts + 1] = y
       end
       if #pts < 4 or (#pts % 2 ~= 0) then return nil, "empty shape" end
       shapeCount = shapeCount + 1
