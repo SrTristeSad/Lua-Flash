@@ -79,7 +79,8 @@ end
 -- identifier is mouse number or LÖVE touch ID; source separates them.
 function Input:pointer(phase,source,identifier,wx,wy,doc,frame,viewport,sampler)
   local x,y=Input.stagePoint(wx,wy,doc,viewport)
-  local target=x and Input.hitTest(doc,frame,x,y,sampler) or nil
+  -- Pointer moves only need coordinates: avoid allocating a tweened scene each mousemove.
+  local target=(phase=="down" or phase=="up") and x and Input.hitTest(doc,frame,x,y,sampler) or nil
   local event={
     type="pointer"..phase, source=source, id=identifier,
     x=x,y=y, inside=x~=nil, hit=target, clicked=false
