@@ -1,36 +1,40 @@
 # Lua-Flash
 
-**O Flash renasce em Lua** — uma plataforma independente de jogos e animações, com formatos próprios. Este projeto **não executa SWF, FLA, XFL ou ActionScript antigos**.
+**O Flash renasce em Lua** — plataforma independente para animações e jogos criados em formatos próprios. Não executa SWF, FLA, XFL nem ActionScript antigos da Adobe.
 
-## Aplicativos separados
+## Aplicações separadas
 
-| Aplicativo | Pasta | Iniciar | Estado |
+| Aplicação | Diretório | Executar | Versão |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.10 experimental — foco atual** |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.11 experimental** |
 | **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-### Player 0.10 — transparência e desempenho
+## Player 0.11 — colisão de movimento rápido
 
-- **PNG com transparência:** cliques sobre pixels transparentes deixam de ativar o sprite nem a forma vetorial que ele substitui. Outros objetos atrás dele podem ser alcançados normalmente.
-- **Colisões refinadas:** além da caixa delimitadora, o motor verifica pixels opacos na interseção de sprites e de sprites com retângulos/elipses. Em áreas grandes, a análise usa amostragem limitada para manter o custo controlado.
-- **Cache de máscaras:** cada PNG é decodificado para sua máscara alfa compacta somente quando necessário; a máscara é reutilizada entre os quadros.
-- **Cache de interpolação:** consultas repetidas à mesma posição de timeline reutilizam a cena calculada, sem alterar documentos editáveis.
-- **Compatibilidade:** os jogos LUAFGAME 1–6 e animações `.lflash` continuam funcionando.
+O Player verifica posições **intermediárias** da animação durante reprodução automática. Isso permite detectar alguns contatos rápidos que antes eram perdidos ao examinar somente o quadro final.
 
-Nenhum script Lua enviado em pacotes externos é executado. A arquitetura de Player e Studio continua separada.
+- Verificação com até **80 subamostras temporais por atualização** (além dos pontos de passagem por loop).
+- Eventos `COLLIDE` no momento de entrada em contato, inclusive após separação e novo encontro.
+- Respeito a máscaras alfa PNG e formas vetoriais.
+- O contador de loops agora reconhece voltas completas que terminam na mesma posição ou em posição maior que a inicial.
+- Saltos manuais da timeline não simulam percurso físico.
+- Efeitos WAV agendados na timeline também reconhecem loops completos.
+- Pares de colisão são pré-organizados por sessão para evitar procurar todas as regras repetidamente.
 
-## Executar / empacotar
+A versão mantém **LUAFGAME 1–6** e `.lflash`, sem mudança de formato nem execução de scripts Lua externos. O Studio continua intocado.
 
-Instale [LÖVE 11.5](https://love2d.org/) e execute na raiz do repositório:
+## Executar
+
+Instale [LÖVE 11.5](https://love2d.org/) e, na raiz do projeto:
 
 ```bash
 love player-lua
 python3 tools/package_player.py
-lua tools/export_example.lua dist/Exemplo-0.10.lfgame
+lua tools/export_example.lua dist/Exemplo-0.11.lfgame
 ```
 
-O pacote `dist/Lua-Flash-Player-0.10.love` necessita do LÖVE instalado; não é um EXE Windows nativo. Consulte os artefatos nas execuções aprovadas do [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
+O pacote `dist/Lua-Flash-Player-0.11.love` requer LÖVE instalado (não é um EXE independente). Builds e jogos de teste ficam disponíveis em [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
 
 [Manual do Player](player-lua/README.md) · [Roadmap](docs/ROADMAP.md) · [Formato LUAFGAME 6](docs/FORMAT_LUAFGAME6.md).
 
-Projeto independente, sem vínculo com a Adobe.
+Projeto não afiliado à Adobe.

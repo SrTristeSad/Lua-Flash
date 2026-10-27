@@ -1,40 +1,41 @@
-# Lua-Flash Player 0.10 — transparência PNG e otimização
+# Lua-Flash Player 0.11 — colisões durante movimento
 
-O Player Lua é nosso runtime independente, desenvolvido em Lua com LÖVE 11.5. Executa animações `.lflash` e jogos declarativos `.lfgame` de versões 1 a 6, sem executar código Lua externo.
+Runtime experimental em Lua + LÖVE 11.5 para reproduzir animações `.lflash` e jogos declarativos `.lfgame` nas versões LUAFGAME 1–6.
 
-## Novidades da versão 0.10
+## O que mudou
 
-**Detecção de pixels opacos.** O Player agora consulta o canal alfa de cada PNG antes de aceitar cliques e toques sobre sprites interativos. Pixels com alfa inferior a 10% não contam como alvo. Uma forma vetorial que possua um sprite interativo associado não permite contornar essa transparência: cliques transparentes podem chegar aos outros objetos realmente posicionados atrás dela.
+**Colisões rápidas:** antes, o Player analisava somente a posição de destino de cada objeto após `love.update`. Uma bola podia atravessar uma barreira de um quadro para outro sem disparar `COLLIDE`. Agora a sessão calcula posições intermediárias ao longo do avanço real da linha do tempo, sem mudar os arquivos do jogo.
 
-**Colisões mais precisas.** A caixa delimitadora é usada apenas para rejeitar pares distantes. Havendo interseção, o motor examina pixels opacos projetados no palco antes de acionar as regras `COLLIDE`. Sprites versus retângulos e elipses usam os testes geométricos dessas formas; linhas e pincéis ainda são aproximados por caixa delimitadora.
+**Limite de trabalho:** o sistema usa até **80 subamostras temporais** por atualização, com pontos explícitos de entrada dos loops. O limite controla CPU, mas não garante detecção perfeita de todas as colisões extremamente rápidas. Continuam as máscaras alfa aproximadas da versão 0.10, limitadas por orçamento de amostragem.
 
-**Controle de custo.** As máscaras alfa são montadas de forma **preguiçosa (lazy)** a partir de `love.image.newImageData` e guardadas como linhas compactas de bytes 0/1, uma máscara por PNG utilizado. Uma colisão muito grande possui limite de **65.536 amostras por par**; portanto, detalhes transparentes extremamente finos podem produzir falsos negativos em casos extremos. Esta versão não promete colisões exatas por pixel em todas as escalas possíveis.
+**Sem eventos falsos por busca:** quando o jogador arrasta a timeline ou escolhe manualmente outro quadro, o motor só examina o quadro selecionado. Não considera que o objeto percorreu fisicamente todos os quadros entre origem e destino.
 
-**Cache da timeline.** O cálculo de uma cena interpolada é reutilizado quando renderização, colisões e entrada consultam a mesma posição fracionária. A troca de posição invalida automaticamente a cena anterior. Nada é alterado no arquivo de edição do Studio.
+**Repetição e múltiplas voltas:** o relógio registra quantas vezes a reprodução atravessou a borda da timeline. Mesmo uma animação curta que complete duas voltas e termine no quadro inicial terá o percurso verificado. Sons WAV configurados para quadros específicos também consideram essas voltas. Um mesmo WAV ainda é reiniciado se um agendamento se repete na mesma atualização, sem mistura polifônica independente.
 
-## Executar
+**Desempenho:** o conjunto de pares que têm regra de colisão é calculado uma vez ao abrir o jogo. A cena visual interpolada continua com cache pela posição consultada; máscaras PNG opacas são reutilizadas.
 
-Instale [LÖVE 11.5](https://love2d.org/) e execute, na raiz do repositório:
+## Limitações
+
+- Trata-se de **detecção temporal por amostragem**, não de colisão contínua matemática exata. Objetos muito rápidos ou estreitos ainda podem atravessar sem detecção.
+- A precisão geométrica do alfa em larga escala continua sujeita ao limite de amostras do detector PNG.
+- Não adiciona rotação, escala animada, áudio em streaming, scripts Lua externos ou IDs persistentes ao documento do Studio.
+- Necessita de benchmarks e testes visuais em equipamentos reais.
+
+## Executar / testar
+
+Na raiz do repositório:
 
 ```bash
 love player-lua
-```
-
-O botão **PACOTE** abre a demonstração com sprite animado, PNG transparente e áudio por quadro. Comandos preservados: espaço para play/pause, setas para navegar por quadros, I para interpolação, F8/F9 para volume, F10 para silenciar e F11 para tela cheia. Jogos podem ser arrastados para a janela.
-
-Para publicar jogos, continue utilizando `tools/make_game.lua`, `tools/attach_media.lua`, `tools/bind_sprite.lua` e `tools/animate_media.lua`. **Não houve alteração de formato** nesta versão: o formato mais recente continua sendo `LUAFGAME 6`.
-
-## Testes
-
-```bash
+lua tests/swept_collision_test.lua
+lua tests/player_test.lua
+lua tests/package_v3_test.lua
 lua tests/pixel_mask_test.lua
 lua tests/package_v6_test.lua
-lua tests/package_v5_test.lua
-lua tests/gui_smoke.lua
 python3 tools/sync_core.py --check
 python3 tools/package_player.py
 ```
 
-A CI inclui testes de transparência, colisão, cache, compatibilidade com formatos anteriores e inicialização gráfica com LÖVE em display virtual.
+A CI também executa os testes antigos, abre o Player com LÖVE no display virtual e publica `Lua-Flash-Player-0.11.love`.
 
-**Limitações conhecidas:** sem alpha máscaras rotacionadas, colisão contínua contra objetos muito rápidos, áudio sincronizado por amostra, scripts externos isolados ou EXE Windows autônomo. O desempenho em dispositivos reais continua pendente de testes manuais.
+A próxima etapa de desenvolvimento prevê transformações de sprites (rotação/escala) e suporte à colisão transformada. O Studio permanece separado.
