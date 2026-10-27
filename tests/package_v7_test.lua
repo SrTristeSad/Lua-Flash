@@ -80,7 +80,7 @@ local ghost={kind="rect",points={17,1,22,5}}
 assert(Collision.overlap(turn,ghost),"broad-phase should accept candidate")
 assert(not T.intersects(turn,rightMask,ghost,nil,
   function(x,y) return Mask.shapeContains(ghost,x,y) end))
-local solid={kind="rect",points={17,17,23,24}}
+local solid={kind="rect",points={16,22,23,29}}
 assert(T.intersects(turn,rightMask,solid,nil,
   function(x,y) return Mask.shapeContains(solid,x,y) end))
 
