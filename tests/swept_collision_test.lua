@@ -93,4 +93,19 @@ longT:seek(30)
 longS:checkCollisions(longI,nil,1,false)
 assert(longI.computations<=80,"limit swept intermediate scene evaluations")
 
+-- Short loops can complete two full revolutions and end on the SAME frame.
+local shortS,shortT,shortI=setup({[1]=5,[3]=49,[6]=85})
+shortT.doc.totalFrames=6
+shortS.definition.document.totalFrames=6
+shortT:setSpeed(4)
+shortT.playing=true
+local start=shortT.position
+shortT:update(.1) -- 12 frames of movement at 30 FPS = 2 complete loops
+assert(shortT.lastWraps==2 and math.abs(shortT.position-start)<1e-8,
+  "transport must record wraps even if final frame equals the initial frame")
+assert(shortS:checkCollisions(shortI,nil,start,shortT.lastWraps))
+assert(shortS.states.impactos==2,"collision should occur in both revolutions")
+shortT:seek(3)
+assert(shortT.lastWraps==0,"manual seek must clear wrap metadata")
+
 print("OK: Player 0.11 continuous collision samples, re-entry, loops, seeking and budget")
