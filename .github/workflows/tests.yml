@@ -33,6 +33,8 @@ jobs:
         run: lua tests/package_v6_test.lua
       - name: Player 0.10 alpha mask and frame cache tests
         run: lua tests/pixel_mask_test.lua
+      - name: Player 0.11 fast motion collision and loop tests
+        run: lua tests/swept_collision_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
@@ -40,28 +42,28 @@ jobs:
       - name: Package standalone Player .love and example .lfgame
         run: |
           python3 tools/package_player.py
-          lua tools/export_example.lua dist/Exemplo-0.10.lfgame
+          lua tools/export_example.lua dist/Exemplo-0.11.lfgame
           lua -e 'package.path="./player-lua/?.lua;"..package.path; local d=require("src.demo").create(); local f=assert(io.open("dist/cena-teste.lflash","wb")); assert(f:write(require("src.model").encode(d))); assert(f:close())'
-          lua tools/make_game.lua dist/cena-teste.lflash dist/Criado-0.10.lfgame 2 1 5 20 smooth
-          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Criado-0.10.lfgame","rb")); local g=assert(require("src.package_v3").decode(f:read("*a"))); f:close(); assert(g.version==3 and g.goal==5 and g.duration==20 and #g.rules==1 and #g.bindings>0)'
+          lua tools/make_game.lua dist/cena-teste.lflash dist/Criado-0.11.lfgame 2 1 5 20 smooth
+          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Criado-0.11.lfgame","rb")); local g=assert(require("src.package_v3").decode(f:read("*a"))); f:close(); assert(g.version==3 and g.goal==5 and g.duration==20 and #g.rules==1 and #g.bindings>0)'
           python3 tools/generate_media_fixtures.py --directory dist
-          lua tools/attach_media.lua dist/Criado-0.10.lfgame dist/Com-Midia-0.10.lfgame dist/icone-original.png 660 270 64 64 dist/efeito-original.wav CLICKID alvo
-          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Com-Midia-0.10.lfgame","rb")); local game=assert(require("src.package_v4").decode(f:read("*a"))); f:close(); assert(game.version==4 and #game.resources==2 and #game.cues==1 and #game.sprites==1)'
-          lua tools/bind_sprite.lua dist/Com-Midia-0.10.lfgame dist/Com-Sprite-0.10.lfgame 1 alvo FOLLOW
-          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Com-Sprite-0.10.lfgame","rb")); local game=assert(require("src.package_v5").decode(f:read("*a"))); f:close(); assert(game.version==5 and #game.spriteBindings==1 and game.spriteBindings[1].id=="alvo")'
-          lua tools/animate_media.lua dist/Com-Sprite-0.10.lfgame dist/Animado-0.10.lfgame 1 7 dist/icone-original.png som_1 23
-          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Animado-0.10.lfgame","rb")); local g=assert(require("src.package_v6").decode(f:read("*a"))); f:close(); assert(g.version==6 and #g.animations==1 and #g.timelineSounds==1)'
+          lua tools/attach_media.lua dist/Criado-0.11.lfgame dist/Com-Midia-0.11.lfgame dist/icone-original.png 660 270 64 64 dist/efeito-original.wav CLICKID alvo
+          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Com-Midia-0.11.lfgame","rb")); local game=assert(require("src.package_v4").decode(f:read("*a"))); f:close(); assert(game.version==4 and #game.resources==2 and #game.cues==1 and #game.sprites==1)'
+          lua tools/bind_sprite.lua dist/Com-Midia-0.11.lfgame dist/Com-Sprite-0.11.lfgame 1 alvo FOLLOW
+          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Com-Sprite-0.11.lfgame","rb")); local game=assert(require("src.package_v5").decode(f:read("*a"))); f:close(); assert(game.version==5 and #game.spriteBindings==1 and game.spriteBindings[1].id=="alvo")'
+          lua tools/animate_media.lua dist/Com-Sprite-0.11.lfgame dist/Animado-0.11.lfgame 1 7 dist/icone-original.png som_1 23
+          lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Animado-0.11.lfgame","rb")); local g=assert(require("src.package_v6").decode(f:read("*a"))); f:close(); assert(g.version==6 and #g.animations==1 and #g.timelineSounds==1)'
       - name: Upload Player test build
         uses: actions/upload-artifact@v4
         with:
-          name: lua-flash-player-0.10-love-and-game
+          name: lua-flash-player-0.11-love-and-game
           path: |
-            dist/Lua-Flash-Player-0.10.love
-            dist/Exemplo-0.10.lfgame
-            dist/Criado-0.10.lfgame
-            dist/Com-Midia-0.10.lfgame
-            dist/Com-Sprite-0.10.lfgame
-            dist/Animado-0.10.lfgame
+            dist/Lua-Flash-Player-0.11.love
+            dist/Exemplo-0.11.lfgame
+            dist/Criado-0.11.lfgame
+            dist/Com-Midia-0.11.lfgame
+            dist/Com-Sprite-0.11.lfgame
+            dist/Animado-0.11.lfgame
             dist/icone-original.png
             dist/efeito-original.wav
           if-no-files-found: error
