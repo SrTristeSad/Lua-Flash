@@ -76,6 +76,13 @@ love.keypressed("return")
 love.keypressed("g")
 -- 0.4: load declarative example, dispatch key rule, click, draw, and save it.
 love.mousepressed(470,31,1,false)
+-- v0.14 visual curve editor: select the second segment and cycle its mode.
+love.keypressed("e")
+love.draw()
+love.mousepressed(745,239,1,false)
+love.keypressed("c")
+love.draw()
+love.keypressed("e")
 love.keypressed("z")
 love.keypressed("f8")
 love.keypressed("f9")
@@ -87,8 +94,17 @@ ctrl=true
 love.keypressed("s")
 ctrl=false
 assert(saved["player_game.lfgame"])
-local GamePackage=require("src.package_v8")
-assert(GamePackage.decode(saved["player_game.lfgame"]))
+local GamePackage=require("src.package_v9")
+local savedGame=assert(GamePackage.decode(saved["player_game.lfgame"]))
+assert(savedGame.version==9)
+local edited=false
+for _,curve in ipairs(savedGame.easings) do
+  if curve.index==1 and curve.frame==23 then
+    assert(curve.mode=="EASE_IN_OUT","editor change must persist in saved package")
+    edited=true
+  end
+end
+assert(edited,"GUI must modify selected easing segment")
 love.keyreleased("w")
 love.focus(false)
 love.draw()

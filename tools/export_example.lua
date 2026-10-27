@@ -1,8 +1,8 @@
 -- Generate a distributable data-only .lfgame example outside of the Player.
--- Run from repository root: lua tools/export_example.lua dist/Exemplo-0.13.lfgame
+-- Run from repository root: lua tools/export_example.lua dist/Exemplo-0.14.lfgame
 package.path="./player-lua/?.lua;./player-lua/?/init.lua;"..package.path
-local Example=require("src.game_example_v8")
-local output=(arg and arg[1]) or "Exemplo-0.13.lfgame"
+local Example=require("src.game_example_v9")
+local output=(arg and arg[1]) or "Exemplo-0.14.lfgame"
 local bytes=Example.bytes()
 local f,err=io.open(output,"wb")
 if not f then error(err) end
