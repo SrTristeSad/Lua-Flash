@@ -1,24 +1,45 @@
 # Lua-Flash
 
-**Uma nova plataforma de animacao e jogos em Lua: Player e Studio separados.** Recuperamos o fluxo de criacao e execucao do Flash, mas nao implementamos compatibilidade com SWF, FLA, XFL ou ActionScript antigos.
+O **Flash renasce em Lua** — uma nova plataforma para criar e executar jogos e animacoes com arquivos e runtime proprios. Sem suporte legado a SWF, FLA, XFL ou ActionScript da Adobe.
 
-## Pastas dos aplicativos
+## Aplicativos separados
 
-| Projeto | Pasta | Executar |
-|---|---|---|
-| **Player Lua** | [`player-lua/`](player-lua/) | `love player-lua` |
-| **Studio Lua** | [`studio-lua/`](studio-lua/) | `love studio-lua` |
+| Aplicativo | Pasta | Inicializacao | Situacao |
+|---|---|---|---|
+| **Player Lua** | [`player-lua/`](player-lua/) | `love player-lua` | **0.2 experimental — foco atual** |
+| **Studio Lua** | [`studio-lua/`](studio-lua/) | `love studio-lua` | 0.1 experimental, preservado |
 
-**O Player e o foco atual.** Abre uma demonstracao animada propria e arquivos `.lflash` arrastados para a janela. O Studio conserva as ferramentas de desenho, camadas, timeline e pre-visualizacao ja iniciadas.
+O Player agora possui motor de transporte proprio, abertura de `.lflash`, velocidade 0,25–4×, repeticao, navegacao por quadros, tela cheia e **interpolacao opcional de formas** entre quadros-chave compativeis. A demonstracao nativa usa cinco quadros-chave.
 
-Os dois projetos sao **apps LÖVE separados**, com pontos de entrada, janelas e pastas independentes. O codigo do modelo `.lflash` e o renderizador ficam espelhados em `player-lua/src/` e `studio-lua/src/`, com testes que impedem divergencias. A origem canonica nesta fase e o Player. Execute `python tools/sync_core.py` ao modificar esses arquivos.
+O Studio foi preservado em pasta independente. Os dois aplicativos compartilham formato de documento e renderizador Lua, verificados com `python tools/sync_core.py --check`.
 
-## Requisitos e testes
+## Executar o Player
 
-- [LÖVE 11.5](https://love2d.org/) para rodar as interfaces de desktop.
-- `lua tests/model_test.lua` para testes do formato e do relogio do runtime, a partir da raiz.
-- `python tools/sync_core.py --check` para conferir sincronizacao dos modulos compartilhados.
+Instale [LÖVE 11.5](https://love2d.org/) e rode a partir da raiz:
 
-Nao existe player de SWF nem interpretador de scripts Lua de terceiros nesta versao. Esta e a versao **0.1 experimental**, ainda sem homologacao grafica completa.
+```bash
+love player-lua
+```
 
-Veja [o plano tecnico](docs/ROADMAP.md) e a [analise historica do Flash Player](docs/ANALISE_FLASH_PLAYER_32.md). Projeto independente, sem afiliacao com a Adobe.
+Para construir o pacote `.love` independente do Studio:
+
+```bash
+python3 tools/package_player.py
+```
+
+O arquivo resultante sera `dist/Lua-Flash-Player-0.2.love`. Voce pode abri-lo com LÖVE; **nao e um executavel Windows autonomo**. O GitHub Actions tambem publica um pacote de teste na pagina de cada execucao bem-sucedida. Consulte o [manual do Player](player-lua/README.md).
+
+## Testes
+
+```bash
+lua tests/model_test.lua
+lua tests/player_test.lua
+lua tests/gui_smoke.lua
+python3 tools/sync_core.py --check
+```
+
+O GitHub Actions executa sintaxe e testes automaticamente; as interfaces ainda precisam de avaliacao visual em LÖVE de verdade. Codigos Lua de terceiros nao sao carregados por arquivos `.lflash`.
+
+[Roadmap](docs/ROADMAP.md) · [Referencia historica Flash Player](docs/ANALISE_FLASH_PLAYER_32.md)
+
+O Lua-Flash e independente e nao e afiliado a Adobe.

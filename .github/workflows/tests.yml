@@ -19,3 +19,11 @@ jobs:
         run: lua tests/player_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
+      - name: Package standalone Player .love
+        run: python3 tools/package_player.py
+      - name: Upload Player test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: lua-flash-player-0.2-love
+          path: dist/Lua-Flash-Player-0.2.love
+          if-no-files-found: error
