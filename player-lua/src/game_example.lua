@@ -9,6 +9,7 @@ function D.definition()
     document=Scene.create(),
     rules={
       {event="CLICK",layer=2,shape=1,action="SCORE",value=1},
+      {event="CLICK",layer=2,shape=2,action="SCORE",value=1},
       {event="CLICK",layer=1,shape=1,action="SCORE",value=-1},
       {event="KEY",key="z",action="SEEK",value=1}
     }
