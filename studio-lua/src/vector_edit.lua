@@ -93,6 +93,47 @@ function M.pickSegment(paths,x,y,tolerance)
   if not closest or ct<=.001 or ct>=.999 then return nil end
   return closest,ci,ct
 end
+-- Bend an existing cubic without moving its endpoints. The same offset is
+-- applied to the two controls, divided by their combined Bernstein weight,
+-- so the curve passes through the dragged position at parameter t.
+function M.bendSegment(path,segment,t,dx,dy)
+  local count=path and #path.nodes or 0
+  if not integer(segment) or segment<1
+      or segment>(path.closed and count or count-1)
+      or not valid(t) or t<.05 or t>.95
+      or not valid(dx) or not valid(dy) then
+    return nil,"invalid segment drag"
+  end
+  local result=clone(path)
+  local a=result.nodes[segment]
+  local b=result.nodes[segment%count+1]
+  local factor=1/(3*t*(1-t))
+  local points={{a.ox+dx*factor,a.oy+dy*factor},
+    {b.ix+dx*factor,b.iy+dy*factor}}
+  for _,p in ipairs(points) do
+    if not valid(p[1]) or not valid(p[2]) or
+        math.abs(p[1])>100000 or math.abs(p[2])>100000 then
+      return nil,"coordinate limit"
+    end
+  end
+  a.ox,a.oy=points[1][1],points[1][2]
+  b.ix,b.iy=points[2][1],points[2][2]
+  return result
+end
+function M.planBend(scope,layer,frame,id,segment,t,dx,dy)
+  local path=locate(scope,layer,frame,id)
+  if not path then return nil,"path not found" end
+  local result,err=M.bendSegment(path,segment,t,dx,dy)
+  if not result then return nil,err end
+  return {id=id,apply=function()
+    local paths=V.ensureKey(scope,layer,frame)
+    for i,p in ipairs(paths) do
+      if p.id==id then paths[i]=result;return end
+    end
+    error("path changed before bend")
+  end}
+end
+
 function M.planInsert(scope,layer,frame,id,segment,t)
   local path=locate(scope,layer,frame,id)
   if not path then return nil,"path not found" end
