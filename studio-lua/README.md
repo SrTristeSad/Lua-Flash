@@ -27,13 +27,14 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 - **Salvamento de símbolos**: o Studio grava um arquivo auxiliar `nome.lflash.lflib` além de `nome.lflash`. Mantenha **os dois arquivos juntos**. O Player Lua 0.28 não lê a biblioteca auxiliar e, por enquanto, não reproduz essas instâncias; somente o Studio as desenha em prévia. Abrir apenas o `.lflash` ou importá-lo por arrastar não recupera a biblioteca auxiliar.
 - **Histórico**: desfazer/refazer inclui a biblioteca e as instâncias criadas, além do documento principal.
 
-- **Ctrl+C / Ctrl+V**: copiar formas do quadro atual e colar como quadro-chave na posição atual (na camada selecionada). A cópia é independente e pode ser desfeita.
+- **Ctrl+C / Ctrl+V**: copiar desenhos **e instâncias de símbolos** do quadro atual, colando ambos em um novo quadro-chave na camada ativa. A cópia atribui novos IDs às instâncias, limpa exposições antigas no destino e pode ser desfeita. Símbolos referenciados precisam existir na biblioteca do projeto.
 - **PageUp / PageDown**: ir para o quadro-chave anterior / seguinte da camada atual.
 - **Home / End**: ir ao primeiro / último quadro da timeline.
 - **Timeline multicamadas**: exibe até três trilhas simultaneamente, começando pela camada ativa; clicar noutra trilha seleciona aquela camada.
 - **Roda do mouse sobre a timeline**: deslocar a janela de quadros; **Ctrl+roda**: ampliar/reduzir o tamanho das células (12–38 px).
 - **Shift+clique nos quadros-chave**: selecionar ou retirar vários quadros da seleção (destacados em roxo). Arraste um dos selecionados para mover todos juntos; Ctrl+arrastar duplica o grupo. A operação é atômica: se qualquer destino estiver ocupado ou fora dos limites, nada é alterado.
 - **Arrastar quadro-chave na timeline**: mover para quadro vazio da camada atual. **Ctrl+arrastar**: duplicar mantendo a origem. Destinos ocupados não são sobrescritos. O primeiro quadro-chave (quadro 1) não pode ser movido, mas pode ser duplicado.
+- **Sincronização de instâncias na timeline**: mover ou duplicar um ou vários quadros-chave transfere também as instâncias associadas às posições de origem, de forma atômica. Duplicações recebem IDs novos. Uma colisão em qualquer trilha de instâncias impede todo o movimento. Instâncias não são movidas entre camadas distintas nesta versão.
 - **Ctrl+S**: salvar o projeto com o nome atual na pasta de dados LÖVE.
 - **Ctrl+Shift+S**: Salvar como, com nome personalizado (letras, números, `_` e `-`), recusando sobrescrever arquivo com outro nome já existente.
 - **Camadas**: botões `O/-` e `L/X` ao lado do nome permitem mostrar/ocultar e bloquear/desbloquear cada camada com o mouse.
@@ -48,6 +49,7 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 ```bash
 lua tests/studio_edit_test.lua
 lua tests/studio_symbols_test.lua
+lua tests/studio_timeline_ops_test.lua
 lua tests/gui_smoke.lua
 python3 tools/package_studio.py
 ```
