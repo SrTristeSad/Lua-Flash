@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.22. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.23. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -21,6 +21,7 @@ local GameExample=require("src.game_example_v9")
 local FileImport=require("src.file_import")
 local NativeDialog=require("src.native_dialog")
 local WindowIcon=require("src.window_icon")
+local Responsive=require("src.responsive")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -55,8 +56,16 @@ local MAX_FILE=25*1024*1024
 local ciSmoke=(os.getenv("LUA_FLASH_SMOKE")=="1")
 local drawnFrames=0
 
-local function metrics()
+local function screenLayout()
   local w,h=love.graphics.getDimensions()
+  return Responsive.layout(w,h)
+end
+local function logicalPointer(x,y)
+  return Responsive.logical(screenLayout(),x,y)
+end
+local function metrics()
+  local screen=screenLayout()
+  local w,h=screen.w,screen.h
   local top,bottom=90,151
   return w,h,top,math.max(80,h-top-bottom)
 end
@@ -726,8 +735,8 @@ local function toggleSmooth()
 end
 
 function love.load(arguments)
-  love.window.setTitle("Lua-Flash Player 0.22")
-  love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
+  love.window.setTitle("Lua-Flash Player 0.23")
+  love.window.setMode(1040,690,{resizable=true,minwidth=600,minheight=380,highdpi=true})
   love.graphics.setDefaultFilter("linear","linear")
   if love.image and love.image.newImageData and
       love.window and love.window.setIcon then
@@ -815,12 +824,16 @@ end
 function love.draw()
   drawnFrames=drawnFrames+1
   local lg=love.graphics
+  local view=screenLayout()
   local w,h,top,stageHeight=metrics()
   lg.clear(C.bg)
+  lg.push("all")
+  lg.translate(view.x,view.y)
+  lg.scale(view.scale,view.scale)
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.22  |  Seletor nativo e identidade visual",21,60,C.muted,fonts.small)
+  label("PLAYER 0.23  |  Interface adaptavel e icone Windows",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -987,10 +1000,13 @@ function love.draw()
     end
     lg.pop()
   end
+  lg.pop()
 end
 
 function love.mousepressed(x,y,key,istouch)
   if istouch or key~=1 then return end
+  x,y=logicalPointer(x,y)
+  if not x then return end
   if pathPrompt.open then return end
   if editorClick(x,y) then return end
   if editor.open and Input.stagePoint(x,y,document,sceneViewport()) then
@@ -1023,6 +1039,11 @@ end
 
 function love.mousereleased(x,y,key,istouch)
   if istouch or key~=1 then return end
+  x,y=logicalPointer(x,y)
+  if not x then
+    if editor.drag then editCommit(editor.drag.before);editor.drag=nil end
+    return
+  end
   if editor.open then
     if editor.drag then editCommit(editor.drag.before);editor.drag=nil end
     return
@@ -1033,6 +1054,10 @@ end
 
 function love.mousemoved(x,y,dx,dy,istouch)
   if istouch then return end
+  local newX,newY=logicalPointer(x,y)
+  if not newX then return end
+  x,y=newX,newY
+  dx,dy=dx/screenLayout().scale,dy/screenLayout().scale
   if editor.drag then editorDrag(x,y);return end
   local sx,sy=Input.stagePoint(x,y,document,sceneViewport())
   if game and sx then game:setReticle(sx,sy) end
@@ -1041,6 +1066,9 @@ function love.mousemoved(x,y,dx,dy,istouch)
 end
 
 function love.touchpressed(id,x,y)
+  local logicalX,logicalY=logicalPointer(x,y)
+  if not logicalX then return end
+  x,y=logicalX,logicalY
   local sx,sy=Input.stagePoint(x,y,document,sceneViewport())
   if not sx then
     love.mousepressed(x,y,1,false)
@@ -1052,6 +1080,9 @@ function love.touchpressed(id,x,y)
 end
 
 function love.touchmoved(id,x,y)
+  local logicalX,logicalY=logicalPointer(x,y)
+  if not logicalX then return end
+  x,y=logicalX,logicalY
   local sx,sy=Input.stagePoint(x,y,document,sceneViewport())
   if game and sx then game:setReticle(sx,sy) end
   input:pointer("move","touch",id,x,y,document,transport.position,
@@ -1059,11 +1090,17 @@ function love.touchmoved(id,x,y)
 end
 
 function love.touchreleased(id,x,y)
+  local logicalX,logicalY=logicalPointer(x,y)
+  if not logicalX then return end
+  x,y=logicalX,logicalY
   onEvent(input:pointer("up","touch",id,x,y,document,transport.position,
     sceneViewport(),smooth and sampler or nil,media))
 end
 
 function love.touchcancelled(id,x,y)
+  local logicalX,logicalY=logicalPointer(x,y)
+  if not logicalX then return end
+  x,y=logicalX,logicalY
   input:pointer("cancel","touch",id,x,y,document,transport.position,
     sceneViewport(),smooth and sampler or nil,media)
 end
@@ -1182,9 +1219,10 @@ end
 
 function love.wheelmoved(_,dy)
   if editor.open and dy~=0 then
-    local x,y=love.mouse.getPosition()
+    local mx,my=love.mouse.getPosition()
+    local x,y=logicalPointer(mx,my)
     local bx,by,bw,bh=editorBounds()
-    if inside(x,y,bx,by,bw,bh) then
+    if x and inside(x,y,bx,by,bw,bh) then
       local track=editorTrack()
       if track then
         editor.scroll=math.max(0,math.min(math.max(0,#track.keys-4),
