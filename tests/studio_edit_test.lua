@@ -869,6 +869,17 @@ filledBox(345,275,395,325)
 project()
 local originalBooleans=assert(Paths.decode(files["projeto.lflash.lfvec"]))
 assert(#Paths.at(originalBooleans,1,1)==2)
+-- UI mouse coordinates and stored stage coordinates are not interchangeable.
+local originalPair=Paths.at(originalBooleans,1,1)
+local firstBox,secondBox=originalPair[1],originalPair[2]
+local ax0,ay0=firstBox.nodes[1].x,firstBox.nodes[1].y
+local ax1,ay1=firstBox.nodes[3].x,firstBox.nodes[3].y
+local bx0,by0=secondBox.nodes[1].x,secondBox.nodes[1].y
+local bx1,by1=secondBox.nodes[3].x,secondBox.nodes[3].y
+local overlapX,overlapY=(math.max(ax0,bx0)+math.min(ax1,bx1))/2,
+  (math.max(ay0,by0)+math.min(ay1,by1))/2
+local firstOnlyX,firstOnlyY=(ax0+bx0)/2,(ay0+by0)/2
+local secondOnlyX,secondOnlyY=(ax1+bx1)/2,(ay1+by1)/2
 local function selectBooleanOperands()
   press("a")
   love.mousepressed(320,265,1)
@@ -892,18 +903,19 @@ local function booleanAction(key)
   return Paths.at(saved,1,1)[1]
 end
 local intersected=booleanAction("i")
-assert(Paths.hit(intersected,360,290,1))
-assert(not Paths.hit(intersected,330,270,1))
+assert(Paths.hit(intersected,overlapX,overlapY,1))
+assert(not Paths.hit(intersected,firstOnlyX,firstOnlyY,1))
 press("z",true)
 project()
 assert(#Paths.at(assert(Paths.decode(files["projeto.lflash.lfvec"])),1,1)==2)
 local united=booleanAction("u")
-assert(Paths.hit(united,330,270,1) and Paths.hit(united,380,315,1))
+assert(Paths.hit(united,firstOnlyX,firstOnlyY,1) and
+  Paths.hit(united,secondOnlyX,secondOnlyY,1))
 press("z",true)
 project()
 local subtracted=booleanAction("d")
-assert(Paths.hit(subtracted,330,270,1))
-assert(not Paths.hit(subtracted,360,290,1))
+assert(Paths.hit(subtracted,firstOnlyX,firstOnlyY,1))
+assert(not Paths.hit(subtracted,overlapX,overlapY,1))
 press("z",true)
 project()
 assert(#Paths.at(assert(Paths.decode(files["projeto.lflash.lfvec"])),1,1)==2,
