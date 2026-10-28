@@ -237,7 +237,7 @@ local function ui()
   lg.rectangle("fill",0,track,w,h-track)
   lg.setColor(.25,.28,.32)
   lg.line(0,track,w,track)
-  label(mode=="studio" and "LINHA DO TEMPO  |  F6: quadro-chave  SHIFT+F6: excluir" or "REPRODUCAO  |  ESPACO: play/pause",12,track+10,{.44,.82,1})
+  label(mode=="studio" and "TIMELINE | F6: chave  F9: vazio  SHIFT+F6: excluir" or "REPRODUCAO  |  ESPACO: play/pause",12,track+10,{.44,.82,1})
   label("Quadro "..doc.currentFrame.." / "..doc.totalFrames.."    "..doc.fps.." FPS",12,track+41)
   label("Anterior/Proximo: <- ->",12,track+64,{.64,.7,.78})
   if mode=="studio" then
@@ -534,6 +534,14 @@ function love.keypressed(key)
     snapshot()
     active().locked=not active().locked
     msg=active().locked and "Camada bloqueada" or "Camada desbloqueada"
+    return
+  end
+  if key=="f9" then
+    if active().locked then msg="Camada bloqueada";return end
+    snapshot()
+    Model.insertBlankKey(active(),doc.currentFrame)
+    selected=nil
+    msg="Quadro-chave vazio inserido"
     return
   end
   if key=="f6" then
