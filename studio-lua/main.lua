@@ -550,17 +550,22 @@ function love.keypressed(key)
     return
   end
   if ctrl and key=="c" and mode=="studio" then
-    frameClipboard=clone(Model.frame(active(),doc.currentFrame))
-    msg="Quadro copiado para area interna do Studio"
+    frameClipboard={
+      shapes=clone(Model.frame(active(),doc.currentFrame)),
+      instances=clone(Library.at(symbolLibrary,doc.currentLayer,doc.currentFrame))
+    }
+    msg="Quadro e instancias copiados"
     return
   end
   if ctrl and key=="v" and mode=="studio" then
     if not frameClipboard then msg="Nenhum quadro copiado";return end
-    if active().locked then msg="Camada bloqueada";return end
+    local tx,err=TimelineOps.planPaste(doc,symbolLibrary,doc.currentLayer,
+      doc.currentFrame,frameClipboard)
+    if not tx then msg="Nao foi possivel colar: "..tostring(err);return end
     snapshot()
-    active().keys[doc.currentFrame]=clone(frameClipboard)
+    tx.apply()
     selected=nil
-    msg="Quadro colado na camada atual"
+    msg="Quadro e instancias colados"
     return
   end
   if ctrl and key=="n" then newProject();return end
