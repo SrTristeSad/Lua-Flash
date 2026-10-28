@@ -90,3 +90,29 @@ do
   assert(not lib.tracks[1][9])
   print("OK: legacy keys without symbol tracks remain supported")
 end
+
+
+do
+  local doc,lib,id=fresh()
+  local source=assert(Library.place(lib,1,2,id,16,20))
+  local copied={shapes=Model.copy(Model.frame(doc.layers[1],2)),
+    instances=Model.copy(Library.at(lib,1,2))}
+  local beforeDoc,beforeLib=Model.encode(doc),Library.encode(lib)
+  local tx=assert(Ops.planPaste(doc,lib,1,8,copied))
+  assert(Model.encode(doc)==beforeDoc and Library.encode(lib)==beforeLib)
+  tx.apply()
+  assert(doc.layers[1].keys[8] and #doc.layers[1].keys[8]==1)
+  assert(lib.tracks[1][8] and #lib.tracks[1][8]==1)
+  assert(lib.tracks[1][8][1].uid~=source.uid)
+  assert(lib.tracks[1][8][1].symbolId==id)
+  lib.tracks[1][8][1].x=99
+  assert(lib.tracks[1][2][1].x==16)
+  local bad={shapes={},instances={{uid=1,symbolId=999,x=0,y=0,sx=1,sy=1}}}
+  assert(not Ops.planPaste(doc,lib,1,9,bad))
+  -- Copying a frame without instances must clear any inherited sidecar exposure.
+  local blank=assert(Ops.planPaste(doc,lib,1,10,{shapes={},instances={}}))
+  blank.apply()
+  assert(lib.tracks[1][10] and #Library.at(lib,1,10)==0)
+  assert(not Ops.planPaste(doc,lib,1,500,{shapes={},instances={}}))
+  print("OK: artwork + symbol clipboard, independent identities and blank exposure")
+end
