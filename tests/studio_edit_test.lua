@@ -263,3 +263,23 @@ assert(libCopied.tracks[1][6] and libCopied.tracks[1][2])
 assert(libCopied.tracks[1][6][1].uid~=libCopied.tracks[1][2][1].uid,
   "Ctrl+drag should produce independent instance identity")
 print("OK: Studio timeline moves and duplicates symbol instances with undo")
+
+
+-- Clipboard should paste both the artwork and independent symbol instances.
+press("c",true)
+press("right")
+press("right")
+press("v",true)
+local pastedDoc=project()
+local pastedLib=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(Model.isKey(pastedDoc.layers[1],8),"paste must create artwork key at frame 8")
+assert(pastedLib.tracks[1][8] and #pastedLib.tracks[1][8]==1,
+  "paste must include symbol instance")
+assert(pastedLib.tracks[1][8][1].uid~=pastedLib.tracks[1][6][1].uid,
+  "paste must assign a new instance ID")
+press("z",true)
+local undoPasteDoc=project()
+local undoPasteLib=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(not Model.isKey(undoPasteDoc.layers[1],8) and not undoPasteLib.tracks[1][8],
+  "undo must restore both artwork and instance tracks")
+print("OK: Studio Ctrl+C/V copies both art and symbols with independent undo")
