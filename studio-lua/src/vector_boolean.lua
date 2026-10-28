@@ -186,7 +186,7 @@ local function selectedEdges(poly,other,ts,operation,fromB)
   return out
 end
 local function contours(edges)
-  local starts,ends={}
+  local starts,ends={},{}
   for i,e in ipairs(edges) do
     local ka,kb=key(e.a),key(e.b)
     if ka==kb or starts[ka] then return nil,"ambiguous output topology" end
