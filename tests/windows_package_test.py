@@ -49,6 +49,10 @@ def run() -> None:
             assert root + "OpenAL32.dll" in names
             assert root + "license.txt" in names
             assert root + "README-Windows.txt" in names
+            assert root + module.LAUNCHER_NAME in names
+            launcher = archive.read(root + module.LAUNCHER_NAME)
+            assert b"Lua-Flash-Player.exe" in launcher
+            assert b"%~f1" in launcher
             assert root + "love.exe" not in names
             assert root + "lovec.exe" not in names
             exe = work / "Lua-Flash-Player.exe"

@@ -10,25 +10,28 @@ from __future__ import annotations
 import argparse
 import hashlib
 from pathlib import Path, PurePosixPath
-import shutil
 import tempfile
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-VERSION = "0.20"
+VERSION = "0.21"
 LOVE_VERSION = "11.5"
 LOVE_DIR = "love-11.5-win64"
 # Pinned against the public Scoop love.json 11.5 win64 distribution.
 LOVE_SHA256 = "ba6e56be2685e53c817749c4a5007f51137136fe5a3ab64920508babc2e74369"
 OUTPUT_DIR = f"Lua-Flash-Player-{VERSION}-Windows-x64"
 EXE_NAME = "Lua-Flash-Player.exe"
+LAUNCHER_NAME = "ABRIR-JOGO.cmd"
 ROOT = Path(__file__).resolve().parent.parent
 
-README = """Lua-Flash Player 0.20 — Windows x64 (portable)
+README = """Lua-Flash Player 0.21 — Windows x64 (portable)
 ===================================================
 1. Extract ALL contents of this ZIP into one folder.
 2. Double-click Lua-Flash-Player.exe.
 3. Do not remove or move its adjacent DLL files.
-4. To import, drag a native .lflash or .lfgame file into the window.
+4. To open a game: drag .lflash/.lfgame into the window, press Ctrl+O
+   and paste its full file path, or drag the game onto ABRIR-JOGO.cmd.
+5. Use Windows 'Open With...' to select Lua-Flash-Player.exe for these files.
+   This portable build DOES NOT change Windows registry or associations.
 
 The Player embeds LÖVE 11.5; installing LÖVE separately is NOT required.
 This is NOT an MSI installer, and is not digitally signed. Windows may
@@ -45,6 +48,21 @@ Runtime: https://github.com/love2d/love/releases/tag/11.5
 
 No guarantees are made for every Windows GPU or installation. Test on your
 hardware before treating the player as production ready.
+"""
+
+LAUNCHER = b"""@echo off\r
+setlocal\r
+if "%~1"=="" (\r
+  echo Arraste um arquivo .lflash ou .lfgame para este .cmd.\r
+  pause\r
+  exit /b 1\r
+)\r
+if not exist "%~1" (\r
+  echo Arquivo nao encontrado.\r
+  pause\r
+  exit /b 1\r
+)\r
+start "" "%~dp0Lua-Flash-Player.exe" "%~f1"\r
 """
 
 
@@ -65,7 +83,8 @@ def _add(archive: ZipFile, name: str, data: bytes) -> None:
 
 
 def build(love_zip: Path, game: Path, output: Path) -> None:
-    actual_hash = hashlib.file_digest(love_zip.open("rb"), "sha256").hexdigest()
+    with love_zip.open("rb") as source:
+        actual_hash = hashlib.file_digest(source, "sha256").hexdigest()
     if actual_hash != LOVE_SHA256:
         raise ValueError(
             f"official LÖVE archive checksum mismatch: got {actual_hash}, "
@@ -130,6 +149,7 @@ def build(love_zip: Path, game: Path, output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(output, "w") as archive:
         _add(archive, f"{OUTPUT_DIR}/{EXE_NAME}", fused)
+        _add(archive, f"{OUTPUT_DIR}/{LAUNCHER_NAME}", LAUNCHER)
         _add(archive, f"{OUTPUT_DIR}/README-Windows.txt", README.encode("utf-8"))
         for name in sorted(extracted):
             _add(archive, f"{OUTPUT_DIR}/{name}", extracted[name])
@@ -139,6 +159,8 @@ def build(love_zip: Path, game: Path, output: Path) -> None:
         names = verify.namelist()
         if f"{OUTPUT_DIR}/{EXE_NAME}" not in names:
             raise AssertionError("fused application missing from output")
+        if f"{OUTPUT_DIR}/{LAUNCHER_NAME}" not in names:
+            raise AssertionError("file activation launcher missing from output")
         if not any(name.lower().endswith(".dll") for name in names):
             raise AssertionError("Windows DLLs missing from output")
     print(
