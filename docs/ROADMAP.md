@@ -2,35 +2,35 @@
 
 ## Objetivo
 
-Motor independente para animações e jogos em Lua/LÖVE. Player em `player-lua/`, Studio em `studio-lua/` sem alterações. Formatos próprios LUAFGAME 1–9 e `.lflash`, não SWF/FLA/ActionScript.
+Runtime independente de jogos e animações em Lua/LÖVE com formatos próprios LUAFGAME 1–9 e .lflash. Player e Studio são aplicativos separados. Não executa SWF/FLA/ActionScript históricos.
 
-## Base implementada — 0.1 até 0.22
+## Entregas até a versão 0.23
 
-- [x] Timeline, formas, keyframes, easing, sprites, PNG/WAV.
-- [x] Regras, estados, colisões e clique/toque por máscaras.
-- [x] Editor visual, histórico, recuperação, áudio polifônico e diagnósticos.
-- [x] Windows x64 portátil com LÖVE 11.5 e arquivos nativos abertos pelo Windows.
-- [x] Ícone de janela, seletor Win32 Unicode, testes LÖVE e GitHub Actions.
+- [x] Timeline, formas, sprites PNG/WAV, regras e estados.
+- [x] Editor de quadros-chave, easing, undo/redo e recuperação.
+- [x] Colisões, clique por máscaras, áudio polifônico.
+- [x] Arquivos nativos com seletor Windows Unicode, diagnóstico e logs.
+- [x] Windows portátil com ícone original embutido e interface adaptável.
+- [x] Testes LÖVE, de estresse, integridade e CI Windows.
 
-## Player 0.23 — compatibilidade visual Windows
+## Player 0.24 — navegação e versão do executável
 
-- [x] Área de trabalho virtual proporcional para janelas pequenas e grandes.
-- [x] Inversão de coordenadas mouse/toque e recorte do palco coerente com escala.
-- [x] Suporte `highdpi` da janela e layout em unidades lógicas.
-- [x] Ícone original no recurso PE do `.exe`, com Win32 RT_ICON/RT_GROUP_ICON.
-- [x] Testes de desenho em 640 × 400 e outras resoluções.
-- [x] Testes de integridade e leitura do ícone no PE Windows.
-- [x] Compatibilidade com formatos anteriores e Studio preservado.
-- [ ] Testes manuais com monitores de diferentes escalas DPI e GPUs reais.
-- [ ] Layout verdadeiramente refluido para telas ultrapequenas.
+- [x] Tab e Shift+Tab nos doze controles principais.
+- [x] Enter executa controle em foco e Escape limpa a seleção.
+- [x] Contorno de foco visível.
+- [x] Painel F1 com os atalhos mais importantes.
+- [x] Recurso nativo VERSIONINFO com nome Lua-Flash Player e versão 0.24.0.0.
+- [x] Testes de foco, interação GUI e verificação Win32 de versão no EXE.
+- [x] Studio preservado e formatos anteriores compatíveis.
+- [ ] Navegação completa no editor e outras áreas.
+- [ ] Integração com leitores de tela e testes de acessibilidade reais.
 
-## Prioridades rumo à versão 1.0
+## Prioridades para 1.0 de PC
 
-- [ ] Polir navegação, textos, acessibilidade e menus em resoluções variadas.
-- [ ] Perfil de renderização, CPU e GPU com jogos grandes em hardware real.
-- [ ] Metadados de versão no executável, assinatura digital e atualizações.
-- [ ] Instalador opcional e associação de arquivos com permissão do usuário.
-- [ ] Testes de longa duração e importação de arquivos hostis.
-- [ ] Homologação de uso real no Windows/Linux antes da versão estável.
+- [ ] Navegação integral pelo teclado, tradução e configurações de contraste.
+- [ ] Benchmarks CPU/GPU e memória em jogos maiores no Windows.
+- [ ] Assinatura digital e instalador opcional, sem alterar arquivos do usuário.
+- [ ] Testes de estabilidade prolongada e atualização segura.
+- [ ] Homologação visual e de desempenho em hardware real.
 
-O Player é experimental até que a usabilidade, estabilidade e distribuição sejam validadas.
+O Player continua experimental.
