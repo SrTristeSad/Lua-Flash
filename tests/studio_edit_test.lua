@@ -106,34 +106,34 @@ assert(project().currentFrame==1,"Home should move to first frame")
 print("OK: Studio timeline copy/paste, undo and navigation")
 
 
--- Mouse drag moves a key without overwriting another key.
+-- Timeline drag keeps mandatory frame 1; other keyframes are movable.
 press("n",true)
-press("f6")
 local track=780-170
 love.mousepressed(250+8,track+45,1)
 love.mousemoved(250+19*3+8,track+45,57,0)
 love.mousereleased(250+19*3+8,track+45,1)
+assert(Model.isKey(project().layers[1],1),"frame 1 must never be moved away")
+press("right")
+press("f6")
+love.mousepressed(250+19+8,track+45,1)
+love.mousemoved(250+19*3+8,track+45,38,0)
+love.mousereleased(250+19*3+8,track+45,1)
 local moved=project()
-assert(Model.isKey(moved.layers[1],4),"drag should move key to frame 4")
-assert(not Model.isKey(moved.layers[1],1),"move should remove source key")
+assert(Model.isKey(moved.layers[1],4),"drag should move frame 2 to 4")
+assert(not Model.isKey(moved.layers[1],2),"move should remove source key")
 press("z",true)
-local dragUndone=project()
-assert(Model.isKey(dragUndone.layers[1],1) and not Model.isKey(dragUndone.layers[1],4),
-  "undo should restore moved key")
--- Ctrl-drag duplicates while retaining the source.
+local undone=project()
+assert(Model.isKey(undone.layers[1],2) and not Model.isKey(undone.layers[1],4))
 modifiers.lctrl=true
-love.mousepressed(250+8,track+45,1)
+love.mousepressed(250+19+8,track+45,1)
 modifiers.lctrl=false
-love.mousemoved(250+19*4+8,track+45,76,0)
+love.mousemoved(250+19*4+8,track+45,57,0)
 love.mousereleased(250+19*4+8,track+45,1)
 local copied=project()
-assert(Model.isKey(copied.layers[1],1) and Model.isKey(copied.layers[1],5),
-  "Ctrl-drag must duplicate key")
--- Reject move into occupied destination.
-love.mousepressed(250+8,track+45,1)
-love.mousemoved(250+19*4+8,track+45,76,0)
+assert(Model.isKey(copied.layers[1],2) and Model.isKey(copied.layers[1],5))
+love.mousepressed(250+19+8,track+45,1)
+love.mousemoved(250+19*4+8,track+45,57,0)
 love.mousereleased(250+19*4+8,track+45,1)
 local protected=project()
-assert(Model.isKey(protected.layers[1],1) and Model.isKey(protected.layers[1],5),
-  "occupied target must remain unchanged")
-print("OK: Studio mouse keyframe move, duplicate, undo and collision safety")
+assert(Model.isKey(protected.layers[1],2) and Model.isKey(protected.layers[1],5))
+print("OK: Studio drag, duplication, undo and first-frame protection")
