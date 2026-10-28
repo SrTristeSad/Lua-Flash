@@ -140,7 +140,7 @@ def _add(archive: ZipFile, name: str, data: bytes) -> None:
     archive.writestr(info, data, compress_type=ZIP_DEFLATED, compresslevel=9)
 
 
-def build(love_zip: Path, game: Path, output: Path) -> None:
+def build(love_zip: Path, game: Path, output: Path, *, embed_exe_icon: bool = True) -> None:
     with love_zip.open("rb") as source:
         actual_hash = hashlib.file_digest(source, "sha256").hexdigest()
     if actual_hash != LOVE_SHA256:
@@ -194,7 +194,7 @@ def build(love_zip: Path, game: Path, output: Path) -> None:
     # changing a fused ZIP's offsets or accidentally invalidating its payload.
     # Synthetic unit tests on non-Windows use a tiny fake PE and skip Win32.
     ico=original_icon_ico()
-    if os.name=="nt":
+    if os.name=="nt" and embed_exe_icon:
         import importlib.util
         resources_path=Path(__file__).with_name("windows_resources.py")
         spec=importlib.util.spec_from_file_location("windows_resources",resources_path)

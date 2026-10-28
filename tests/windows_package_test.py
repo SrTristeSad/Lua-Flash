@@ -39,7 +39,7 @@ def run() -> None:
         official_hash = module.LOVE_SHA256
         module.LOVE_SHA256 = hashlib.sha256(official_zip.read_bytes()).hexdigest()
         output = work / "release.zip"
-        module.build(official_zip, game, output)
+        module.build(official_zip, game, output, embed_exe_icon=False)
         with ZipFile(output, "r") as archive:
             root = module.OUTPUT_DIR + "/"
             exe_name = root + module.EXE_NAME
@@ -69,7 +69,7 @@ def run() -> None:
         # A modified or unpinned runtime MUST NOT be packaged.
         module.LOVE_SHA256 = official_hash
         try:
-            module.build(official_zip, game, work / "bad.zip")
+            module.build(official_zip, game, work / "bad.zip", embed_exe_icon=False)
         except ValueError as err:
             assert "checksum mismatch" in str(err)
         else:

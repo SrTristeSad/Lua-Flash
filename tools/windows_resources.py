@@ -132,6 +132,10 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("exe", type=Path)
     p.add_argument("ico", type=Path)
+    p.add_argument("--verify", action="store_true")
     a = p.parse_args()
-    embed_icon(a.exe, a.ico.read_bytes())
+    if a.verify:
+        verify_icon(a.exe,a.ico.read_bytes())
+    else:
+        embed_icon(a.exe,a.ico.read_bytes())
     print("Verified original Lua-Flash icon embedded in executable resources")
