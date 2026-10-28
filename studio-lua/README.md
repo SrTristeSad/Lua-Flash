@@ -23,7 +23,8 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 - **F8**: bloquear/desbloquear camada atual.
 - **F6**: inserir quadro-chave; **Shift+F6**: remover.
 - **Ctrl+F8**: criar símbolo `Graphic` copiando o desenho do quadro ativo; **Ctrl+Shift+F8**: `MovieClip`; **Ctrl+Alt+F8**: `Button`.
-- **Biblioteca de símbolos (primeira etapa)**: lista até cinco símbolos na lateral; clique no nome e depois no palco para criar uma instância reutilizável. A prévia dos três tipos é **estática** nesta versão; o comportamento temporal e de botão do Flash ainda não está implementado.
+- **Biblioteca de símbolos**: lista até cinco símbolos na lateral; clique no nome e depois no palco para criar uma instância reutilizável. **Ctrl+F10** adiciona uma pose usando os desenhos do quadro atual do palco; as poses são normalizadas individualmente para a origem superior esquerda do símbolo (edição de pivô e tween ainda não disponíveis).
+- **Prévia temporal experimental**: `Graphic` percorre seus quadros internos conforme a timeline principal (reinicia numa nova chave da trilha), enquanto `MovieClip` usa relógio próprio por instância durante a reprodução e pausa com o projeto. `Button` exibe **Up, Over, Down** nos quadros 1–3, e o quadro 4, quando presente, define a área de clique (Hit, não desenhado); o mouse interage com o Button no modo **PLAYER/TAB** do Studio. Não executa scripts ou eventos de clique de ActionScript.
 - **Salvamento de símbolos**: o Studio grava um arquivo auxiliar `nome.lflash.lflib` além de `nome.lflash`. Mantenha **os dois arquivos juntos**. O Player Lua 0.28 não lê a biblioteca auxiliar e, por enquanto, não reproduz essas instâncias; somente o Studio as desenha em prévia. Abrir apenas o `.lflash` ou importá-lo por arrastar não recupera a biblioteca auxiliar.
 - **Histórico**: desfazer/refazer inclui a biblioteca e as instâncias criadas, além do documento principal.
 
@@ -50,6 +51,7 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 lua tests/studio_edit_test.lua
 lua tests/studio_symbols_test.lua
 lua tests/studio_timeline_ops_test.lua
+lua tests/studio_symbol_motion_test.lua
 lua tests/gui_smoke.lua
 python3 tools/package_studio.py
 ```
