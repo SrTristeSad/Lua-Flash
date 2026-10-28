@@ -243,17 +243,27 @@ local function ui()
   if mode=="studio" then
     local startX,cell=250,timelineCell
     local count=timelineCount(w)
-    for j=1,count do
-      local n=offset+j-1
-      if n<=doc.totalFrames then
-        local cx=startX+(j-1)*cell
-        local hasKey=Model.isKey(active(),n)
-        lg.setColor(selectedKeys[n] and {.60,.40,.87} or (n==doc.currentFrame and {.2,.62,.88} or (hasKey and {.52,.58,.66} or {.26,.29,.34})))
-        lg.rectangle("fill",cx,track+38,cell-2,41)
-        if n%5==0 or j==1 then label(tostring(n),cx,track+17,{.72,.76,.82}) end
-        if hasKey then
-          lg.setColor(.96,.79,.3)
-          lg.circle("fill",cx+8,track+65,3)
+    local rows=math.min(#doc.layers,3)
+    for row=1,rows do
+      local layerIndex=((doc.currentLayer+row-2)%#doc.layers)+1
+      local layer=doc.layers[layerIndex]
+      local rowY=track+38+(row-1)*26
+      label(tostring(layerIndex)..(layerIndex==doc.currentLayer and "*" or ""),222,rowY+4)
+      for j=1,count do
+        local n=offset+j-1
+        if n<=doc.totalFrames then
+          local cx=startX+(j-1)*cell
+          local hasKey=Model.isKey(layer,n)
+          local chosen=layerIndex==doc.currentLayer and selectedKeys[n]
+          lg.setColor(chosen and {.60,.40,.87} or
+            (n==doc.currentFrame and {.2,.62,.88} or
+            (hasKey and {.52,.58,.66} or {.26,.29,.34})))
+          lg.rectangle("fill",cx,rowY,cell-2,23)
+          if row==1 and (n%5==0 or j==1) then label(tostring(n),cx,track+17,{.72,.76,.82}) end
+          if hasKey then
+            lg.setColor(.96,.79,.3)
+            lg.circle("fill",cx+math.min(8,cell/2),rowY+16,3)
+          end
         end
       end
     end
@@ -298,7 +308,15 @@ function love.mousepressed(mx,my,mousebutton)
       doc.currentLayer=i;selected=nil;return
     end
   end
-  if my>=track+38 and my<=track+79 and mx>=250 and mx<w-18 then
+  if my>=track+38 and my<track+38+math.min(#doc.layers,3)*26
+      and mx>=250 and mx<w-18 then
+    local row=math.floor((my-track-38)/26)+1
+    local layerIndex=((doc.currentLayer+row-2)%#doc.layers)+1
+    if layerIndex~=doc.currentLayer then
+      doc.currentLayer=layerIndex
+      selectedKeys={}
+      timelineDrag=nil
+    end
     local n=offset+math.floor((mx-250)/timelineCell)
     if n>=1 and n<=doc.totalFrames then
       runtime.playing=false
