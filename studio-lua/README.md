@@ -22,12 +22,14 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 - **F7**: ocultar/mostrar camada atual.
 - **F8**: bloquear/desbloquear camada atual.
 - **F6**: inserir quadro-chave; **Shift+F6**: remover.
-- **Ctrl+S**: salvar como `projeto.lflash` na pasta de dados LÖVE.
+- **Ctrl+S**: salvar o projeto com o nome atual na pasta de dados LÖVE.
+- **Ctrl+Shift+S**: Salvar como, com nome personalizado (letras, números, `_` e `-`), recusando sobrescrever arquivo com outro nome já existente.
+- **Camadas**: botões `O/-` e `L/X` ao lado do nome permitem mostrar/ocultar e bloquear/desbloquear cada camada com o mouse.
 - **Ctrl+O**: reabrir o último `projeto.lflash` salvo.
 - **Ctrl+E**: exportar quadro como `quadro.svg`.
 - **Tab**: alternar Studio / prévia Player.
 
-O nome de salvamento ainda é fixo, portanto **Ctrl+S substitui o projeto salvo anteriormente**. Faça cópias de segurança dos arquivos importantes antes de editar. O Studio não oferece execução de scripts de jogo nem empacotamento de jogos LUAFGAME; essas funções permanecem no fluxo de ferramentas/Player.
+**Ctrl+S substitui o arquivo atualmente associado ao projeto**. Para criar um arquivo separado, use Ctrl+Shift+S. Faça cópias de segurança dos projetos importantes antes de editar. O Studio não oferece execução de scripts de jogo nem empacotamento de jogos LUAFGAME; essas funções permanecem no fluxo de ferramentas/Player.
 
 ## Validação
 
