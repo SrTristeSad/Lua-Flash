@@ -224,3 +224,39 @@ project()
 local undoneSymbol=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
 assert(#SymbolLibrary.at(undoneSymbol,1,1)==0,"undo must remove placed instance")
 print("OK: Studio symbol creation, stage stamping, sidecar save and undo")
+
+
+-- Moving / copying an authored key must keep symbol-instance tracks aligned.
+press("right")
+press("f6")
+project()
+local beforeTransfer=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(beforeTransfer.tracks[1][2] and #beforeTransfer.tracks[1][2]==1,
+  "F6 should expose the existing instance at frame 2")
+local uidBefore=beforeTransfer.tracks[1][2][1].uid
+local yTimeline=780-170+45
+love.mousepressed(x(2),yTimeline,1)
+love.mousemoved(x(6),yTimeline,76,0)
+love.mousereleased(x(6),yTimeline,1)
+local docMoved=project()
+local libMoved=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(Model.isKey(docMoved.layers[1],6) and not Model.isKey(docMoved.layers[1],2))
+assert(libMoved.tracks[1][6] and not libMoved.tracks[1][2])
+assert(libMoved.tracks[1][6][1].uid==uidBefore)
+press("z",true)
+local docRestored=project()
+local libRestored=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(Model.isKey(docRestored.layers[1],2) and not Model.isKey(docRestored.layers[1],6))
+assert(libRestored.tracks[1][2] and not libRestored.tracks[1][6])
+modifiers.lctrl=true
+love.mousepressed(x(2),yTimeline,1)
+modifiers.lctrl=false
+love.mousemoved(x(6),yTimeline,76,0)
+love.mousereleased(x(6),yTimeline,1)
+local docCopied=project()
+local libCopied=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(Model.isKey(docCopied.layers[1],2) and Model.isKey(docCopied.layers[1],6))
+assert(libCopied.tracks[1][6] and libCopied.tracks[1][2])
+assert(libCopied.tracks[1][6][1].uid~=libCopied.tracks[1][2][1].uid,
+  "Ctrl+drag should produce independent instance identity")
+print("OK: Studio timeline moves and duplicates symbol instances with undo")
