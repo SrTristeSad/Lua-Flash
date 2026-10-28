@@ -343,6 +343,7 @@ assert(Model.encode(project())==Model.encode(originalScene),
 press("o",true) -- Reload the two files from LÖVE filesystem.
 local reloaded=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
 assert(#reloaded.symbols[1].definition.layers[1].keys[2]==1)
+love.mousepressed(1050,357,1) -- Select first item in the library after reopening.
 love.mousepressed(700,20,1) -- Edit symbol through toolbar button.
 press("f5")
 local expanded=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
