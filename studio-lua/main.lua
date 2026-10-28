@@ -329,9 +329,12 @@ local function jumpKey(direction)
   if target then runtime.playing=false;setFrame(target) else msg="Nenhum quadro-chave nessa direcao" end
 end
 
+local function vectorScope()
+  return Vector.scope(vectors,editingSymbolId,true)
+end
 local function vectorOnFrame(id)
-  if editingSymbolId or not id then return nil end
-  for _,path in ipairs(Vector.at(vectors,doc.currentLayer,doc.currentFrame)) do
+  if not id then return nil end
+  for _,path in ipairs(Vector.at(vectorScope(),doc.currentLayer,doc.currentFrame)) do
     if path.id==id then return path end
   end
   return nil
@@ -341,7 +344,7 @@ local function editVectorFrame()
   if not layer or layer.locked then return false end
   snapshot()
   Model.ensureKey(layer,doc.currentFrame)
-  Vector.ensureKey(vectors,doc.currentLayer,doc.currentFrame)
+  Vector.ensureKey(vectorScope(),doc.currentLayer,doc.currentFrame)
   return true
 end
 
@@ -414,10 +417,8 @@ local function ui()
     if editingSymbolId or selectedSymbol then
       button(editingSymbolId and "VOLTAR PALCO" or "EDIT SIMBOLO",672,8,138,34,editingSymbolId~=nil)
     end
-    if not editingSymbolId then
-      button("P",816,8,36,34,tool=="pen")
-      button("A",856,8,36,34,tool=="node")
-    end
+    button("P",816,8,36,34,tool=="pen")
+    button("A",856,8,36,34,tool=="node")
     if w>1180 then label("Vetor Studio | sem SWF/FLA",900,17,{.67,.72,.8}) end
   else
     label("Previa de publicacao Lua-Flash | ESPACO inicia/pausa",475,17,{.67,.72,.8})
@@ -480,9 +481,9 @@ local function ui()
 
   runtime.draw(doc,doc.currentFrame,view.x,view.y,view.w,view.h)
   if not editingSymbolId then
-    SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view,symbolMotion)
-    VectorRenderer.draw(vectors,doc,doc.currentFrame,view,selectedVector)
+    SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view,symbolMotion,vectors)
   end
+  VectorRenderer.draw(vectorScope(),doc,doc.currentFrame,view,selectedVector)
   if mode=="studio" and marquee then
     local x1,y1,x2,y2=Marquee.bounds(marquee.ax,marquee.ay,marquee.bx,marquee.by)
     if x1 then
@@ -650,10 +651,10 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   if inBox(mx,my,160,8,95,34) then mode="studio";runtime.playing=false;return end
   if inBox(mx,my,263,8,95,34) then mode="player";runtime.playing=true;return end
   if inBox(mx,my,366,8,91,34) then runtime.playing=not runtime.playing;return end
-  if mode=="studio" and not editingSymbolId and inBox(mx,my,816,8,36,34) then
+  if mode=="studio" and inBox(mx,my,816,8,36,34) then
     tool="pen";penPath=nil;msg="Caneta Bezier: clique cria ponto, arraste cria curva; Enter termina";return
   end
-  if mode=="studio" and not editingSymbolId and inBox(mx,my,856,8,36,34) then
+  if mode=="studio" and inBox(mx,my,856,8,36,34) then
     tool="node";penPath=nil;msg="Editar nos: arraste os pontos e as alcas de controle";return
   end
   if mode=="studio" and inBox(mx,my,672,8,138,34) then
@@ -696,7 +697,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     if inBox(mx,my,12+(i-1)%3*46,375+math.floor((i-1)/3)*44,36,35) then
       colorIndex=i
       local path=tool=="node" and vectorOnFrame(selectedVector)
-      if path and not editingSymbolId and editVectorFrame() then
+      if path and editVectorFrame() then
         path=vectorOnFrame(selectedVector)
         if love.keyboard.isDown("lshift","rshift") and path.closed then
           path.fill=clone(palette[i])
@@ -818,7 +819,6 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   local x,y=xy(mx,my)
   local existing=Model.frame(layer,doc.currentFrame)
   if tool=="pen" then
-    if editingSymbolId then msg="Vetores internos de simbolos ainda nao suportados";return end
     local pending=vectorOnFrame(penPath)
     if not pending then
       if not editVectorFrame() then msg="Camada bloqueada";return end
@@ -843,8 +843,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     end
     return
   elseif tool=="node" then
-    if editingSymbolId then msg="Vetores internos de simbolos ainda nao suportados";return end
-    local paths=Vector.at(vectors,doc.currentLayer,doc.currentFrame)
+    local paths=Vector.at(vectorScope(),doc.currentLayer,doc.currentFrame)
     local tol=8/view.scale
     local chosen=vectorOnFrame(selectedVector)
     if chosen then
@@ -1108,11 +1107,11 @@ function love.mousereleased(_,_,button)
       local tx,err=TimelineOps.plan(doc,trackLibrary(),doc.currentLayer,
         op.sources,op.target-op.source,op.duplicate)
       local vectorTx,vectorErr
-      if tx and not editingSymbolId then
-        vectorTx,vectorErr=Vector.planTransfer(vectors,doc.currentLayer,
+      if tx then
+        vectorTx,vectorErr=Vector.planTransfer(vectorScope(),doc.currentLayer,
           op.sources,op.target-op.source,op.duplicate,doc.totalFrames)
       end
-      if tx and (editingSymbolId or vectorTx) then
+      if tx and vectorTx then
         snapshot()
         tx.apply()
         if vectorTx then vectorTx.apply() end
@@ -1169,7 +1168,7 @@ function love.textinput(text)
 end
 
 function love.keypressed(key)
-  if mode=="studio" and not editingSymbolId and not naming and not propertyEditor then
+  if mode=="studio" and not naming and not propertyEditor then
     if key=="return" and tool=="pen" and penPath and not love.keyboard.isDown("lctrl","rctrl") then
       penPath=nil;vectorDrag=nil;msg="Caminho aberto finalizado";return
     end
@@ -1344,7 +1343,7 @@ function love.keypressed(key)
     frameClipboard={
       shapes=clone(Model.frame(active(),doc.currentFrame)),
       instances=clone(Library.at(trackLibrary(),doc.currentLayer,doc.currentFrame)),
-      vectors=not editingSymbolId and clone(Vector.at(vectors,doc.currentLayer,doc.currentFrame)) or {}
+      vectors=clone(Vector.at(vectorScope(),doc.currentLayer,doc.currentFrame))
     }
     msg="Quadro e instancias copiados"
     return
@@ -1355,11 +1354,9 @@ function love.keypressed(key)
       doc.currentFrame,frameClipboard)
     if not tx then msg="Nao foi possivel colar: "..tostring(err);return end
     local vectorTx,vectorErr
-    if not editingSymbolId then
-      vectorTx,vectorErr=Vector.planPaste(vectors,doc.currentLayer,
-        doc.currentFrame,frameClipboard.vectors or {})
-      if not vectorTx then msg="Nao foi possivel colar vetor: "..tostring(vectorErr);return end
-    end
+    vectorTx,vectorErr=Vector.planPaste(vectorScope(),doc.currentLayer,
+      doc.currentFrame,frameClipboard.vectors or {})
+    if not vectorTx then msg="Nao foi possivel colar vetor: "..tostring(vectorErr);return end
     snapshot()
     tx.apply()
     if vectorTx then vectorTx.apply() end
@@ -1381,7 +1378,7 @@ function love.keypressed(key)
   if ctrl and key=="e" then
     local svg=Model.svg(doc,doc.currentFrame)
     if not editingSymbolId then
-      svg=svg:gsub("</svg>",Vector.svg(vectors,doc,doc.currentFrame).."</svg>")
+      svg=svg:gsub("</svg>",Vector.svg(vectorScope(),doc,doc.currentFrame).."</svg>")
     end
     local ok,err=love.filesystem.write("quadro.svg",svg)
     msg=ok and "SVG exportado para pasta de dados do Lua-Flash" or tostring(err)
@@ -1428,7 +1425,7 @@ function love.keypressed(key)
     if active().locked then msg="Camada bloqueada";return end
     snapshot()
     Exposure.insertBlankKey(active(),doc.currentFrame)
-    if not editingSymbolId then Vector.ensureKey(vectors,doc.currentLayer,doc.currentFrame,true) end
+    Vector.ensureKey(vectorScope(),doc.currentLayer,doc.currentFrame,true)
     Library.ensureKey(trackLibrary(),doc.currentLayer,doc.currentFrame,true)
     selected=nil
     msg="Quadro-chave vazio inserido"
@@ -1440,16 +1437,16 @@ function love.keypressed(key)
     if shift then
       Model.removeKey(active(),doc.currentFrame)
       Library.removeKey(trackLibrary(),doc.currentLayer,doc.currentFrame)
-      if not editingSymbolId then Vector.removeKey(vectors,doc.currentLayer,doc.currentFrame) end
+      Vector.removeKey(vectorScope(),doc.currentLayer,doc.currentFrame)
     else
       Model.ensureKey(active(),doc.currentFrame)
       Library.ensureKey(trackLibrary(),doc.currentLayer,doc.currentFrame)
-      if not editingSymbolId then Vector.ensureKey(vectors,doc.currentLayer,doc.currentFrame) end
+      Vector.ensureKey(vectorScope(),doc.currentLayer,doc.currentFrame)
     end
     selected=nil
     return
   end
-  if mode=="studio" and not editingSymbolId and tool=="node"
+  if mode=="studio" and tool=="node"
       and (key=="-" or key=="kp-" or key=="=" or key=="+" or key=="kp+")
       and selectedVector then
     local path=vectorOnFrame(selectedVector)
