@@ -95,6 +95,8 @@ jobs:
         run: lua tests/studio_timeline_ops_test.lua
       - name: Studio Graphic MovieClip Button playback and interaction
         run: lua tests/studio_symbol_motion_test.lua
+      - name: Studio symbol instance transforms and LUALIB compatibility
+        run: lua tests/studio_instance_transform_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
