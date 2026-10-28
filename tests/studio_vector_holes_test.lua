@@ -56,10 +56,17 @@ assert(not V.inFill(copied[1],60,62))
 assert(V.at(restored,1,1)[1].nodes[1].x==0)
 assert(V.at(restored,1,1)[1].holes[1][1].x==originalHoleX,
   "moving later exposure must not mutate earlier hole")
--- Compound operands are explicitly rejected until multi-ring boolean sweep.
+-- Compound operands now participate in Boolean operations across all rings.
 local c=rect(restored,120,120,140,140)
-local rejected,reason=Boolean.plan(restored,1,1,ring.id,c.id,"union")
-assert(not rejected and reason:find("furos"),"must not ignore existing holes")
+local beforeUnion=V.encode(restored)
+local compoundUnion,unionErr=Boolean.plan(restored,1,1,ring.id,c.id,"union")
+assert(compoundUnion,unionErr)
+assert(compoundUnion.resultCount==2)
+assert(V.encode(restored)==beforeUnion,"Boolean planning must not change inputs")
+compoundUnion.apply()
+assert(#V.at(restored,1,1)==2)
+assert(#V.at(restored,1,1)[1].holes==1,
+  "disjoint union must preserve the original cutout")
 local doc=Model.new(800,450,24)
 local svg=V.svg(v,doc,1)
 assert(svg:find('fill-rule="evenodd"',1,true))
