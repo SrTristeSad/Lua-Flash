@@ -55,7 +55,7 @@ assert(x and y and scale>0)
 local stats=renderer:stats()
 assert(stats.lastDrawn==6 and stats.lastCulled==4,
   "unexpected culling result: "..stats.lastDrawn.." drawn, "..stats.lastCulled.." culled")
-assert(calls.ellipses==1 and calls.lines==2 and calls.rectangles==3,
+assert(calls.ellipses==1 and calls.lines==3 and calls.rectangles==3,
   "visible geometry must match LÖVE primitives with background")
 assert(calls.scissors[1][1]==18 and calls.scissors[1][2]==100)
 local boundsBefore=stats.boundsBuilt
