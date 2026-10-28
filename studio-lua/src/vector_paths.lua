@@ -188,6 +188,21 @@ function M.hit(path,x,y,tolerance)
       return true
     end
   end
+  -- A closed filled path is selectable across its interior, not just its stroke.
+  if path.closed and path.fill and #points>=8 then
+    local inside=false
+    local j=#points-1
+    for i=1,#points-1,2 do
+      local ax,ay=points[i],points[i+1]
+      local bx,by=points[j],points[j+1]
+      if (ay>y)~=(by>y) then
+        local crossing=(bx-ax)*(y-ay)/(by-ay)+ax
+        if x<crossing then inside=not inside end
+      end
+      j=i
+    end
+    return inside
+  end
   return false
 end
 function M.pick(paths,x,y,tolerance)
