@@ -42,6 +42,13 @@ function E:next(reverse,keyCount)
  if #items==0 then self.id=nil;return nil end
  local index
  for i,id in ipairs(items) do if id==self.id then index=i;break end end
+ if not index and self.id and self.id:match("^key%d$") then
+   -- An undo/delete can hide the currently focused row. Resume at the
+   -- nearest visible action, instead of silently losing navigation.
+   for i,id in ipairs(items) do
+     if id=="insert" then index=reverse and i or i-1;break end
+   end
+ end
  if not index then index=reverse and 1 or 0 end
  index=((index-1+(reverse and -1 or 1))%#items)+1
  self.id=items[index]
