@@ -182,3 +182,14 @@ local restoredGroup=project()
 assert(Model.isKey(restoredGroup.layers[1],2) and Model.isKey(restoredGroup.layers[1],4))
 assert(not Model.isKey(restoredGroup.layers[1],7))
 print("OK: Studio multi-selection, group move and undo")
+
+
+-- Multi-layer timeline: click second visible track to select that layer.
+press("n",true)
+love.mousepressed(600,18,1)
+local multi=project()
+assert(#multi.layers==2 and multi.currentLayer==2)
+love.mousepressed(250+8,780-170+38+26+5,1)
+local switched=project()
+assert(switched.currentLayer==1,"second timeline track must activate layer 1")
+print("OK: Studio multi-layer timeline track selection")
