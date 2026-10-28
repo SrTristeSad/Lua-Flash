@@ -439,7 +439,8 @@ end
 function love.mousemoved(mx,my,dx,dy)
   if timelineDrag then
     local w,h,track=dimensions()
-    if mx>=250 and mx<w-18 and my>=track+38 and my<=track+79 then
+    if mx>=250 and mx<w-18 and my>=track+38
+        and my<track+38+math.min(#doc.layers,3)*26 then
       local frame=offset+math.floor((mx-250)/timelineCell)
       if frame>=1 and frame<=doc.totalFrames then timelineDrag.target=frame end
     end
