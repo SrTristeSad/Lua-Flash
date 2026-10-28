@@ -135,4 +135,25 @@ function M.plan(doc,lib,layerIndex,frame,ids,op,value)
     end
   end}
 end
+-- Relative properties used by the Studio group inspector.
+-- These are offsets/factors, never absolute coordinates of individual symbols.
+function M.parseProperty(field,raw)
+  if type(raw)~="string" or #raw>24 then return nil,"invalid number" end
+  local s=raw:gsub("^%s+",""):gsub("%s+$","")
+  if not s:match("^[%+%-]?%d*%.?%d+$") then return nil,"invalid number" end
+  local value=tonumber(s)
+  if not finite(value) then return nil,"invalid number" end
+  if field=="dx" or field=="dy" then
+    if math.abs(value)>100000 then return nil,"offset limit" end
+    return "move",field=="dx" and {dx=value,dy=0} or {dx=0,dy=value}
+  elseif field=="scale" then
+    if value<10 or value>2000 then return nil,"scale limit (10-2000%)" end
+    return "scale",value/100
+  elseif field=="rotation" then
+    if math.abs(value)>3600 then return nil,"rotation limit" end
+    return "rotate",value
+  end
+  return nil,"unknown property"
+end
+
 return M
