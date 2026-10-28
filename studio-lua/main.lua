@@ -272,7 +272,7 @@ local function applyGroup(op,value)
     msg="Selecione duas ou mais instancias";return false
   end
   local tx,err=Group.plan(doc,symbolLibrary,selectedInstance.layer,
-    doc.currentFrame,selectedInstances,op,value)
+    doc.currentFrame,selectedInstances,op,value,vectors)
   if not tx then msg="Grupo: "..tostring(err);return false end
   snapshot()
   tx.apply()
@@ -298,7 +298,7 @@ local function selectedHandlePoints()
   if not symbol then return nil end
   local frame=SymbolMotion.frame(symbolMotion,symbolLibrary,symbol,item,
     selectedInstance.layer,doc.currentFrame)
-  return Handles.points(item,symbol,frame,view.scale),symbol,frame
+  return Handles.points(item,symbol,frame,view.scale,Vector.scope(vectors,symbol.id)),symbol,frame
 end
 
 local function prepareInstanceEdit()
@@ -396,7 +396,7 @@ function love.update(dt)
   end
   if mode=="player" and not editingSymbolId and love.mouse and love.mouse.getPosition then
     local mx,my=love.mouse.getPosition()
-    SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+    SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my,vectors)
   end
 end
 
@@ -531,7 +531,7 @@ local function ui()
         for _,entry in ipairs(Library.at(symbolLibrary,selectedInstance.layer,doc.currentFrame)) do
           if entry.uid==uid then
             local sym=Library.find(symbolLibrary,entry.symbolId)
-            local x1,y1,x2,y2=Transform.box(entry,sym,1)
+            local x1,y1,x2,y2=Transform.box(entry,sym,1,Vector.scope(vectors,sym.id))
             if x1 then
               lg.setColor(.15,.83,1)
               lg.setLineWidth(1)
@@ -663,7 +663,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   end
   if mode=="player" then
     if not editingSymbolId then
-      SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+      SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my,vectors)
     end
     SymbolMotion.press(symbolMotion)
     return
@@ -822,7 +822,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     local pending=vectorOnFrame(penPath)
     if not pending then
       if not editVectorFrame() then msg="Camada bloqueada";return end
-      local path,err=Vector.addPath(vectors,doc.currentLayer,doc.currentFrame,x,y,
+      local path,err=Vector.addPath(vectorScope(),doc.currentLayer,doc.currentFrame,x,y,
         palette[colorIndex],thickness,nil)
       if not path then msg=tostring(err);return end
       selectedVector=path.id
@@ -889,7 +889,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   elseif tool=="select" then
     selected=nil
     if not editingSymbolId then
-      local item,layerIndex=SymbolPreview.pickInstance(symbolLibrary,doc,doc.currentFrame,view,mx,my,symbolMotion)
+      local item,layerIndex=SymbolPreview.pickInstance(symbolLibrary,doc,doc.currentFrame,view,mx,my,symbolMotion,vectors)
       if item then
         local shift=love.keyboard.isDown("lshift","rshift")
         if shift and selectedCount()>0 then
@@ -966,7 +966,7 @@ end
 function love.mousemoved(mx,my,dx,dy)
   if mode=="player" then
     if not editingSymbolId then
-      SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+      SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my,vectors)
     end
     return
   end
@@ -1039,7 +1039,7 @@ function love.mousemoved(mx,my,dx,dy)
     local dx,dy=x-dragX,y-dragY
     if dx~=0 or dy~=0 then
       local tx,err=Group.plan(doc,symbolLibrary,selectedInstance.layer,
-        doc.currentFrame,selectedInstances,"move",{dx=dx,dy=dy})
+        doc.currentFrame,selectedInstances,"move",{dx=dx,dy=dy},vectors)
       if tx then
         if not groupDragStarted then snapshot();groupDragStarted=true end
         tx.apply()
@@ -1085,7 +1085,7 @@ function love.mousereleased(_,_,button)
     local dx,dy=box.bx-box.ax,box.by-box.ay
     if math.abs(dx)*view.scale>=4 or math.abs(dy)*view.scale>=4 then
       local found=Marquee.select(symbolLibrary,doc,box.layer,doc.currentFrame,
-        box.ax,box.ay,box.bx,box.by)
+        box.ax,box.ay,box.bx,box.by,vectors)
       selectedInstances=Marquee.merge(selectedInstances,found,box.add)
       selectedInstance=nil
       for _,item in ipairs(Library.at(symbolLibrary,box.layer,doc.currentFrame)) do
@@ -1304,15 +1304,40 @@ function love.keypressed(key)
       return
     end
   end
+  -- Return the origin already used by Library.create for raster/legacy
+  -- shape definitions; fall back to vector geometry for vector-only symbols.
+  local function captureOrigin(shapes,paths)
+    local x,y
+    for _,shape in ipairs(shapes) do
+      local bx,by=Model.bounds(shape)
+      x=x and math.min(x,bx) or bx
+      y=y and math.min(y,by) or by
+    end
+    if not x then
+      for _,path in ipairs(paths) do
+        local bx,by=Vector.bounds(path)
+        if bx then
+          x=x and math.min(x,bx) or bx
+          y=y and math.min(y,by) or by
+        end
+      end
+    end
+    return x or 0,y or 0
+  end
   if ctrl and key=="f8" and mode=="studio" then
     if editingSymbolId then msg="Volte ao palco para criar outro simbolo";return end
     if active().locked then msg="Camada bloqueada";return end
     local kind=shift and "movieclip" or (love.keyboard.isDown("lalt","ralt") and "button" or "graphic")
     local shapes=Model.frame(active(),doc.currentFrame)
-    if #shapes==0 then msg="Desenhe algo antes de criar um simbolo";return end
+    local paths=Vector.at(vectors,doc.currentLayer,doc.currentFrame)
+    if #shapes==0 and #paths==0 then
+      msg="Desenhe algo antes de criar um simbolo";return
+    end
+    local ox,oy=captureOrigin(shapes,paths)
     snapshot()
     local symbol,err=Library.create(symbolLibrary,kind,"Simbolo "..symbolLibrary.nextSymbolId,shapes)
     if symbol then
+      if #paths>0 then Vector.capture(vectors,symbol.id,paths,ox,oy,1) end
       selectedSymbol=symbol.id
       tool="symbol"
       msg="Simbolo "..symbol.kind.." criado. Clique no palco para instanciar."
@@ -1329,9 +1354,13 @@ function love.keypressed(key)
       msg="Limite de quadros internos do simbolo atingido";return
     end
     local shapes=Model.frame(active(),doc.currentFrame)
+    local paths=Vector.at(vectors,doc.currentLayer,doc.currentFrame)
+    local ox,oy=captureOrigin(shapes,paths)
     snapshot()
     local frame,err=Library.appendPose(symbolLibrary,selectedSymbol,shapes)
     if frame then
+      if #paths>0 then Vector.capture(vectors,symbol.id,paths,ox,oy,frame)
+      else Vector.ensureKey(Vector.scope(vectors,symbol.id,true),1,frame,true) end
       msg="Pose "..frame.." adicionada ao simbolo. Button: 1 Up, 2 Over, 3 Down, 4 Hit."
       SymbolMotion.reset(symbolMotion)
     else
