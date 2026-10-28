@@ -25,7 +25,7 @@ _G.love={
     read=function(name) return saved[name],saved[name] and nil or "not found" end,
     getSaveDirectory=function() return "/test/lua-flash" end,
   },
-  keyboard={isDown=function() return ctrl end},
+  keyboard={isDown=function(a,b) return ctrl and (a=="lctrl" or a=="rctrl" or b=="lctrl" or b=="rctrl") end},
   mouse={getPosition=function() return 200,100 end},
   sound={newSoundData=function(data) return data end},
   audio={newSource=function() return {stop=nop,play=nop} end},
@@ -83,14 +83,14 @@ love.mousepressed(745,239,1,false)
 love.keypressed("c")
 love.draw()
 -- Add a key midway through the selected segment (frame 23..45).
-love.mousepressed(748,408,1,false)
+love.mousepressed(748,360,1,false)
 love.draw()
 -- Change pose X/Y and move its frame forward; delete it again.
-love.mousepressed(808,442,1,false)
-love.mousepressed(955,442,1,false)
-love.mousepressed(972,408,1,false)
+love.mousepressed(808,397,1,false)
+love.mousepressed(955,397,1,false)
+love.mousepressed(972,360,1,false)
 love.draw()
-love.mousepressed(818,408,1,false)
+love.mousepressed(818,360,1,false)
 love.draw()
 -- Drag the actual sprite at frame 23 to modify its saved position.
 love.mousepressed(745,239,1,false)
@@ -112,6 +112,25 @@ love.mousepressed(px,py,1,false)
 love.mousemoved(px+19,py+10,19,10,false)
 love.mousereleased(px+19,py+10,1,false)
 love.draw()
+-- v0.16 rotation + scale X/Y, undo and redo must preserve dragged X.
+love.mousepressed(808,427,1,false)  -- G +5
+love.mousepressed(955,427,1,false)  -- SX +10
+love.mousepressed(808,459,1,false)  -- SY +10
+ctrl=true
+love.keypressed("z")
+love.keypressed("z")
+love.keypressed("z")
+love.keypressed("y")
+love.keypressed("y")
+love.keypressed("y")
+ctrl=false
+love.draw()
+-- A separate recovery copy is written after unsaved changes settle.
+love.update(12.1)
+assert(saved["player_recovery.lfgame"])
+local Recovery=require("src.package_v9")
+local recovered=assert(Recovery.decode(saved["player_recovery.lfgame"]))
+assert(recovered.version==9 and recovered.tweens[1].keys[2].angle==95)
 love.keypressed("e")
 love.keypressed("z")
 love.keypressed("f8")
@@ -140,6 +159,10 @@ assert(#savedGame.tweens[1].keys==5,
 assert(savedGame.tweens[1].keys[2].frame==23)
 assert(savedGame.tweens[1].keys[2].x>30,
   "dragging sprite must update the selected keyframe pose")
+assert(savedGame.tweens[1].keys[2].angle==95,
+  "GUI rotate must survive undo and redo")
+assert(savedGame.tweens[1].keys[2].scaleX==160)
+assert(savedGame.tweens[1].keys[2].scaleY==95)
 love.keyreleased("w")
 love.focus(false)
 love.draw()
