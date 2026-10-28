@@ -374,7 +374,7 @@ local function encodeTracks(out,scoped)
           out[#out+1]="H"
           for _,n in ipairs(hole) do
             out[#out+1]=table.concat({"N",fmt(n.x),fmt(n.y),fmt(n.ix),fmt(n.iy),
-              fmt(n.ox),fmt(n.oy)},"\\t")
+              fmt(n.ox),fmt(n.oy)},"\t")
           end
           out[#out+1]="EH"
         end
