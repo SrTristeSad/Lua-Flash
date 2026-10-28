@@ -156,3 +156,29 @@ local zoomed=project()
 assert(Model.isKey(zoomed.layers[1],4),"zoomed drag did not hit frame 4")
 assert(not Model.isKey(zoomed.layers[1],2),"zoomed drag kept source key")
 print("OK: Studio zoom-aware timeline mouse dragging")
+
+
+-- Shift selection and atomic multi-keyframe moves.
+press("n",true)
+press("right")
+press("f6")
+press("right")
+press("right")
+press("f6")
+local y=780-170+45
+local function x(frame) return 250+(frame-1)*19+8 end
+love.mousepressed(x(2),y,1);love.mousereleased(x(2),y,1)
+modifiers.lshift=true
+love.mousepressed(x(4),y,1);love.mousereleased(x(4),y,1)
+modifiers.lshift=false
+love.mousepressed(x(2),y,1)
+love.mousemoved(x(7),y,95,0)
+love.mousereleased(x(7),y,1)
+local grouped=project()
+assert(Model.isKey(grouped.layers[1],7) and Model.isKey(grouped.layers[1],9))
+assert(not Model.isKey(grouped.layers[1],2) and not Model.isKey(grouped.layers[1],4))
+press("z",true)
+local restoredGroup=project()
+assert(Model.isKey(restoredGroup.layers[1],2) and Model.isKey(restoredGroup.layers[1],4))
+assert(not Model.isKey(restoredGroup.layers[1],7))
+print("OK: Studio multi-selection, group move and undo")
