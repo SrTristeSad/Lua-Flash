@@ -2,10 +2,12 @@
 package.path="./studio-lua/?.lua;./studio-lua/?/init.lua;"..package.path
 local Model=require("src.model")
 local saved
+local files={}
 _G.love={
   keyboard={isDown=function() return false end},
   filesystem={
-    write=function(name,data) saved=data return true end,
+    write=function(name,data) saved=data;files[name]=data;return true end,
+    getInfo=function(name) return files[name] and {type="file"} or nil end,
     getSaveDirectory=function() return "/tmp" end
   },
   graphics={getDimensions=function() return 1200,780 end}
@@ -51,3 +53,22 @@ press("z",true)
 local restored=project()
 assert(not restored.layers[restored.currentLayer].visible,"Ctrl+Z should restore previous project")
 print("OK: Studio 0.2 project creation, visibility, lock and undo")
+
+
+-- Save As creates independent files without overwriting existing projects.
+modifiers.lctrl=true;modifiers.lshift=true
+love.keypressed("s")
+modifiers.lctrl=false;modifiers.lshift=false
+love.textinput("studio_test")
+love.keypressed("return")
+assert(files["studio_test.lflash"],"Save As failed to create named file")
+local original=files["projeto.lflash"]
+modifiers.lctrl=true;modifiers.lshift=true
+love.keypressed("s")
+modifiers.lctrl=false;modifiers.lshift=false
+for i=1,#"studio_test" do love.keypressed("backspace") end
+love.textinput("projeto")
+love.keypressed("return")
+assert(files["projeto.lflash"]==original,"Save As overwrote existing file")
+love.keypressed("escape")
+print("OK: Studio Save As prevents overwriting an existing project")
