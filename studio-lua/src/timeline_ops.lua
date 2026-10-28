@@ -79,4 +79,45 @@ function M.plan(doc,library,layerIndex,sources,delta,duplicate)
   return transaction
 end
 
+
+-- Plan a paste of a visible frame. Copy/paste must never leave stale symbols
+-- exposed under the pasted artwork or reuse existing instance identities.
+function M.planPaste(doc,library,layerIndex,frame,clipboard)
+  local layer=doc.layers[layerIndex]
+  if not layer or layer.locked then return nil,"camada bloqueada ou inexistente" end
+  if not integer(frame) or frame<1 or frame>doc.totalFrames then
+    return nil,"quadro de destino invalido"
+  end
+  if type(clipboard)~="table" or type(clipboard.shapes)~="table"
+      or type(clipboard.instances)~="table" then return nil,"area de transferencia invalida" end
+
+  local shapes=Model.copy(clipboard.shapes)
+  local instances=Model.copy(clipboard.instances)
+  local nextUID=library.nextInstanceId
+  local uidMap={}
+  for _,instance in ipairs(instances) do
+    if type(instance)~="table" or not library.symbols[instance.symbolId]
+        or not integer(instance.uid) or instance.uid<1 then
+      return nil,"simbolo nao encontrado na biblioteca deste projeto"
+    end
+    if not uidMap[instance.uid] then
+      if not integer(nextUID) or nextUID>100000000 then
+        return nil,"limite de identificadores de instancias"
+      end
+      uidMap[instance.uid]=nextUID
+      nextUID=nextUID+1
+    end
+    instance.uid=uidMap[instance.uid]
+  end
+
+  return {
+    apply=function()
+      layer.keys[frame]=shapes
+      if not library.tracks[layerIndex] then library.tracks[layerIndex]={} end
+      library.tracks[layerIndex][frame]=instances
+      library.nextInstanceId=nextUID
+    end
+  }
+end
+
 return M
