@@ -650,3 +650,29 @@ local blankVector=assert(Paths.decode(files["projeto.lflash.lfvec"]))
 assert(#Paths.at(blankVector,1,2)==0,
   "F9 blank key must also stop exposure of earlier vector drawings")
 print("OK: Studio Pen, fill, node drag, vector sidecar reload and undo/redo")
+
+
+-- Copying a Bezier frame must preserve geometry with a separate editable ID;
+-- SVG export must include the cubic path rather than silently dropping vectors.
+press("home")
+press("c",true)
+press("right")
+press("right")
+press("v",true)
+project()
+local copiedVectors=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local copyAt3=assert(Paths.at(copiedVectors,1,3)[1])
+local originalAt1=assert(Paths.at(copiedVectors,1,1)[1])
+assert(copyAt3.id~=originalAt1.id and copyAt3.closed and copyAt3.fill,
+  "Ctrl+C/V must preserve full vector geometry using a fresh path identity")
+press("e",true)
+assert(files["quadro.svg"] and files["quadro.svg"]:find(" C ",1,true),
+  "SVG export must contain cubic Bezier segments")
+assert(files["quadro.svg"]:find("<path",1,true),
+  "SVG export must include the vector object")
+press("z",true)
+project()
+local pasteUndone=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(pasteUndone,1,3)==0,
+  "undo must remove pasted vector drawing together with its timeline key")
+print("OK: Studio vector frame clipboard, SVG export and undo")
