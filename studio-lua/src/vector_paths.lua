@@ -344,10 +344,16 @@ function M.decode(data)
       if count>50000 then return nil,"too many vector paths" end
     elseif f[1]=="N" then
       if not path or #path.nodes>=256 then return nil,"invalid vector node" end
-      local n={x=tonumber(f[2]),y=tonumber(f[3]),
-        ix=tonumber(f[4]),iy=tonumber(f[5]),ox=tonumber(f[6]),oy=tonumber(f[7])}
-      for _,value in pairs(n) do if not validPos(value) then return nil,"invalid coordinate" end end
-      path.nodes[#path.nodes+1]=n
+      local coords={}
+      for j=2,7 do
+        local value=tonumber(f[j])
+        if not validPos(value) then return nil,"invalid coordinate" end
+        coords[j-1]=value
+      end
+      path.nodes[#path.nodes+1]={
+        x=coords[1],y=coords[2],ix=coords[3],iy=coords[4],
+        ox=coords[5],oy=coords[6]
+      }
     elseif f[1]=="EP" then
       if not path or #path.nodes<1 or path.closed and #path.nodes<3 then
         return nil,"invalid path termination"
