@@ -63,6 +63,16 @@ end
 local function logicalPointer(x,y)
   return Responsive.logical(screenLayout(),x,y)
 end
+-- LÖVE scissors are physical/logical window pixels and ignore the graphics
+-- transform. Map them separately to keep canvas clipping accurate on resize.
+local function scissor(x,y,w,h)
+  local lg=love.graphics
+  if x==nil then return lg.setScissor() end
+  local view=screenLayout()
+  local sx,sy=Responsive.screen(view,x,y)
+  return lg.setScissor(math.floor(sx),math.floor(sy),
+    math.ceil(w*view.scale),math.ceil(h*view.scale))
+end
 local function metrics()
   local screen=screenLayout()
   local w,h=screen.w,screen.h
@@ -617,7 +627,7 @@ local function editorDrawOutline()
   end
   local lg=love.graphics
   lg.push("all")
-  lg.setScissor(viewport.x,viewport.y,viewport.w,viewport.h)
+  scissor(viewport.x,viewport.y,viewport.w,viewport.h)
   lg.setColor(C.accent)
   lg.setLineWidth(2)
   lg.polygon("line",points)
@@ -848,7 +858,7 @@ function love.draw()
     local reticleX=ox+game.reticleX*scale
     local reticleY=oy+game.reticleY*scale
     lg.push("all")
-    lg.setScissor(viewport.x,viewport.y,viewport.w,viewport.h)
+    scissor(viewport.x,viewport.y,viewport.w,viewport.h)
     lg.setColor(0,0,0,.58)
     lg.rectangle("fill",viewport.x+12,viewport.y+12,248,80,8,8)
     label("ACERTE A BOLA",viewport.x+22,viewport.y+17,C.green)
@@ -875,7 +885,7 @@ function love.draw()
     local viewport=sceneViewport()
     local x,y=viewport.x+12,viewport.y+12
     lg.push("all")
-    lg.setScissor(viewport.x,viewport.y,viewport.w,viewport.h)
+    scissor(viewport.x,viewport.y,viewport.w,viewport.h)
     lg.setColor(0,0,0,.72)
     lg.rectangle("fill",x,y,330,128,8,8)
     label(session.definition.title,x+10,y+9,C.green)
@@ -962,10 +972,10 @@ function love.draw()
     label("Arraste o arquivo para a janela ou cole o caminho completo:",x+16,y+52,C.muted,fonts.small)
     lg.setColor(.15,.18,.24,1)
     lg.rectangle("fill",x+16,y+75,pw-32,37,5,5)
-    lg.setScissor(x+20,y+77,pw-40,34)
+    scissor(x+20,y+77,pw-40,34)
     label(pathPrompt.value~="" and pathPrompt.value or "C:\\pasta\\meu-jogo.lfgame",
       x+23,y+84,pathPrompt.value~="" and C.text or C.muted,fonts.small)
-    lg.setScissor()
+    scissor()
     label("ENTER: abrir  |  ESC: cancelar  |  Ctrl+V: colar",x+16,y+126,C.muted,fonts.small)
     if pathPrompt.message~="" then
       label(pathPrompt.message:sub(1,110),x+16,y+151,{1,.57,.52},fonts.small)
@@ -1071,7 +1081,8 @@ function love.touchpressed(id,x,y)
   x,y=logicalX,logicalY
   local sx,sy=Input.stagePoint(x,y,document,sceneViewport())
   if not sx then
-    love.mousepressed(x,y,1,false)
+    local physicalX,physicalY=Responsive.screen(screenLayout(),x,y)
+    love.mousepressed(physicalX,physicalY,1,false)
     return
   end
   input:pointer("down","touch",id,x,y,document,transport.position,
