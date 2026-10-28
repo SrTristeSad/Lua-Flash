@@ -15,7 +15,7 @@ assert(f:next(true)=="smooth" and f:next()=="package")
 local names={}
 for _=1,12 do names[#names+1]=f:next() end
 assert(names[1]=="game" and names[12]=="package")
-for _=1,10 do f:next() end
+for _=1,9 do f:next() end
 assert(f:selected()=="speed")
 local rect=f:rect(1040,690,90,449)
 assert(rect[1]==289 and rect[3]==58)
