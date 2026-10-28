@@ -5,6 +5,7 @@
 local Vector=require("src.vector_paths")
 local Flatten=require("src.bezier_flatten")
 local Retention=require("src.bezier_retention")
+local CubicIntersections=require("src.cubic_intersections")
 local M={}
 local EPS=1e-7
 local SNAP=1e-5
@@ -228,6 +229,21 @@ local function selectedEdges(poly,other,ts,operation,fromB,lookup)
   for i,a in ipairs(poly) do
     local b=poly[i%#poly+1]
     local values=uniqueSorted(ts[i])
+    local original=Retention.get(lookup,a,b)
+    local function endpoint(t)
+      if t<=EPS then return point(a,b,0),original and original.t0 end
+      if t>=1-EPS then return point(a,b,1),original and original.t1 end
+      -- Both operands refer to the SAME refined intersection point. The
+      -- parameter belongs to the original cubic, not the chord fraction.
+      for _,hit in ipairs(ts[i].hits or {}) do
+        if math.abs(hit.chordT-t)<EPS then
+          return hit.at,hit.cubicT
+        end
+      end
+      local param=original and
+        original.t0+(original.t1-original.t0)*t or nil
+      return point(a,b,t),param
+    end
     for j=1,#values-1 do
       local t0,t1=values[j],values[j+1]
       if t1-t0>EPS then
@@ -241,14 +257,12 @@ local function selectedEdges(poly,other,ts,operation,fromB,lookup)
           if fromB then keep=isInside else keep=not isInside end
         end
         if keep then
-          local p=point(a,b,t0)
-          local q=point(a,b,t1)
-          local original=Retention.get(lookup,a,b)
+          local p,pt0=endpoint(t0)
+          local q,pt1=endpoint(t1)
           local meta
           if original then
             meta={nodes=original.nodes,segment=original.segment,
-              t0=original.t0+(original.t1-original.t0)*t0,
-              t1=original.t0+(original.t1-original.t0)*t1}
+              t0=pt0,t1=pt1}
           end
           if fromB and operation=="difference" then
             p,q=q,p
@@ -377,6 +391,20 @@ local function calculate(a,b,operation)
           local t,u,issue=segmentIntersection(a,nextA,b,nextB)
           if issue then return nil,issue end
           if t then
+            local sourceA=Retention.get(ca.lookups[ri],a,nextA)
+            local sourceB=Retention.get(cb.lookups[rj],b,nextB)
+            local refined=sourceA and sourceB and
+              CubicIntersections.refine(sourceA,sourceB,t,u)
+            if refined then
+              local ah=ta[ri][i]
+              local bh=tb[rj][j]
+              ah.hits=ah.hits or {}
+              bh.hits=bh.hits or {}
+              ah.hits[#ah.hits+1]={chordT=t,at=refined.point,
+                cubicT=refined.aT}
+              bh.hits[#bh.hits+1]={chordT=u,at=refined.point,
+                cubicT=refined.bT}
+            end
             ta[ri][i][#ta[ri][i]+1]=t
             tb[rj][j][#tb[rj][j]+1]=u
             crossing=crossing+1
