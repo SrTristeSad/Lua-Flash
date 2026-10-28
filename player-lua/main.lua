@@ -27,6 +27,7 @@ local EditorNav=require("src.editor_nav")
 local VisualSettings=require("src.visual_settings")
 local TextScale=require("src.text_scale")
 local RenderCache=require("src.render_cache")
+local PerfMonitor=require("src.perf_monitor")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -46,6 +47,7 @@ local history=nil
 local recoveryClock=0
 local recoveryStore=nil
 local diagnostics=Diagnostics.new()
+local perf=PerfMonitor.new()
 local errors=ErrorReport.new(love.filesystem)
 local lastRuntimeError=nil
 local showDiagnostics=false
@@ -891,6 +893,7 @@ function love.load(arguments)
 end
 
 function love.update(dt)
+  local cpuStart=perf:time()
   if ciSmoke and drawnFrames>=5 then love.event.quit();return end
   autosaveRecovery(dt)
   diagnostics:update(dt)
@@ -914,6 +917,7 @@ function love.update(dt)
       end
     end
   end
+  perf:measure("update",cpuStart)
 end
 
 local function renderScene(x,y,w,h)
@@ -926,6 +930,7 @@ local function renderScene(x,y,w,h)
 end
 
 function love.draw()
+  local cpuStart=perf:time()
   drawnFrames=drawnFrames+1
   local lg=love.graphics
   local view=screenLayout()
@@ -1124,7 +1129,7 @@ function love.draw()
     local report=diagnostics:snapshot(packageDefinition,media,session)
     lg.push("all")
     lg.setColor(C.panel)
-    lg.rectangle("fill",w-281,93,269,192,7,7)
+    lg.rectangle("fill",w-281,93,269,231,7,7)
     label("DIAGNOSTICO [F3]",w-270,100,C.green,fonts.small)
     label(string.format("FPS medio: %.1f | Pior dt: %.1f ms",
       report.fps,report.worstMs),w-270,123,C.text,fonts.small)
@@ -1149,9 +1154,16 @@ function love.draw()
     local cache=renderCache:stats()
     label(string.format("Vetores: %d quadros | %d reutilizacoes",
       cache.rebuilds,cache.reused),w-270,257,C.green,fonts.small)
+    local frameCPU=perf:stats("draw")
+    local tickCPU=perf:stats("update")
+    label(string.format("CPU desenho: %.2f ms (pico %.1f)",
+      frameCPU.avgMs,frameCPU.maxMs),w-270,279,C.text,fonts.small)
+    label(string.format("CPU logica: %.2f ms (pico %.1f)",
+      tickCPU.avgMs,tickCPU.maxMs),w-270,301,C.text,fonts.small)
     lg.pop()
   end
   lg.pop()
+  perf:measure("draw",cpuStart)
 end
 
 function love.mousepressed(x,y,key,istouch)
