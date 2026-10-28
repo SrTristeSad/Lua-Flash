@@ -90,6 +90,18 @@ love.mousepressed(470,31,1,false)
 -- v0.14 visual curve editor: select the second segment and cycle its mode.
 love.keypressed("e")
 love.draw()
+-- v0.25 keyboard-only edit: Tab to +CHAVE, activate, undo and preserve demo.
+for i=1,7 do love.keypressed("tab") end
+love.draw()
+love.keypressed("return")
+ctrl=true;love.keypressed("z");ctrl=false
+-- Contrast is persistent, reloadable and independent of game data.
+love.keypressed("f2")
+assert(saved["player-settings.txt"]=="contrast=high\n")
+love.draw()
+love.keypressed("f2")
+assert(saved["player-settings.txt"]=="contrast=normal\n")
+love.draw()
 love.mousepressed(745,239,1,false)
 love.keypressed("c")
 love.draw()
