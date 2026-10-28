@@ -565,8 +565,8 @@ for _,xp in ipairs({325,390,455}) do
   love.mousepressed(xp,260,1)
   love.mousereleased(xp,260,1)
 end
-local marqueeBaseline=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"] or
-  (project() and files["projeto.lflash.lflib"])))
+project()
+local marqueeBaseline=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
 local baseXs={}
 for i,item in ipairs(marqueeBaseline.tracks[1][1]) do baseXs[i]=item.x end
 press("v")
