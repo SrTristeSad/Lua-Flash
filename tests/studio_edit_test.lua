@@ -823,3 +823,30 @@ local joinedUndo=assert(Paths.decode(files["projeto.lflash.lfvec"]))
 assert(#Paths.at(joinedUndo,1,1)==3,
   "one undo must restore both open paths")
 print("OK: UI segment Alt-split, G bucket, K break and Shift-join with undo")
+
+
+-- Ctrl+drag a cubic segment using A: edit curvature without moving anchors.
+press("a")
+local beforeBend=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local firstPath=Paths.at(beforeBend,1,1)[1]
+local ax,ay=firstPath.nodes[1].x,firstPath.nodes[1].y
+local oldOutY=firstPath.nodes[1].oy
+modifiers.lctrl=true
+love.mousepressed(333,260,1)
+love.mousemoved(333,280,0,20)
+love.mousereleased(333,280,1)
+modifiers.lctrl=false
+project()
+local bent=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local bentPath=Paths.at(bent,1,1)[1]
+assert(math.abs(bentPath.nodes[1].x-ax)<.001 and
+  math.abs(bentPath.nodes[1].y-ay)<.001,
+  "segment deformation must not move anchor coordinates")
+assert(math.abs(bentPath.nodes[1].oy-oldOutY)>1,
+  "Ctrl+drag should modify cubic control handles")
+press("z",true)
+project()
+local bendUndo=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(math.abs(Paths.at(bendUndo,1,1)[1].nodes[1].oy-oldOutY)<.001,
+  "one undo must restore previous curve before segment drag")
+print("OK: UI Ctrl+drag segment curvature and atomic undo")
