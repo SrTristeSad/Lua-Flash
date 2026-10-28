@@ -4,6 +4,7 @@ local Model = require("src.model")
 local Exposure = require("src.frame_exposure")
 local Library = require("src.symbol_library")
 local SymbolPreview = require("src.symbol_preview")
+local Transform = require("src.instance_transform")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
 local Runtime = require("src.runtime")
@@ -21,6 +22,8 @@ local function trackLibrary()
 end
 local mode,tool="studio","brush"
 local selected,dragged,dragX,dragY,offset= nil,nil,0,0,1
+local selectedInstance=nil
+local instanceDragStarted=false
 local undo,redo={},{}
 local msg="Lua-Flash: plataforma nova em Lua | F1 ajuda"
 local palette={{.16,.58,.94},{.98,.31,.37},{.24,.75,.49},{.99,.76,.24},{.16,.18,.23},{.65,.36,.93}}
@@ -77,6 +80,8 @@ local function install(newdoc)
   runtime=Runtime.new(doc)
   SymbolMotion.reset(symbolMotion)
   selected,dragged=nil,nil
+  selectedInstance=nil
+  instanceDragStarted=false
   selectedKeys={}
   timelineDrag=nil
   dimensions()
@@ -188,11 +193,36 @@ local function setFrame(n)
   SymbolMotion.reset(symbolMotion)
   doc.currentFrame=runtime.frame
   selected=nil
+  selectedInstance=nil
 end
 
 local function active()
   return doc.layers[doc.currentLayer]
 end
+
+local function activeInstance()
+  if editingSymbolId or not selectedInstance then return nil end
+  for _,item in ipairs(Library.at(symbolLibrary,selectedInstance.layer,doc.currentFrame)) do
+    if item.uid==selectedInstance.uid then return item end
+  end
+  return nil
+end
+
+local function prepareInstanceEdit()
+  local instance=activeInstance()
+  local layer=selectedInstance and doc.layers[selectedInstance.layer]
+  if not instance or not layer or layer.locked then
+    msg="Instancia indisponivel ou camada bloqueada"
+    return nil
+  end
+  snapshot()
+  -- Create separate key exposures for both native artwork and instance tracks.
+  Model.ensureKey(layer,doc.currentFrame)
+  Library.ensureKey(symbolLibrary,selectedInstance.layer,doc.currentFrame)
+  return activeInstance()
+end
+
+
 
 local function jumpKey(direction)
   local layer=active()
@@ -297,6 +327,13 @@ local function ui()
       end
     end
     label("Espessura: "..thickness.."  (- / +)",12,477)
+    local chosenInstance=activeInstance()
+    if chosenInstance then
+      label("INSTANCIA #"..chosenInstance.uid,12,511,{.45,.82,1})
+      label("X "..math.floor(chosenInstance.x).."  Y "..math.floor(chosenInstance.y),12,534)
+      label("Escala "..string.format("%.2f",chosenInstance.sx),12,557)
+      label("Angulo "..math.floor(chosenInstance.angle or 0).." graus",12,580)
+    end
     label("CAMADAS",w-186,65,{.45,.82,1})
     button("+ Nova camada",w-187,90,176,34,false)
     for i,layer in ipairs(doc.layers) do
@@ -325,6 +362,22 @@ local function ui()
   runtime.draw(doc,doc.currentFrame,view.x,view.y,view.w,view.h)
   if not editingSymbolId then
     SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view,symbolMotion)
+  end
+  if mode=="studio" and not editingSymbolId and selectedInstance then
+    local item=activeInstance()
+    local symbol=item and Library.find(symbolLibrary,item.symbolId)
+    if item and symbol then
+      local frame=SymbolMotion.frame(symbolMotion,symbolLibrary,symbol,item,
+        selectedInstance.layer,doc.currentFrame)
+      local x1,y1,x2,y2=Transform.box(item,symbol,frame)
+      if x1 then
+        lg.setColor(.1,.75,1)
+        lg.setLineWidth(1)
+        lg.rectangle("line",view.ox+x1*view.scale-4,view.oy+y1*view.scale-4,
+          (x2-x1)*view.scale+8,(y2-y1)*view.scale+8)
+        lg.circle("fill",view.ox+x1*view.scale-4,view.oy+y1*view.scale-4,4)
+      end
+    end
   end
   if mode=="studio" and selected then
     local layer=active()
@@ -495,9 +548,25 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     snapshot()
     Model.ensureKey(layer,doc.currentFrame)
     local instance,err=Library.place(symbolLibrary,doc.currentLayer,doc.currentFrame,selectedSymbol,x,y)
+    if instance then selectedInstance={uid=instance.uid,layer=doc.currentLayer} end
     msg=instance and "Instancia adicionada ao palco" or tostring(err)
   elseif tool=="select" then
     selected=nil
+    selectedInstance=nil
+    if not editingSymbolId then
+      local item,layerIndex=SymbolPreview.pickInstance(symbolLibrary,doc,doc.currentFrame,view,mx,my,symbolMotion)
+      if item then
+        doc.currentLayer=layerIndex
+        selectedInstance={uid=item.uid,layer=layerIndex}
+        if not doc.layers[layerIndex].locked then
+          dragged="instance"
+          instanceDragStarted=false
+          dragX,dragY=x,y
+        end
+        msg="Instancia #"..item.uid.." selecionada | arraste, [ / ] gira, Ctrl+[ / ] escala"
+        return
+      end
+    end
     for i=#existing,1,-1 do if Model.hit(existing[i],x,y) then selected=i;break end end
     if selected then
       snapshot()
@@ -541,6 +610,19 @@ function love.mousemoved(mx,my,dx,dy)
   if not dragged or mode~="studio" then return end
   local x,y=xy(mx,my)
   x,y=math.max(0,math.min(doc.width,x)),math.max(0,math.min(doc.height,y))
+  if dragged=="instance" then
+    local dx,dy=x-dragX,y-dragY
+    if dx~=0 or dy~=0 then
+      if not instanceDragStarted then
+        if not prepareInstanceEdit() then dragged=nil;return end
+        instanceDragStarted=true
+      end
+      local item=activeInstance()
+      if item then Transform.adjust(item,dx,dy,1,0) end
+      dragX,dragY=x,y
+    end
+    return
+  end
   if dragged=="move" then
     local shapes=currentShapes(true)
     if shapes and selected and shapes[selected] then Model.move(shapes[selected],x-dragX,y-dragY) end
@@ -578,6 +660,7 @@ function love.mousereleased(_,_,button)
     end
   end
   dragged=nil
+  instanceDragStarted=false
 end
 
 function love.wheelmoved(_,dy)
@@ -628,6 +711,36 @@ function love.keypressed(key)
   end
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   local shift=love.keyboard.isDown("lshift","rshift")
+  local alt=love.keyboard.isDown("lalt","ralt")
+  if mode=="studio" and not editingSymbolId and selectedInstance then
+    local dx,dy,scale,rotation=0,0,1,0
+    local handled=false
+    if key=="leftbracket" or key=="rightbracket" then
+      if ctrl then scale=key=="leftbracket" and .9 or 1.1
+      else rotation=key=="leftbracket" and -5 or 5 end
+      handled=true
+    elseif alt and (key=="left" or key=="right" or key=="up" or key=="down") then
+      local step=shift and 10 or 1
+      dx=(key=="right" and step or 0)-(key=="left" and step or 0)
+      dy=(key=="down" and step or 0)-(key=="up" and step or 0)
+      handled=true
+    end
+    if handled then
+      local source=activeInstance()
+      if source and doc.layers[selectedInstance.layer] and not doc.layers[selectedInstance.layer].locked then
+        local candidate=Model.copy(source)
+        if Transform.adjust(candidate,dx,dy,scale,rotation) then
+          local target=prepareInstanceEdit()
+          if target then
+            target.x,target.y=candidate.x,candidate.y
+            target.sx,target.sy,target.angle=candidate.sx,candidate.sy,candidate.angle
+            msg="Instancia #"..target.uid.." transformada"
+          end
+        else msg="Limite de transformacao atingido" end
+      else msg="Camada bloqueada ou instancia indisponivel" end
+      return
+    end
+  end
   if ctrl and key=="f8" and mode=="studio" then
     if editingSymbolId then msg="Volte ao palco para criar outro simbolo";return end
     if active().locked then msg="Camada bloqueada";return end
