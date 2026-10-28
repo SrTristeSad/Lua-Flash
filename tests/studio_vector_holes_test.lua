@@ -102,6 +102,8 @@ local beforeLines=calls.lines
 Preview.draw(symbols,doc,1,view,motion,v)
 assert(calls.lines>beforeLines)
 assert(Preview.pickInstance(symbols,doc,1,view,210,110,motion,v)==instance)
+assert(not Preview.pickInstance(symbols,doc,1,view,250,150,motion,v),
+  "a click through an empty vector-only symbol cutout must miss the instance")
 -- The bounding-box picker may pick the hole, but the vector fill itself will
 -- not: selecting a specific path must respect the empty interior.
 assert(not V.inFill(V.at(scope,1,1)[1],50,50))
