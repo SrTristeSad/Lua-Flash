@@ -105,6 +105,8 @@ jobs:
         run: lua tests/studio_marquee_test.lua
       - name: Studio Bezier vector paths and authoring persistence
         run: lua tests/studio_vector_paths_test.lua
+      - name: Studio symbol-scoped Bézier compatibility and preview
+        run: lua tests/studio_symbol_vectors_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
