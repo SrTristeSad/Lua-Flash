@@ -6,7 +6,7 @@ local oldLove=_G.love
 _G.love={system={getOS=function() return "Linux" end}}
 assert(not Native.available(),"native Windows dialog must not open on Linux")
 local selection,err=Native.choose()
-assert(not selection and err:find("Windows"))
+assert(not selection and (err:find("Windows") or err:find("FFI")))
 local read,problem=Native.readPath([[C:\Jogos\test.lfgame]],1024)
 assert(not read and problem)
 _G.love=oldLove

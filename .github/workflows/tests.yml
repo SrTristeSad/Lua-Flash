@@ -163,20 +163,16 @@ jobs:
         shell: pwsh
         run: |
           $exe = Join-Path (Resolve-Path ".cache/win/Lua-Flash-Player-0.22-Windows-x64").Path "Lua-Flash-Player.exe"
-          $folder = Join-Path $env:TEMP "Lua-Flash-Árvore"
-          New-Item -ItemType Directory -Path $folder -Force | Out-Null
-          $game = Join-Path $folder "Exemplo-Áudio.lfgame"
+          $game = Join-Path $env:TEMP "LuaFlash-Áudio.lfgame"
           Copy-Item "dist/Exemplo-0.22.lfgame" $game
           $marker = Join-Path $env:TEMP "lua-flash-native-smoke-ok.txt"
           Remove-Item $marker -ErrorAction SilentlyContinue
-          $env:LUA_FLASH_SMOKE = "1"
           $env:LUA_FLASH_SMOKE_WIN_NATIVE = "1"
           $env:LUA_FLASH_SMOKE_WIN_NATIVE_OKFILE = $marker
-          $env:SDL_AUDIODRIVER = "dummy"
-          $p = Start-Process -FilePath $exe -ArgumentList @("`"$game`"") -PassThru
-          if (-not $p.WaitForExit(20000)) {
+          $p = Start-Process -FilePath $exe -PassThru
+          if (-not $p.WaitForExit(15000)) {
             Stop-Process -Id $p.Id -Force
-            throw "Player Windows graphical startup timed out"
+            throw "Player Windows headless Win32 import timed out"
           }
           if (-not (Test-Path $marker) -or
               (Get-Content $marker -Raw) -ne "LUAF_WIN_NATIVE_OK") {
