@@ -11,14 +11,43 @@ local function paintPath(lg,path)
     if #polygon>=6 and love.math and love.math.triangulate then
       local ok,tris=pcall(love.math.triangulate,polygon)
       if ok and tris then
-        lg.setColor(path.fill)
-        for _,triangle in ipairs(tris) do lg.polygon("fill",triangle) end
+        local hasHoles=path.holes and #path.holes>0
+        -- The outer fill is clipped using a stencil. Holes must stay
+        -- transparent; never fall back to incorrectly filling them.
+        if not hasHoles or (lg.stencil and lg.setStencilTest) then
+          if hasHoles then
+            lg.stencil(function()
+              lg.polygon("fill",polygon)
+            end,"replace",1,false)
+            lg.stencil(function()
+              for _,nodes in ipairs(path.holes) do
+                local pts=Paths.sampleHole(nodes,12)
+                local ring={}
+                for i=1,#pts-2 do ring[#ring+1]=pts[i] end
+                if #ring>=6 then
+                  local good,holes=pcall(love.math.triangulate,ring)
+                  if good and holes then
+                    for _,tri in ipairs(holes) do lg.polygon("fill",tri) end
+                  end
+                end
+              end
+            end,"replace",0,true)
+            lg.setStencilTest("equal",1)
+          end
+          lg.setColor(path.fill)
+          for _,triangle in ipairs(tris) do lg.polygon("fill",triangle) end
+          if hasHoles then lg.setStencilTest() end
+        end
       end
     end
   end
   lg.setColor(path.stroke)
   lg.setLineWidth(path.width)
   lg.line(pts)
+  for _,hole in ipairs(path.holes or {}) do
+    local ring=Paths.sampleHole(hole,12)
+    if #ring>=4 then lg.line(ring) end
+  end
 end
 local function handles(lg,path,zoom)
   local nodeSize=math.max(2,5/zoom)
