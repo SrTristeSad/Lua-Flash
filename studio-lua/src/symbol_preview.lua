@@ -3,6 +3,8 @@ local Model=require("src.model")
 local Library=require("src.symbol_library")
 local Motion=require("src.symbol_motion")
 local Transform=require("src.instance_transform")
+local Vector=require("src.vector_paths")
+local VectorRenderer=require("src.vector_renderer")
 local Preview={}
 local function drawShape(g,shape)
   local p,c=shape.points,shape.color
@@ -22,7 +24,7 @@ local function drawShape(g,shape)
   end
 end
 
-function Preview.draw(lib,doc,frame,view,state)
+function Preview.draw(lib,doc,frame,view,state,vectors)
   local g=love.graphics
   state=state or Motion.new()
   g.push("all")
@@ -39,9 +41,15 @@ function Preview.draw(lib,doc,frame,view,state)
           g.rotate(math.rad(instance.angle or 0))
           g.scale(instance.sx,instance.sy)
           local symbolFrame=Motion.frame(state,lib,sym,instance,index,frame)
-          for _,inner in ipairs(sym.definition.layers) do
+          local symbolVectors=vectors and Vector.scope(vectors,sym.id)
+          for innerIndex,inner in ipairs(sym.definition.layers) do
             if inner.visible then
               for _,shape in ipairs(Model.frame(inner,symbolFrame)) do drawShape(g,shape) end
+              if symbolVectors then
+                for _,path in ipairs(Vector.at(symbolVectors,innerIndex,symbolFrame)) do
+                  VectorRenderer.paintPath(g,path)
+                end
+              end
             end
           end
           g.pop()
@@ -53,7 +61,7 @@ function Preview.draw(lib,doc,frame,view,state)
 end
 
 -- Return topmost visible instance plus its layer. Used by Studio selection.
-function Preview.pickInstance(lib,doc,frame,view,mx,my,state)
+function Preview.pickInstance(lib,doc,frame,view,mx,my,state,vectors)
   if not view or not view.scale or view.scale<=0 then return nil end
   local x,y=(mx-view.ox)/view.scale,(my-view.oy)/view.scale
   if x<0 or y<0 or x>doc.width or y>doc.height then return nil end
@@ -64,7 +72,8 @@ function Preview.pickInstance(lib,doc,frame,view,mx,my,state)
       for index=#items,1,-1 do
         local inst=items[index]
         local sym=Library.find(lib,inst.symbolId)
-        if sym and Transform.hit(inst,sym,Motion.frame(state,lib,sym,inst,li,frame),x,y) then
+        if sym and Transform.hit(inst,sym,Motion.frame(state,lib,sym,inst,li,frame),x,y,
+            vectors and Vector.scope(vectors,sym.id)) then
           return inst,li
         end
       end
@@ -75,7 +84,7 @@ end
 
 -- The fourth Button key is a non-rendered hit area, if present.
 -- For early Studio preview, when absent, use geometry from the Up state.
-function Preview.pickButton(lib,doc,frame,view,mx,my)
+function Preview.pickButton(lib,doc,frame,view,mx,my,vectors)
   if not view or not view.scale or view.scale<=0 then return nil end
   local x,y=(mx-view.ox)/view.scale,(my-view.oy)/view.scale
   if x<0 or y<0 or x>doc.width or y>doc.height then return nil end
@@ -88,11 +97,17 @@ function Preview.pickButton(lib,doc,frame,view,mx,my)
         if sym and sym.kind=="button" and Transform.valid(instance) then
           local lx,ly=Transform.toLocal(instance,x,y)
           local hitFrame=sym.definition.layers[1].keys[4] and 4 or 1
+          local symbolVectors=vectors and Vector.scope(vectors,sym.id)
           for li=#sym.definition.layers,1,-1 do
             local inner=sym.definition.layers[li]
             if inner.visible then
               for _,shape in ipairs(Model.frame(inner,hitFrame)) do
                 if Model.hit(shape,lx,ly) then return instance.uid end
+              end
+              if symbolVectors then
+                for _,path in ipairs(Vector.at(symbolVectors,li,hitFrame)) do
+                  if Vector.hit(path,lx,ly,6) then return instance.uid end
+                end
               end
             end
           end
@@ -102,7 +117,7 @@ function Preview.pickButton(lib,doc,frame,view,mx,my)
   end
   return nil
 end
-function Preview.pointerMoved(state,lib,doc,frame,view,mx,my)
-  Motion.setHover(state,Preview.pickButton(lib,doc,frame,view,mx,my))
+function Preview.pointerMoved(state,lib,doc,frame,view,mx,my,vectors)
+  Motion.setHover(state,Preview.pickButton(lib,doc,frame,view,mx,my,vectors))
 end
 return Preview
