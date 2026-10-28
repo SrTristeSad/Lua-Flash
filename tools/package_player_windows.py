@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import math
+import struct
+import zlib
 from pathlib import Path, PurePosixPath
 import tempfile
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-VERSION = "0.21"
+VERSION = "0.22"
 LOVE_VERSION = "11.5"
 LOVE_DIR = "love-11.5-win64"
 # Pinned against the public Scoop love.json 11.5 win64 distribution.
@@ -21,17 +24,22 @@ LOVE_SHA256 = "ba6e56be2685e53c817749c4a5007f51137136fe5a3ab64920508babc2e74369"
 OUTPUT_DIR = f"Lua-Flash-Player-{VERSION}-Windows-x64"
 EXE_NAME = "Lua-Flash-Player.exe"
 LAUNCHER_NAME = "ABRIR-JOGO.cmd"
+ICON_NAME = "Lua-Flash-Player.ico"
 ROOT = Path(__file__).resolve().parent.parent
 
-README = """Lua-Flash Player 0.21 — Windows x64 (portable)
+README = """Lua-Flash Player 0.22 — Windows x64 (portable)
 ===================================================
 1. Extract ALL contents of this ZIP into one folder.
 2. Double-click Lua-Flash-Player.exe.
 3. Do not remove or move its adjacent DLL files.
-4. To open a game: drag .lflash/.lfgame into the window, press Ctrl+O
-   and paste its full file path, or drag the game onto ABRIR-JOGO.cmd.
-5. Use Windows 'Open With...' to select Lua-Flash-Player.exe for these files.
+4. Click ABRIR ARQUIVO or press Ctrl+O for the Windows file picker.
+   Ctrl+Shift+O keeps the manual paste-path dialog as a fallback.
+5. You can also drag .lflash/.lfgame into the window or onto ABRIR-JOGO.cmd.
+6. Use Windows 'Open With...' to select Lua-Flash-Player.exe for these files.
    This portable build DOES NOT change Windows registry or associations.
+An original Lua-Flash icon is used for the running window and is supplied as
+Lua-Flash-Player.ico for custom desktop shortcuts. The unsigned executable
+still uses the upstream runtime's PE icon resource.
 
 The Player embeds LÖVE 11.5; installing LÖVE separately is NOT required.
 This is NOT an MSI installer, and is not digitally signed. Windows may
@@ -64,6 +72,55 @@ if not exist "%~1" (\r
 )\r
 start "" "%~dp0Lua-Flash-Player.exe" "%~f1"\r
 """
+
+
+def original_icon_ico(size: int = 64) -> bytes:
+    """Original bolt artwork, encoded as a standards-compliant PNG-in-ICO."""
+    def inside_polygon(x: float, y: float, pts: tuple[int, ...]) -> bool:
+        hit = False
+        for i in range(0, len(pts), 2):
+            j = (i + 2) % len(pts)
+            xi, yi, xj, yj = pts[i], pts[i + 1], pts[j], pts[j + 1]
+            if (yi > y) != (yj > y) and x < (
+                (xj - xi) * (y - yi) / (yj - yi) + xi
+            ):
+                hit = not hit
+        return hit
+
+    bolt = (36, 9, 20, 34, 30, 34, 25, 55, 47, 28, 36, 28, 43, 9)
+    pixels = bytearray()
+    for y in range(size):
+        pixels.append(0)  # PNG filter type none
+        for x in range(size):
+            xx, yy = (x + .5) * 64 / size, (y + .5) * 64 / size
+            dx, dy = abs(xx - 32) - 27, abs(yy - 32) - 27
+            d = math.hypot(max(dx + 10, 0), max(dy + 10, 0)) + min(
+                max(dx + 10, dy + 10), 0
+            ) - 10
+            alpha = max(0, min(1, .5 - d))
+            r, g, b = .064, .094, .18
+            ox, oy = (xx - 32) / 23, (yy - 32) / 23
+            if abs(ox * ox + oy * oy - 1) < .135 and xx < 47:
+                r, g, b = .10, .72, .95
+            if inside_polygon(xx, yy, bolt):
+                r, g, b = (.97, .88, .35) if xx <= 35 else (1, .72, .20)
+            pixels.extend(
+                (int(c * 255 + .5) for c in (r, g, b, alpha))
+            )
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (struct.pack(">I", len(data)) + kind + data +
+                struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+
+    png = (b"\x89PNG\r\n\x1a\n" +
+           chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0)) +
+           chunk(b"IDAT", zlib.compress(pixels, 9)) +
+           chunk(b"IEND", b""))
+    header = struct.pack("<HHH", 0, 1, 1)
+    entry = struct.pack("<BBBBHHII", size if size < 256 else 0,
+                        size if size < 256 else 0, 0, 0, 1, 32,
+                        len(png), 22)
+    return header + entry + png
 
 
 def _safe_name(name: str) -> PurePosixPath:
@@ -150,6 +207,7 @@ def build(love_zip: Path, game: Path, output: Path) -> None:
     with ZipFile(output, "w") as archive:
         _add(archive, f"{OUTPUT_DIR}/{EXE_NAME}", fused)
         _add(archive, f"{OUTPUT_DIR}/{LAUNCHER_NAME}", LAUNCHER)
+        _add(archive, f"{OUTPUT_DIR}/{ICON_NAME}", original_icon_ico())
         _add(archive, f"{OUTPUT_DIR}/README-Windows.txt", README.encode("utf-8"))
         for name in sorted(extracted):
             _add(archive, f"{OUTPUT_DIR}/{name}", extracted[name])
@@ -159,6 +217,8 @@ def build(love_zip: Path, game: Path, output: Path) -> None:
         names = verify.namelist()
         if f"{OUTPUT_DIR}/{EXE_NAME}" not in names:
             raise AssertionError("fused application missing from output")
+        if f"{OUTPUT_DIR}/{ICON_NAME}" not in names:
+            raise AssertionError("portable original icon missing")
         if f"{OUTPUT_DIR}/{LAUNCHER_NAME}" not in names:
             raise AssertionError("file activation launcher missing from output")
         if not any(name.lower().endswith(".dll") for name in names):
