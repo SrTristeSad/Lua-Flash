@@ -642,6 +642,13 @@ function love.load()
     local second=media:maskFor("estrela_alt")
     assert(first and second and first.w==16 and second.h==16,
       "LÖVE PNG alpha decoding failed")
+    -- Exercise real LÖVE SoundData -> Source playback in CI (dummy audio).
+    assert(media:playAsset("acerto","effects"),"event voice did not start")
+    assert(media:playAsset("acerto","timeline"),"timeline voice did not start")
+    local audio=media:audioStats()
+    assert(audio.voices>=1 and audio.voices<=16,
+      "real LÖVE WAV sources violated the voice budget")
+    assert(media:setChannelVolume("timeline",.6)==.6)
   end
 end
 
