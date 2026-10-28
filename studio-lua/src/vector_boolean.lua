@@ -4,6 +4,7 @@
 -- complexity are rejected instead of producing incorrect fills.
 local Vector=require("src.vector_paths")
 local Flatten=require("src.bezier_flatten")
+local Retention=require("src.bezier_retention")
 local M={}
 local EPS=1e-7
 local SNAP=1e-5
@@ -66,28 +67,30 @@ local function flatten(path)
     return nil,"duas formas fechadas e preenchidas sao necessarias"
   end
   if #(path.holes or {})>16 then return nil,"limite de 16 furos" end
-  local region={rings={},holes={}}
+  local region={rings={},holes={},lookups={}}
   local total=0
   local function ringFor(nodes)
     if #nodes<3 or #nodes>48 then
       return nil,"contorno deve ter entre 3 e 48 nos"
     end
-    local points,flattenError=Flatten.ring(nodes,{tolerance=.25,maxPoints=385})
-    if not points then return nil,flattenError end
+    local points,edgesOrError=Flatten.ringWithEdges(nodes,
+      {tolerance=.25,maxPoints=385})
+    if not points then return nil,edgesOrError end
     local poly=clean(points)
     if not poly or #poly>384 then return nil,"contorno invalido ou complexo" end
     total=total+#poly
     if total>512 then return nil,"limite de 512 vertices por forma" end
-    return poly
+    return poly,Retention.lookup(points,edgesOrError,nodes)
   end
-  local outer,err=ringFor(path.nodes)
-  if not outer then return nil,err end
+  local outer,outerLookup=ringFor(path.nodes)
+  if not outer then return nil,outerLookup end
   region.outer=outer
   region.rings[#region.rings+1]=outer
+  region.lookups[#region.lookups+1]=outerLookup
   region.sources={{polygon=outer,nodes=path.nodes}}
   for _,nodes in ipairs(path.holes or {}) do
-    local hole,reason=ringFor(nodes)
-    if not hole then return nil,reason end
+    local hole,holeLookup=ringFor(nodes)
+    if not hole then return nil,holeLookup end
     region.holes[#region.holes+1]=hole
     region.sources[#region.sources+1]={polygon=hole,nodes=nodes}
     -- Edges must follow the boundary of the filled set, so hole rings run
@@ -95,6 +98,7 @@ local function flatten(path)
     local reversed={}
     for i=#hole,1,-1 do reversed[#reversed+1]=hole[i] end
     region.rings[#region.rings+1]=reversed
+    region.lookups[#region.lookups+1]=holeLookup
   end
   return region
 end
@@ -219,7 +223,7 @@ end
 local function key(p)
   return math.floor(p.x/SNAP+0.5)..":"..math.floor(p.y/SNAP+0.5)
 end
-local function selectedEdges(poly,other,ts,operation,fromB)
+local function selectedEdges(poly,other,ts,operation,fromB,lookup)
   local out={}
   for i,a in ipairs(poly) do
     local b=poly[i%#poly+1]
@@ -239,8 +243,18 @@ local function selectedEdges(poly,other,ts,operation,fromB)
         if keep then
           local p=point(a,b,t0)
           local q=point(a,b,t1)
-          if fromB and operation=="difference" then p,q=q,p end
-          out[#out+1]={a=p,b=q}
+          local original=Retention.get(lookup,a,b)
+          local meta
+          if original then
+            meta={nodes=original.nodes,segment=original.segment,
+              t0=original.t0+(original.t1-original.t0)*t0,
+              t1=original.t0+(original.t1-original.t0)*t1}
+          end
+          if fromB and operation=="difference" then
+            p,q=q,p
+            if meta then meta.t0,meta.t1=meta.t1,meta.t0 end
+          end
+          out[#out+1]={a=p,b=q,meta=meta}
         end
       end
     end
@@ -262,12 +276,14 @@ local function contours(edges)
       local firstKey=key(edges[i].a)
       local current=i
       local ring={}
+      local ringEdges={}
       local closed=false
       for _=1,#edges+1 do
         if visited[current] then return nil,"repeated contour edge" end
         visited[current]=true
         local e=edges[current]
         ring[#ring+1]=e.a
+        ringEdges[#ringEdges+1]=e
         local nextKey=key(e.b)
         if nextKey==firstKey then closed=true;break end
         current=starts[nextKey]
@@ -279,9 +295,10 @@ local function contours(edges)
       if not polygon then return nil,"degenerate boolean region" end
       if #polygon>256 then return nil,"output exceeds 256 anchors" end
       if winding<0 then
-        holes[#holes+1]=polygon
+        holes[#holes+1]={points=polygon,edges=ringEdges}
       else
-        outers[#outers+1]={outer=polygon,holes={}}
+        outers[#outers+1]={outer=polygon,outerEdges=ringEdges,
+          holes={},holeEdges={}}
       end
     end
   end
@@ -290,7 +307,7 @@ local function contours(edges)
   for _,hole in ipairs(holes) do
     local container,minArea=nil,nil
     for _,outer in ipairs(outers) do
-      local within=inside(outer.outer,hole[1])
+      local within=inside(outer.outer,hole.points[1])
       if within==nil then return nil,"hole touches outer contour" end
       if within then
         local size=math.abs(area(outer.outer))
@@ -299,7 +316,8 @@ local function contours(edges)
     end
     if not container then return nil,"orphan hole contour" end
     if #container.holes>=16 then return nil,"more than 16 holes" end
-    container.holes[#container.holes+1]=hole
+    container.holes[#container.holes+1]=hole.points
+    container.holeEdges[#container.holeEdges+1]=hole.edges
   end
   if #outers==0 then return nil,"no filled outer contour" end
   return outers
@@ -370,12 +388,12 @@ local function calculate(a,b,operation)
   if crossing>500 then return nil,"too many intersections" end
   local result={}
   for i,ring in ipairs(ca.rings) do
-    local edges,err=selectedEdges(ring,cb,ta[i],operation,false)
+    local edges,err=selectedEdges(ring,cb,ta[i],operation,false,ca.lookups[i])
     if not edges then return nil,err end
     for _,e in ipairs(edges) do result[#result+1]=e end
   end
   for i,ring in ipairs(cb.rings) do
-    local edges,err=selectedEdges(ring,ca,tb[i],operation,true)
+    local edges,err=selectedEdges(ring,ca,tb[i],operation,true,cb.lookups[i])
     if not edges then return nil,err end
     for _,e in ipairs(edges) do result[#result+1]=e end
   end
@@ -384,9 +402,15 @@ local function calculate(a,b,operation)
   if not shapes then return nil,err end
   for _,shape in ipairs(shapes) do
     shape.outerNodes=originalRing(shape.outer,{ca,cb})
+    if not shape.outerNodes then
+      shape.outerNodes=Retention.fromEdges(shape.outerEdges,256)
+    end
     shape.holeNodes={}
     for i,hole in ipairs(shape.holes) do
       shape.holeNodes[i]=originalRing(hole,{ca,cb})
+      if not shape.holeNodes[i] then
+        shape.holeNodes[i]=Retention.fromEdges(shape.holeEdges[i],256)
+      end
     end
   end
   return shapes
