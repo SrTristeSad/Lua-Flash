@@ -113,6 +113,14 @@ jobs:
         run: xvfb-run -a env SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 LUA_FLASH_SMOKE=1 LUA_FLASH_SMOKE_COMPACT=1 timeout 30s love player-lua
       - name: Real LÖVE startup with native .lfgame command-line argument
         run: xvfb-run -a env SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 LUA_FLASH_SMOKE=1 LUA_FLASH_SMOKE_CLI=1 timeout 30s love player-lua dist/Exemplo-0.28.lfgame
+      - name: Package standalone Studio 0.2 .love
+        run: python3 tools/package_studio.py
+      - name: Upload Studio editor test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: lua-flash-studio-0.2-love
+          path: dist/Lua-Flash-Studio-0.2.love
+          if-no-files-found: error
       - name: Upload Player test build
         uses: actions/upload-artifact@v4
         with:
