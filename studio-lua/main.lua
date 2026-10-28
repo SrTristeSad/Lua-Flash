@@ -1162,7 +1162,7 @@ function love.keypressed(key)
       local path=vectorOnFrame(selectedVector)
       if path and path.closed and editVectorFrame() then
         path=vectorOnFrame(selectedVector)
-        path.fill=path.fill and nil or clone(palette[colorIndex])
+        if path.fill then path.fill=nil else path.fill=clone(palette[colorIndex]) end
         msg=path.fill and "Preenchimento ativado" or "Preenchimento removido"
         return
       end
