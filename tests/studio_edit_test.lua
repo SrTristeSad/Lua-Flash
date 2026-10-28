@@ -676,3 +676,26 @@ local pasteUndone=assert(Paths.decode(files["projeto.lflash.lfvec"]))
 assert(#Paths.at(pasteUndone,1,3)==0,
   "undo must remove pasted vector drawing together with its timeline key")
 print("OK: Studio vector frame clipboard, SVG export and undo")
+
+
+-- Edit saved vector outline color, fill color and width using the Studio UI.
+press("home")
+love.mousepressed(872,20,1) -- Activate A direct-node tool.
+love.mousepressed(338,274,1)
+love.mousereleased(338,274,1)
+love.mousepressed(70,390,1) -- Palette 2: changes the outline.
+modifiers.lshift=true
+love.mousepressed(118,390,1) -- Palette 3: changes the fill.
+modifiers.lshift=false
+love.keypressed("=") -- Increase outline thickness for selected path.
+project()
+local styled=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local styledPath=assert(Paths.at(styled,1,1)[1])
+assert(styledPath.stroke[1]>.9 and styledPath.fill and styledPath.fill[2]>.7,
+  "vector stroke and fill colors must edit independently")
+assert(styledPath.width>4,"vector width shortcut should alter selected path")
+press("z",true)
+project()
+local styleUndo=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(styleUndo.tracks[1][1][1].width<styledPath.width)
+print("OK: Studio vector stroke/fill palette and outline width editing")
