@@ -72,7 +72,7 @@ function M.box(instance,symbol,frame,vectorScope)
 end
 function M.hit(instance,symbol,frame,x,y,vectorScope)
   if not M.valid(instance) then return false end
-  local x1,y1,x2,y2=M.symbolBounds(symbol,frame)
+  local x1,y1,x2,y2=M.symbolBounds(symbol,frame,vectorScope)
   if not x1 then return false end
   local lx,ly=M.toLocal(instance,x,y)
   -- Fallback for zero-width/height strokes.
