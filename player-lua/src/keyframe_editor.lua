@@ -67,6 +67,8 @@ function Edit.remove(g,index,selected)
   local frame=t.keys[selected].frame
   table.remove(t.keys,selected)
   removeEasing(g,index,frame)
+  -- If the last key is deleted, the newly-final key no longer starts a segment.
+  removeEasing(g,index,t.keys[#t.keys].frame)
   return math.min(selected,#t.keys)
 end
 function Edit.moveFrame(g,index,selected,newFrame)
