@@ -1,34 +1,36 @@
 # Lua-Flash
 
-**O Flash renasce em Lua** — runtime independente de animações e jogos com formatos próprios, sem compatibilidade com SWF, FLA, XFL ou ActionScript antigos.
+**O Flash renasce em Lua** — plataforma própria para animações e jogos, sem emular SWF/FLA/ActionScript antigos.
 
 ## Aplicações independentes
 
 | Aplicação | Pasta | Executar | Estado |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.15 experimental — foco atual** |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.16 experimental** |
 | **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-## Player 0.15 — edição visual de quadros-chave
+### Player 0.16 — histórico, rotação/escala e recuperação
 
-O Player já tinha um painel para alterar curvas de animação. Agora ele também permite **inserir, mover e excluir quadros-chave**, alterar os deslocamentos X/Y por botões ou **arrastar o próprio sprite no palco**. As alterações aparecem imediatamente em desenho, hit-testing e colisões e podem ser salvas com **Ctrl+S**.
+O editor de quadros-chave permite agora desfazer e refazer até **32 alterações**, ajustar **rotação** e **escala X/Y** sem comandos externos e criar uma **cópia de recuperação automática** após 12 segundos com mudanças ainda não salvas.
 
-O mecanismo protege a chave inicial no quadro 1, os limites de posição/tempo, a ordem das chaves e referências de easing; edições inválidas são recusadas sem corromper a sessão.
+As operações compartilham o mesmo runtime gráfico e de colisões, preservando o formato **LUAFGAME 9**. O histórico registra apenas dados editáveis, sem repetir mídias PNG/WAV em memória.
 
-**Não foi necessário alterar o formato**: continua sendo LUAFGAME 9. Jogos LUAFGAME 1–9 abrem normalmente e os documentos `.lflash` permanecem intactos. Jogos importados nunca executam scripts Lua externos.
+Atalhos: **E** abre o painel; **Ctrl+Z** desfaz, **Ctrl+Y** ou **Ctrl+Shift+Z** refaz; **Ctrl+S** salva uma cópia; **Ctrl+R** abre a recuperação (apenas se a sessão atual não tiver edições pendentes). A recuperação fica em `player_recovery.lfgame` no diretório de dados do LÖVE.
+
+Formatos LUAFGAME 1–9 e arquivos `.lflash` permanecem aceitos; nenhum jogo externo executa código Lua.
 
 ## Executar
 
-Instale [LÖVE 11.5](https://love2d.org/), depois:
+Instale [LÖVE](https://love2d.org/) e execute:
 
 ```bash
 love player-lua
 python3 tools/package_player.py
-lua tools/export_example.lua dist/Exemplo-0.15.lfgame
+lua tools/export_example.lua dist/Exemplo-0.16.lfgame
 ```
 
-O `dist/Lua-Flash-Player-0.15.love` requer LÖVE instalado, não sendo um EXE Windows autônomo. O [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions) publica o Player e jogos de demonstração em ZIP.
+O arquivo `dist/Lua-Flash-Player-0.16.love` exige LÖVE instalado (não é um executável Windows independente). As builds de teste estão disponíveis em [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
 
 [Manual do Player](player-lua/README.md) · [Formato LUAFGAME 9](docs/FORMAT_LUAFGAME9.md) · [Roadmap](docs/ROADMAP.md).
 
-Projeto independente, não afiliado à Adobe.
+Projeto independente da Adobe.

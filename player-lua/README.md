@@ -1,45 +1,46 @@
-# Lua-Flash Player 0.15 — editor visual de quadros-chave
+# Lua-Flash Player 0.16 — desfazer, rotação e escala
 
-Player experimental em Lua com LÖVE 11.5. Abre `.lflash` e jogos declarativos `.lfgame` (LUAFGAME 1–9), sem executar SWF nem código externo de jogos.
+Runtime experimental para jogos `.lfgame` LUAFGAME 1–9 e animações `.lflash`, escrito em Lua/LÖVE. O Studio permanece um aplicativo independente.
 
-## Editar animações pela interface
+## Editor visual de quadros-chave
 
-1. Abra um jogo que tenha uma trilha de sprite LUAFGAME 8/9, usando o botão **PACOTE** ou arrastando o `.lfgame` para a janela.
-2. Pressione **E** para abrir o **EDITOR DE KEYFRAMES**. A animação será pausada.
-3. Clique numa chave da lista para selecioná-la e posicionar o cursor da timeline naquele quadro.
-4. Use os botões abaixo para alterar os dados, ou arraste o sprite destacado diretamente no palco para modificar seu deslocamento X/Y.
-5. Clique em **SALVAR** ou use **Ctrl+S** para gravar `player_game.lfgame` na pasta de dados do LÖVE.
+Abra um jogo com trilha de transformação (v8/v9), pressione **E** e selecione uma chave. Além de inserir/excluir, deslocar um quadro, ajustar X/Y e arrastar o sprite, a versão 0.16 possui:
 
-### Botões e atalhos
-
-| Controle | Efeito |
+| Controle | Ação |
 |---|---|
-| **+CHAVE** / **Insert** | Insere um quadro-chave na posição atual da timeline; se já houver uma chave, tenta o ponto intermediário até a próxima chave. |
-| **-CHAVE** / **Delete** | Remove a chave selecionada. O quadro inicial não pode ser excluído. |
-| **Q -** / **Q +** | Move a chave um quadro para trás/frente, sem cruzar as vizinhas. |
-| **X - / X + / Y - / Y +** | Ajusta em 5 unidades o deslocamento da chave selecionada. |
-| **Arrastar sprite no palco** | Modifica a posição X/Y da chave usando o mouse. |
-| **CURVA** / **C** | Alterna os seis modos de easing da 0.14 no trecho selecionado. |
-| **Setas ↑/↓** | Navega entre chaves, inclusive a última. |
-| **PageUp/PageDown** | Troca de sprite/trilha. |
-| **E** / **Escape** | Abre/fecha o editor. |
-| **Ctrl+S** | Salva uma cópia do jogo modificado. |
+| **G - / G +** | Reduz/aumenta em 5° a rotação da chave. |
+| **SX - / SX +** | Diminui/aumenta a escala horizontal em 10%. |
+| **SY - / SY +** | Diminui/aumenta a escala vertical em 10%. |
+| **R / T** | Aumenta/diminui a rotação em 5°. |
+| **X / V** | Aumenta/diminui a escala horizontal em 10%. |
+| **B / N** | Aumenta/diminui a escala vertical em 10%. |
+| **DESFAZER / Ctrl+Z** | Reverte a operação editável mais recente. |
+| **Ctrl+Y ou Ctrl+Shift+Z** | Refaz a operação desfeita. |
+| **Ctrl+S** | Salva `player_game.lfgame` na pasta de dados do Player. |
+| **Ctrl+R** | Abre `player_recovery.lfgame`, desde que o jogo aberto não tenha mudanças pendentes. |
 
-O **quadro 1 é protegido contra exclusão ou mudança de tempo**, mas sua posição pode ser alterada. Cada trilha precisa conservar pelo menos duas chaves. A inserção amostra a pose interpolada para não criar uma mudança brusca de posição inesperada; o easing correspondente também é preservado quando um intervalo é dividido. Ao excluir uma chave, referências de easing que deixam de corresponder a um trecho são removidas.
+O histórico guarda as últimas **32 operações concluídas**; um arrasto inteiro conta como uma única operação. Um novo ajuste depois de desfazer descarta a sequência de refazer. Os dados originais de PNG/WAV não são duplicados dentro de cada snapshot.
 
-O painel é um editor inicial de poses: nesta versão, o mouse altera **posição X/Y**; ângulos e escalas animados continuam editáveis na definição do jogo ou por `tools/animate_transform.lua`. O editor não possui desfazer/refazer, seleção múltipla ou curvas Bézier desenháveis. Essas funcionalidades ficam para versões posteriores.
+As mudanças de ângulo respeitam -360° a +360° e as escalas permanecem entre 10% e 400%. Alterações inválidas são rejeitadas sem modificar a pose existente.
 
-## Integridade e compatibilidade
+## Recuperação automática de edições
 
-A implementação das operações está em `player-lua/src/keyframe_editor.lua`, separada da interface. Ela rejeita índices, posições, quadros e valores inválidos antes de modificar o arquivo em memória.
+Quando há modificações não salvas, a cada **12 segundos** o Player tenta validar e gravar o jogo atual em `player_recovery.lfgame`. É uma cópia separada: **não substitui o arquivo aberto nem o arquivo salvo por Ctrl+S**. O diretório de dados pode ser consultado pela mensagem após salvar o projeto.
 
-O formato segue LUAFGAME 9 e mantém compatibilidade com os jogos 1–8 sem conversão obrigatória. Uma edição visual não altera arquivos originais: **Ctrl+S cria uma cópia na pasta de salvamento do Player**.
+Se uma sessão anterior foi interrompida, abra o Player, pressione **Ctrl+R** e, após revisar a recuperação, use **Ctrl+S** para guardar uma cópia. Para evitar perda das edições já abertas, o Player recusa carregar essa recuperação enquanto a sessão atual estiver modificada e não salva.
 
-O Studio `studio-lua/` permanece inalterado.
+**Limitações:** a recuperação automática não é uma garantia contra falhas de disco, falta de energia, bloqueio do sistema ou uma gravação incompleta. Existe um único nome de cópia automática, portanto editar outro jogo pode substituir uma recuperação anterior; exporte cópias manuais importantes. O histórico de 32 passos é temporário e não é salvo no `.lfgame`.
+
+## Sem mudança de formato
+
+O formato permanece **LUAFGAME 9**. O Player continua executando animação de sprites, easing, eventos de áudio WAV, clique por alfa, colisões e timeline. Projetos antigos continuam válidos.
+
+O editor ainda é inicial: não tem seleção múltipla nem manipuladores de giro/escala diretamente no palco; rotação/escala são ajustadas por botões e atalhos. O Studio não foi alterado.
 
 ## Testes
 
 ```bash
+lua tests/edit_history_test.lua
 lua tests/keyframe_editor_test.lua
 lua tests/gui_smoke.lua
 lua tests/package_v9_test.lua
@@ -47,6 +48,4 @@ python3 tools/sync_core.py --check
 python3 tools/package_player.py
 ```
 
-O GitHub Actions também inicializa o Player no LÖVE real em display virtual, executa os testes anteriores e gera o arquivo `.love`.
-
-O desempenho e a usabilidade precisam de validação em PCs reais. Ainda não há EXE Windows autônomo nem recuperação avançada de edições.
+A CI verifica histórico, integridade de formato, alterações de poses e recuperação, além de iniciar o Player no LÖVE real com uma tela virtual. O pacote `.love` ainda precisa de LÖVE instalado.
