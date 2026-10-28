@@ -156,6 +156,12 @@ love.keypressed("r")
 ctrl=false
 love.keypressed("e")
 love.keypressed("z")
+love.keypressed("f5")  -- switch from event bus to timeline bus
+love.keypressed("f6")  -- lower timeline channel gain
+love.keypressed("f7")  -- restore timeline channel gain
+love.keypressed("f5")  -- switch back to event bus
+love.keypressed("f6")
+love.keypressed("f7")
 love.keypressed("f8")
 love.keypressed("f9")
 love.keypressed("f10")
