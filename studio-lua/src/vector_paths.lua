@@ -1,5 +1,5 @@
 -- Studio-only cubic Bezier paths, separate from LUAFLASH 1 shared core.
--- LFVECTOR 1 (scene only) and LFVECTOR 2 (scene + symbol scopes).
+-- LFVECTOR 1 (scene), 2 (symbol scopes), 3 (compound paths with holes).
 local M={}
 local function finite(n)
   return type(n)=="number" and n==n and n~=math.huge and n~=-math.huge
@@ -116,10 +116,22 @@ function M.moveNode(path,index,x,y)
 end
 function M.move(path,dx,dy)
   if not validPos(dx) or not validPos(dy) then return false end
-  for _,n in ipairs(path.nodes) do
-    if not validPos(n.x+dx) or not validPos(n.y+dy) then return false end
+  local rings={path.nodes}
+  for _,hole in ipairs(path.holes or {}) do rings[#rings+1]=hole end
+  for _,nodes in ipairs(rings) do
+    for _,n in ipairs(nodes) do
+      if not validPos(n.x+dx) or not validPos(n.y+dy)
+          or not validPos(n.ix+dx) or not validPos(n.iy+dy)
+          or not validPos(n.ox+dx) or not validPos(n.oy+dy) then return false end
+    end
   end
-  for _,n in ipairs(path.nodes) do M.moveNode(path,_,n.x+dx,n.y+dy) end
+  for _,nodes in ipairs(rings) do
+    for _,n in ipairs(nodes) do
+      n.x,n.y=n.x+dx,n.y+dy
+      n.ix,n.iy=n.ix+dx,n.iy+dy
+      n.ox,n.oy=n.ox+dx,n.oy+dy
+    end
+  end
   return true
 end
 function M.close(path)
@@ -149,6 +161,33 @@ function M.sample(path,steps)
     end
   end
   return result
+end
+-- A compound path uses independent inner closed contours; every hole is
+-- a node ring. This function intentionally returns only one ring's outline.
+function M.sampleHole(nodes,steps)
+  return M.sample({nodes=nodes,closed=true},steps)
+end
+local function inPolygon(points,x,y)
+  if #points<6 then return false end
+  local inside=false
+  local prev=#points-1
+  for i=1,#points-1,2 do
+    local ax,ay=points[i],points[i+1]
+    local bx,by=points[prev],points[prev+1]
+    if (ay>y)~=(by>y) and x<(bx-ax)*(y-ay)/(by-ay)+ax then
+      inside=not inside
+    end
+    prev=i
+  end
+  return inside
+end
+function M.inFill(path,x,y)
+  if not path or not path.closed or not validPos(x) or not validPos(y) then return false end
+  if not inPolygon(M.sample(path,16),x,y) then return false end
+  for _,hole in ipairs(path.holes or {}) do
+    if inPolygon(M.sampleHole(hole,16),x,y) then return false end
+  end
+  return true
 end
 function M.bounds(path)
   local data=M.sample(path)
@@ -188,22 +227,15 @@ function M.hit(path,x,y,tolerance)
       return true
     end
   end
-  -- A closed filled path is selectable across its interior, not just its stroke.
-  if path.closed and path.fill and #points>=8 then
-    local inside=false
-    local j=#points-1
-    for i=1,#points-1,2 do
-      local ax,ay=points[i],points[i+1]
-      local bx,by=points[j],points[j+1]
-      if (ay>y)~=(by>y) then
-        local crossing=(bx-ax)*(y-ay)/(by-ay)+ax
-        if x<crossing then inside=not inside end
+  for _,hole in ipairs(path.holes or {}) do
+    local outline=M.sampleHole(hole,12)
+    for i=3,#outline,2 do
+      if segmentDistanceSq(x,y,outline[i-2],outline[i-1],outline[i],outline[i+1])<=r then
+        return true
       end
-      j=i
     end
-    return inside
   end
-  return false
+  return path.fill and M.inFill(path,x,y) or false
 end
 function M.pick(paths,x,y,tolerance)
   for i=#paths,1,-1 do
@@ -338,6 +370,14 @@ local function encodeTracks(out,scoped)
           out[#out+1]=table.concat({"N",fmt(n.x),fmt(n.y),fmt(n.ix),fmt(n.iy),
             fmt(n.ox),fmt(n.oy)},"\t")
         end
+        for _,hole in ipairs(path.holes or {}) do
+          out[#out+1]="H"
+          for _,n in ipairs(hole) do
+            out[#out+1]=table.concat({"N",fmt(n.x),fmt(n.y),fmt(n.ix),fmt(n.iy),
+              fmt(n.ox),fmt(n.oy)},"\\t")
+          end
+          out[#out+1]="EH"
+        end
         out[#out+1]="EP"
       end
       out[#out+1]="EK"
@@ -346,7 +386,19 @@ local function encodeTracks(out,scoped)
 end
 function M.encode(v)
   local ids=sorted(v.symbols or {})
-  local out={#ids>0 and "LFVECTOR 2" or "LFVECTOR 1"}
+  local function containsHoles(scope)
+    for _,track in pairs(scope.tracks) do
+      for _,paths in pairs(track) do
+        for _,path in ipairs(paths) do
+          if path.holes and #path.holes>0 then return true end
+        end
+      end
+    end
+    return false
+  end
+  local compound=containsHoles(v)
+  for _,id in ipairs(ids) do if containsHoles(v.symbols[id]) then compound=true end end
+  local out={compound and "LFVECTOR 3" or (#ids>0 and "LFVECTOR 2" or "LFVECTOR 1")}
   encodeTracks(out,v)
   for _,id in ipairs(ids) do
     out[#out+1]="S\t"..id
@@ -368,20 +420,21 @@ function M.decode(data)
     if line~="" then lines[#lines+1]=line:gsub("\r$","") end
   end
   local version=lines[1]
-  if version~="LFVECTOR 1" and version~="LFVECTOR 2" then
+  if version~="LFVECTOR 1" and version~="LFVECTOR 2" and version~="LFVECTOR 3" then
     return nil,"unknown vector format"
   end
   local v=M.new()
   local scope=v
   local activeSymbol=nil
   local layer,frame,path,ended,count=nil,nil,nil,false,0
+  local activeHole=nil
   local seenIds={} -- per-scope IDs cannot be reused by different paths
   for i=2,#lines do
     local f=fields(lines[i])
     if ended then return nil,"trailing vector data" end
     if f[1]=="S" then
       local id=tonumber(f[2])
-      if version~="LFVECTOR 2" or activeSymbol or layer or path
+      if version=="LFVECTOR 1" or activeSymbol or layer or path
           or not int(id,1,100000000) or v.symbols[id] then
         return nil,"invalid symbol scope"
       end
@@ -419,20 +472,34 @@ function M.decode(data)
       seenIds[id]=true
       count=count+1
       if count>50000 then return nil,"too many vector paths" end
+    elseif f[1]=="H" then
+      if version~="LFVECTOR 3" or not path or not path.closed
+          or not path.fill or activeHole or #(path.holes or {})>=16 then
+        return nil,"invalid compound hole"
+      end
+      activeHole={}
+    elseif f[1]=="EH" then
+      if not activeHole or #activeHole<3 or #activeHole>256 then
+        return nil,"invalid hole termination"
+      end
+      path.holes=path.holes or {}
+      path.holes[#path.holes+1]=activeHole
+      activeHole=nil
     elseif f[1]=="N" then
-      if not path or #path.nodes>=256 then return nil,"invalid vector node" end
+      if not path or #(activeHole or path.nodes)>=256 then return nil,"invalid vector node" end
       local coords={}
       for j=2,7 do
         local number=tonumber(f[j])
         if not validPos(number) then return nil,"invalid coordinate" end
         coords[j-1]=number
       end
-      path.nodes[#path.nodes+1]={
+      local target=activeHole or path.nodes
+      target[#target+1]={
         x=coords[1],y=coords[2],ix=coords[3],iy=coords[4],
         ox=coords[5],oy=coords[6]
       }
     elseif f[1]=="EP" then
-      if not path or #path.nodes<1 or path.closed and #path.nodes<3 then
+      if not path or activeHole or #path.nodes<1 or path.closed and #path.nodes<3 then
         return nil,"invalid path termination"
       end
       path=nil
@@ -440,7 +507,7 @@ function M.decode(data)
       if not layer or path then return nil,"invalid key termination" end
       layer,frame=nil,nil
     elseif f[1]=="END" then
-      if layer or path or activeSymbol then return nil,"unfinished vector data" end
+      if layer or path or activeHole or activeSymbol then return nil,"unfinished vector data" end
       ended=true
     else return nil,"unknown vector record" end
   end
