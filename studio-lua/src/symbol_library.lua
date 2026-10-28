@@ -29,11 +29,20 @@ function M.create(lib,kind,name,shapes)
   if not allowed[kind] then return nil,"invalid symbol type" end
   if type(name)~="string" or #name==0 or #name>64 then return nil,"invalid name" end
   if type(shapes)~="table" then return nil,"invalid shapes" end
-  if #lib.symbols>=256 then return nil,"symbol limit reached" end
+  if M.count(lib)>=256 then return nil,"symbol limit reached" end
   local id=lib.nextSymbolId
   if not integer(id,1,100000000) or lib.symbols[id] then return nil,"invalid symbol id" end
   local definition=Model.new()
   definition.layers[1].keys[1]=Model.copy(shapes)
+  local minx,miny
+  for _,shape in ipairs(definition.layers[1].keys[1]) do
+    local x,y=Model.bounds(shape)
+    minx=minx and math.min(minx,x) or x
+    miny=miny and math.min(miny,y) or y
+  end
+  for _,shape in ipairs(definition.layers[1].keys[1]) do
+    Model.move(shape,-(minx or 0),-(miny or 0))
+  end
   definition.totalFrames=1
   local symbol={id=id,kind=kind,name=name,definition=definition}
   lib.symbols[id]=symbol
@@ -128,7 +137,7 @@ function M.decode(data)
     if line~="" then lines[#lines+1]=line:gsub("\r$","") end
   end
   if lines[1]~="LUALIB 1" then return nil,"unsupported library format" end
-  local current,ended,instances={},false,0
+  local current,ended,instances=nil,false,0
   for i=2,#lines do
     local f=fields(lines[i])
     local op=f[1]
@@ -157,7 +166,7 @@ function M.decode(data)
       if not integer(uid,1,100000000) or not integer(symbolId,1,100000000)
           or not finite(x) or not finite(y) or not finite(sx) or not finite(sy)
           or math.abs(x)>100000 or math.abs(y)>100000 or sx==0 or sy==0
-          or math.abs(sx)>100 or math.abs(sy)>100 or not lib.symbols[symbolId]
+          or math.abs(sx)>100 or math.abs(sy)>100 or not current or not lib.symbols[symbolId]
           or instances>=100000 then return nil,"invalid instance record" end
       current[#current+1]={uid=uid,symbolId=symbolId,x=x,y=y,sx=sx,sy=sy}
       lib.nextInstanceId=math.max(lib.nextInstanceId,uid+1)
