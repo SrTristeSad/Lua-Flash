@@ -700,6 +700,10 @@ function love.load(arguments)
   love.graphics.setFont(fonts.regular)
   local launchPath=FileImport.fromArguments(arguments)
   if launchPath then openNativePath(launchPath) end
+  if os.getenv("LUA_FLASH_SMOKE_CLI")=="1" then
+    assert(launchPath and packageDefinition and packageDefinition.version==9,
+      "command-line native game import failed")
+  end
   if os.getenv("LUA_FLASH_SMOKE_MEDIA")=="1" then
     openGameExample()
     if not media then error("media demo failed to load") end
