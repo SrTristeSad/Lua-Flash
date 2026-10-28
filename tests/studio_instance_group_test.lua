@@ -10,8 +10,9 @@ local function fresh()
   rect.points={0,0,10,10}
   local symbol=assert(Library.create(lib,"graphic","Shape",{rect}))
   local ids,placed={},{}
+  local ys={20,40,100} -- deliberately uneven for vertical distribution coverage
   for i,x in ipairs({20,50,110}) do
-    local item=assert(Library.place(lib,1,1,symbol.id,x,i*20))
+    local item=assert(Library.place(lib,1,1,symbol.id,x,ys[i]))
     ids[item.uid]=true
     placed[i]=item
   end
@@ -60,7 +61,7 @@ do
   local tx=plan(doc,lib,ids,"distributeY")
   tx.apply()
   local arr=Library.at(lib,1,1)
-  assert(same(arr[2].y,40))
+  assert(same(arr[2].y,60))
 end
 do
   local doc,lib,ids=fresh()
@@ -69,7 +70,7 @@ do
   assert(Library.encode(lib)==initial)
   tx.apply()
   for i,item in ipairs(Library.at(lib,1,1)) do
-    assert(same(item.x,({20,50,110})[i]+7) and same(item.y,i*20-9))
+    assert(same(item.x,({20,50,110})[i]+7) and same(item.y,({20,40,100})[i]-9))
   end
   local beforeScale=Library.encode(lib)
   tx=plan(doc,lib,ids,"scale",1.5)
