@@ -4,11 +4,13 @@ local Model = require("src.model")
 local Exposure = require("src.frame_exposure")
 local Library = require("src.symbol_library")
 local SymbolPreview = require("src.symbol_preview")
+local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
 local Runtime = require("src.runtime")
 local doc = Model.new(800,450,24)
 local runtime = Runtime.new(doc)
 local symbolLibrary=Library.new()
+local symbolMotion=SymbolMotion.new()
 local selectedSymbol=nil
 local mode,tool="studio","brush"
 local selected,dragged,dragX,dragY,offset= nil,nil,0,0,1
@@ -66,6 +68,7 @@ end
 local function install(newdoc)
   doc=newdoc
   runtime=Runtime.new(doc)
+  SymbolMotion.reset(symbolMotion)
   selected,dragged=nil,nil
   selectedKeys={}
   timelineDrag=nil
@@ -137,6 +140,7 @@ end
 
 local function setFrame(n)
   runtime:seek(n)
+  SymbolMotion.reset(symbolMotion)
   doc.currentFrame=runtime.frame
   selected=nil
 end
@@ -200,6 +204,11 @@ end
 function love.update(dt)
   runtime:update(dt)
   if runtime.playing then doc.currentFrame=runtime.frame end
+  SymbolMotion.update(symbolMotion,symbolLibrary,doc,doc.currentFrame,dt,runtime.playing)
+  if mode=="player" and love.mouse and love.mouse.getPosition then
+    local mx,my=love.mouse.getPosition()
+    SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+  end
 end
 
 local function ui()
@@ -260,7 +269,7 @@ local function ui()
   end
 
   runtime.draw(doc,doc.currentFrame,view.x,view.y,view.w,view.h)
-  SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view)
+  SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view,symbolMotion)
   if mode=="studio" and selected then
     local layer=active()
     local shapes=layer and Model.frame(layer,doc.currentFrame)
@@ -331,7 +340,11 @@ function love.mousepressed(mx,my,mousebutton)
   if inBox(mx,my,160,8,95,34) then mode="studio";runtime.playing=false;return end
   if inBox(mx,my,263,8,95,34) then mode="player";runtime.playing=true;return end
   if inBox(mx,my,366,8,91,34) then runtime.playing=not runtime.playing;return end
-  if mode=="player" then return end
+  if mode=="player" then
+    SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+    SymbolMotion.press(symbolMotion)
+    return
+  end
   if inBox(mx,my,465,8,82,34) then save();return end
   if inBox(mx,my,555,8,109,34) or inBox(mx,my,w-187,90,176,34) then
     snapshot();Model.addLayer(doc);selected=nil;msg="Camada criada";return
@@ -437,6 +450,10 @@ function love.mousepressed(mx,my,mousebutton)
 end
 
 function love.mousemoved(mx,my,dx,dy)
+  if mode=="player" then
+    SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+    return
+  end
   if timelineDrag then
     local w,h,track=dimensions()
     if mx>=250 and mx<w-18 and my>=track+38
@@ -466,6 +483,7 @@ end
 
 function love.mousereleased(_,_,button)
   if button~=1 then return end
+  if mode=="player" then SymbolMotion.release(symbolMotion);return end
   if timelineDrag then
     local op=timelineDrag
     timelineDrag=nil
@@ -549,6 +567,21 @@ function love.keypressed(key)
     else msg=tostring(err) end
     return
   end
+  if ctrl and key=="f10" and mode=="studio" then
+    if not selectedSymbol then msg="Selecione um simbolo na biblioteca";return end
+    if active().locked then msg="Camada bloqueada";return end
+    local shapes=Model.frame(active(),doc.currentFrame)
+    snapshot()
+    local frame,err=Library.appendPose(symbolLibrary,selectedSymbol,shapes)
+    if frame then
+      msg="Pose "..frame.." adicionada ao simbolo. Button: 1 Up, 2 Over, 3 Down, 4 Hit."
+      SymbolMotion.reset(symbolMotion)
+    else
+      table.remove(undo) -- No mutation occurred on validation failure.
+      msg=tostring(err)
+    end
+    return
+  end
   if ctrl and key=="c" and mode=="studio" then
     frameClipboard={
       shapes=clone(Model.frame(active(),doc.currentFrame)),
@@ -583,7 +616,7 @@ function love.keypressed(key)
   if key=="space" then runtime.playing=not runtime.playing;return end
   if key=="left" then runtime.playing=false;setFrame(doc.currentFrame-1);return end
   if key=="right" then runtime.playing=false;setFrame(doc.currentFrame+1);return end
-  if key=="f1" then msg="TAB Studio/Player | F6 chave | F7 visibilidade | F8 trava | Ctrl+N novo | Ctrl+S salva";return end
+  if key=="f1" then msg="TAB preview | F6 key | F9 blank | Ctrl+F8 symbol | Ctrl+F10 pose | Ctrl+S save";return end
   if mode~="studio" then return end
   if key=="pageup" then jumpKey(-1);return end
   if key=="pagedown" then jumpKey(1);return end
