@@ -1,42 +1,43 @@
-# Lua-Flash Player 0.25 — edição sem mouse e contraste
+# Lua-Flash Player 0.26 — tamanho do texto e resistência
 
-Player experimental Lua/LÖVE para `.lflash` e `.lfgame` (LUAFGAME 1–9). O Studio é um aplicativo separado e não foi modificado nesta atualização.
+Player experimental de animações `.lflash` e jogos LUAFGAME 1–9 (`.lfgame`) em Lua/LÖVE. O Studio permanece separado e não foi modificado.
 
-## Editor de quadros-chave: teclado
+## Ajustar o texto
 
-1. Abra um jogo LUAFGAME 8/9 com trilhas de transformação e pressione **E** para abrir o editor.
-2. Pressione **Tab** para percorrer controles: trocar sprite, escolher uma das quatro chaves visíveis, inserir/excluir, alterar posição ou quadro, ângulo/escala, desfazer, trocar curva e salvar.
-3. Pressione **Shift+Tab** para voltar e **Enter** para executar o controle selecionado.
-4. **Setas cima/baixo** continuam selecionando chaves e **PageUp/PageDown** trocam de sprite. O destaque de teclado é um contorno em torno do controle.
-5. **Escape** fecha o editor; **Ctrl+Z/Ctrl+Y** desfaz/refaz as edições e **Ctrl+S** salva uma cópia validada do jogo.
+| Atalho | Ação |
+|---|---|
+| **Ctrl + +** (em muitos teclados: Ctrl + =) | Aumentar tamanho do texto |
+| **Ctrl + -** | Diminuir tamanho do texto |
+| **Ctrl + 0** | Restaurar tamanho normal |
+| **F2** | Alternar alto contraste |
+| **F1** | Mostrar ajuda de atalhos |
 
-O foco ignora linhas de quadros-chave não visíveis. Se uma linha desaparecer após exclusão ou Undo, a navegação retorna a uma ação visível. Mouse e teclado utilizam as mesmas operações do editor, mantendo os limites de tempo/posição, a validação do formato e as proteções existentes.
+Há três níveis, limitados para evitar fontes grandes demais: **normal** (13 px para texto comum, 12 px para texto pequeno), **grande** (15/14 px) e **extra** (17/16 px). Os títulos acompanham essas mudanças. Os ajustes ocorrem imediatamente, inclusive com o editor de quadros-chave aberto.
 
-**Limites atuais:** a lista do editor mostra até quatro chaves simultaneamente. As demais podem ser acessadas pelas setas; Tab percorre apenas as linhas atualmente visíveis. Ainda não há suporte completo a leitores de tela ou a descrição de elementos para tecnologias assistivas.
+Os botões mantêm sua área de clique; o texto é dimensionado para caber no botão. Para rótulos muito longos, há truncamento em limite de largura, preservando a estrutura dos caracteres UTF-8. A interface continua sendo escalonada para janelas pequenas, e textos enormes podem ficar abreviados em vez de deslocar os controles.
 
-## Alto contraste e preferência persistente
+A escolha é gravada no arquivo `player-font-size.txt`, dentro da pasta de dados do LÖVE, como `font=normal`, `font=large` ou `font=extra`. Arquivos inválidos são ignorados e o tamanho normal é aplicado. Nenhum texto dessa preferência é interpretado como código. A configuração de alto contraste fica em arquivo separado e continua funcionando.
 
-**F2** alterna o tema de alto contraste durante a execução. O modo usa fundos escuros, texto claro, contornos visíveis e cor de foco destacada. A preferência é gravada no arquivo `player-settings.txt` no diretório de dados do aplicativo.
+## Teste prolongado automatizado
 
-O arquivo só aceita exatamente `contrast=high` ou `contrast=normal` conforme o formato da implementação. Ele é lido como **texto**, não como código Lua, e um arquivo inválido não executa comandos. Em caso de impossibilidade de gravação, o Player informa que a preferência não pôde ser salva; a sessão atual ainda muda de tema.
+O teste `tests/endurance_player_test.lua` simula **72.000 atualizações**, correspondentes a **20 minutos de relógio da timeline a 60 atualizações por segundo**, sem aguardar o tempo real. Verifica loops fracionários, interpolação e cache, metadados, memória Lua retida e que a reprodução não modifica o jogo importado. Também verifica o comportamento ao alcançar o final sem repetição.
 
-O F2 não altera os dados do jogo, seus sprites nem o formato `.lfgame`. O F1 exibe a ajuda dos atalhos.
+É um **teste de lógica e retenção de memória Lua**, não um teste de 20 minutos em GPU ou driver físico. Não valida a temperatura do hardware, latência de áudio real ou VRAM. Esses testes ainda precisam acontecer em Windows/Linux reais para a versão 1.0.
 
-O tema melhora o contraste dos controles principais, mas partes das cenas e cores autorais dos jogos permanecem como foram criadas. Isso não constitui certificação WCAG nem garante compatibilidade com leitores de tela.
+## Funções existentes
 
-## Outros recursos
+Ctrl+O abre o seletor de arquivos; Ctrl+Shift+O abre o campo manual; E abre o editor de poses; Tab e Shift+Tab percorrem controles; Ctrl+S salva; Ctrl+Z/Y desfaz/refaz; F3 mostra diagnósticos; F5–F10 controlam áudio; F11 alterna tela cheia.
 
-Ctrl+O abre o seletor de arquivos (nativo no Windows); Ctrl+Shift+O abre campo manual; F3 mostra diagnósticos; F5–F10 controlam áudio; F11 alterna tela cheia. O Windows portátil continua incorporando o LÖVE 11.5, ícone original e informações de versão **0.25.0.0**.
+O pacote Windows x64 incorpora o LÖVE 11.5 oficial, seu ícone próprio, VERSIONINFO **0.26.0.0** e as DLLs, mas não é assinado digitalmente. O formato de jogo continua **LUAFGAME 9** sem alterações.
 
-## Testes
+## Desenvolvimento e validação
 
 ```bash
-lua tests/editor_nav_test.lua
-lua tests/visual_settings_test.lua
-lua tests/focus_nav_test.lua
+lua tests/text_scale_test.lua
+lua tests/endurance_player_test.lua
 lua tests/gui_smoke.lua
 python3 tests/windows_resource_test.py
 python3 tools/package_player.py
 ```
 
-A CI verifica esses testes e compila a distribuição Windows. Ainda são necessários testes físicos e homologação de acessibilidade antes de declarar uma versão estável.
+A CI também executa o LÖVE real com display virtual e compila o ZIP Windows portátil. Os testes de usabilidade, desempenho e acessibilidade em hardware real continuam pendentes.
