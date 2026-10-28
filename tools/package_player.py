@@ -28,7 +28,7 @@ REQUIRED = {
     "src/game_example_v3.lua", "src/game_example_v4.lua", "src/game_example_v5.lua", "src/game_example_v6.lua", "src/game_example_v7.lua",
     "src/game_example_v8.lua", "src/game_example_v9.lua",
 }
-VERSION = "0.19"
+VERSION = "0.20"
 
 
 def build(output: Path) -> None:
