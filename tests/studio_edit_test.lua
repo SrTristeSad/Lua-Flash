@@ -429,3 +429,59 @@ local dragUndo=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"])).track
 assert(math.abs(dragUndo.x-scaleUndo.x)<.0001)
 assert(math.abs(dragUndo.y-scaleUndo.y)<.0001)
 print("OK: symbol instance selection, keyboard transforms, drag and undo")
+
+
+-- Scale/rotation handles and numeric property editor through actual callbacks.
+press("n",true)
+press("r")
+love.mousepressed(300,250,1)
+love.mousemoved(340,270,40,20)
+love.mousereleased(340,270,1)
+press("f8",true)
+love.mousepressed(325,260,1)
+love.mousereleased(325,260,1)
+press("v")
+love.mousepressed(335,267,1)
+love.mousereleased(335,267,1)
+local Handles=require("src.instance_handles")
+local Runtime=require("src.runtime")
+local sceneNow=project()
+local libNow=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+local instNow=libNow.tracks[1][1][1]
+local ox,oy,zoom=Runtime.geometry(sceneNow,176,53,820,557)
+local function stageScreen(pt) return ox+pt[1]*zoom,oy+pt[2]*zoom end
+local pts=assert(Handles.points(instNow,libNow.symbols[1],1,zoom))
+local bmx,bmy=stageScreen(pts.br)
+love.mousepressed(bmx,bmy,1)
+love.mousemoved(bmx+20,bmy+12,20,12)
+love.mousereleased(bmx+20,bmy+12,1)
+project()
+local scaledLib=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+local scaledInstance=scaledLib.tracks[1][1][1]
+assert(scaledInstance.sx>1 and scaledInstance.sy>1,
+  "bottom-right handle must scale selected instance")
+local afterPts=assert(Handles.points(scaledInstance,scaledLib.symbols[1],1,zoom))
+local rmx,rmy=stageScreen(afterPts.rotate)
+local px,py=stageScreen(afterPts.pivot)
+love.mousepressed(rmx,rmy,1)
+-- Move rotation handle around the fixed symbol pivot by a quarter-turn.
+love.mousemoved(px-(rmy-py),py+(rmx-px),0,0)
+love.mousereleased(px-(rmy-py),py+(rmx-px),1)
+project()
+local rotatedLib=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(rotatedLib.tracks[1][1][1].angle>30,
+  "rotation handle must rotate selected instance")
+-- Numeric edit is deliberately absolute (not a relative transform).
+love.mousepressed(760+82+20,65+35+5,1)
+love.textinput("999")
+love.keypressed("return")
+project()
+local absoluteLib=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(math.abs(absoluteLib.tracks[1][1][1].x-999)<.001,
+  "numeric property X must apply entered absolute value")
+press("z",true)
+project()
+local undoProperty=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(undoProperty.tracks[1][1][1].x~=999,
+  "numeric property edit must be undoable")
+print("OK: UI drag handles, rotation handle, numeric X property and undo")
