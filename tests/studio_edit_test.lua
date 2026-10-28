@@ -600,3 +600,53 @@ love.mousereleased(475,254,1)
 project()
 assert(#assert(SymbolLibrary.decode(files["projeto.lflash.lflib"])).tracks[1][1]==3)
 print("OK: marquee selection, relative group X property, undo and crossing selection")
+
+
+-- Studio-only Bezier pen, closed fill, node editing, undo, and auxiliary save.
+press("n",true)
+press("p") -- Pen tool; clicks create Bezier anchors in the vector sidecar.
+for _,pt in ipairs({{320,260},{385,260},{385,320}}) do
+  love.mousepressed(pt[1],pt[2],1)
+  love.mousereleased(pt[1],pt[2],1)
+end
+love.mousepressed(320,260,1) -- Close by clicking the initial anchor.
+love.mousereleased(320,260,1)
+love.keypressed("f") -- Toggle fill on the selected closed path.
+local noVectors=project()
+local Paths=require("src.vector_paths")
+local vectorCreated=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local vpath=assert(Paths.at(vectorCreated,1,1)[1])
+assert(vpath.closed and #vpath.nodes==3 and vpath.fill,
+  "pen must create a closed filled cubic vector path")
+assert(#noVectors.layers[1].keys[1]==0,
+  "vector objects should not corrupt legacy LUAFLASH 1 shapes")
+love.mousepressed(872,20,1) -- Node-edit button in Studio toolbar.
+love.mousepressed(320,260,1)
+love.mousemoved(338,274,18,14)
+love.mousereleased(338,274,1)
+project()
+local editedPaths=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local movedNode=assert(Paths.at(editedPaths,1,1)[1].nodes[1])
+assert(movedNode.x>vpath.nodes[1].x and movedNode.y>vpath.nodes[1].y,
+  "node tool must move vector anchor using mouse")
+press("z",true)
+project()
+local restoredPaths=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(math.abs(restoredPaths.tracks[1][1][1].nodes[1].x-vpath.nodes[1].x)<.001,
+  "undo must restore pre-edit vector geometry")
+press("y",true)
+project()
+local redonePaths=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(math.abs(redonePaths.tracks[1][1][1].nodes[1].x-movedNode.x)<.001,
+  "redo must restore edited Bezier anchor")
+press("o",true)
+project()
+local loadedVectors=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(loadedVectors,1,1)==1,"reopen must preserve vector sidecar")
+press("right")
+press("f9")
+project()
+local blankVector=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(blankVector,1,2)==0,
+  "F9 blank key must also stop exposure of earlier vector drawings")
+print("OK: Studio Pen, fill, node drag, vector sidecar reload and undo/redo")
