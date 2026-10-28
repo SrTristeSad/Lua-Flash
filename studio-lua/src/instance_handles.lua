@@ -9,9 +9,9 @@ local function rotate(x,y,rad)
   local c,s=math.cos(rad),math.sin(rad)
   return c*x-s*y,s*x+c*y
 end
-function M.points(instance,symbol,frame,zoom)
+function M.points(instance,symbol,frame,zoom,vectorScope)
   if not Transform.valid(instance) or not finite(zoom) or zoom<=0 then return nil end
-  local x1,y1,x2,y2=Transform.symbolBounds(symbol,frame)
+  local x1,y1,x2,y2=Transform.symbolBounds(symbol,frame,vectorScope)
   if not x1 or x2-x1<1e-5 or y2-y1<1e-5 then return nil end
   local ax,ay=Transform.toWorld(instance,x1,y1)
   local bx,by=Transform.toWorld(instance,x2,y1)
