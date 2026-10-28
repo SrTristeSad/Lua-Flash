@@ -4,6 +4,7 @@
 local Model=require("src.model")
 local Library=require("src.symbol_library")
 local Transform=require("src.instance_transform")
+local Vector=require("src.vector_paths")
 local M={}
 local function finite(v) return type(v)=="number" and v==v and math.abs(v)<math.huge end
 local function clampValid(p)
@@ -11,7 +12,7 @@ local function clampValid(p)
     and math.abs(p.sx)>=0.1 and math.abs(p.sy)>=0.1
     and math.abs(p.sx)<=20 and math.abs(p.sy)<=20
 end
-local function collect(doc,lib,layerIndex,frame,ids)
+local function collect(doc,lib,layerIndex,frame,ids,vectors)
   local layer=doc.layers[layerIndex]
   if not layer or layer.locked then return nil,"camada bloqueada ou inexistente" end
   if type(ids)~="table" then return nil,"selecao invalida" end
@@ -25,7 +26,8 @@ local function collect(doc,lib,layerIndex,frame,ids)
       if seen[item.uid] then return nil,"identificador duplicado" end
       local sym=Library.find(lib,item.symbolId)
       if not sym or not Transform.valid(item) then return nil,"simbolo invalido" end
-      local left,top,right,bottom=Transform.box(item,sym,1)
+      local left,top,right,bottom=Transform.box(item,sym,1,
+        vectors and Vector.scope(vectors,sym.id))
       if not left then return nil,"simbolo sem geometria" end
       items[#items+1]={uid=item.uid,source=item,left=left,top=top,
         right=right,bottom=bottom,cx=(left+right)/2,cy=(top+bottom)/2}
@@ -41,8 +43,8 @@ function M.count(ids)
   for _,enabled in pairs(ids or {}) do if enabled then count=count+1 end end
   return count
 end
-function M.plan(doc,lib,layerIndex,frame,ids,op,value)
-  local items,err=collect(doc,lib,layerIndex,frame,ids)
+function M.plan(doc,lib,layerIndex,frame,ids,op,value,vectors)
+  local items,err=collect(doc,lib,layerIndex,frame,ids,vectors)
   if not items then return nil,err end
   local minx,miny,maxx,maxy
   for _,item in ipairs(items) do
