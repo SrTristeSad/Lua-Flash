@@ -552,3 +552,51 @@ assert(alignmentUndo.tracks[1][1][1].x<alignmentUndo.tracks[1][1][2].x and
   alignmentUndo.tracks[1][1][2].x<alignmentUndo.tracks[1][1][3].x,
   "one undo must revert the entire alignment")
 print("OK: Shift multi-select, align panel, group rotation and atomic undo")
+
+
+-- Marquee selection on empty canvas and relative group X property in the UI.
+press("n",true)
+press("r")
+love.mousepressed(300,250,1)
+love.mousemoved(340,270,40,20)
+love.mousereleased(340,270,1)
+press("f8",true)
+for _,xp in ipairs({325,390,455}) do
+  love.mousepressed(xp,260,1)
+  love.mousereleased(xp,260,1)
+end
+local marqueeBaseline=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"] or
+  (project() and files["projeto.lflash.lflib"])))
+local baseXs={}
+for i,item in ipairs(marqueeBaseline.tracks[1][1]) do baseXs[i]=item.x end
+press("v")
+-- Begin in empty canvas so this is a marquee, not a normal shape or instance drag.
+love.mousepressed(290,245,1)
+love.mousemoved(510,310,220,65)
+love.mousereleased(510,310,1)
+-- Group properties are below align buttons, in the same inspector.
+love.mousepressed(886,302,1)
+love.textinput("30")
+love.keypressed("return")
+project()
+local marqueeChanged=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+for i,item in ipairs(marqueeChanged.tracks[1][1]) do
+  assert(math.abs(item.x-baseXs[i]-30)<.001,
+    "marquee selection and numeric group X must affect every instance")
+end
+press("z",true)
+project()
+local marqueeUndo=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+for i,item in ipairs(marqueeUndo.tracks[1][1]) do
+  assert(math.abs(item.x-baseXs[i])<.001,
+    "a single undo must revert the entire numeric group property")
+end
+-- Crossing rectangle selects the last object even though not fully contained.
+press("escape")
+love.mousepressed(520,315,1)
+love.mousemoved(475,254,-45,-61)
+love.mousereleased(475,254,1)
+-- A selected single instance receives individual property panel, not group actions.
+project()
+assert(#assert(SymbolLibrary.decode(files["projeto.lflash.lflib"])).tracks[1][1]==3)
+print("OK: marquee selection, relative group X property, undo and crossing selection")
