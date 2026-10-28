@@ -2,9 +2,13 @@
 -- No legacy Adobe SWF/FLA/ActionScript compatibility by design.
 local Model = require("src.model")
 local Exposure = require("src.frame_exposure")
+local Library = require("src.symbol_library")
+local SymbolPreview = require("src.symbol_preview")
 local Runtime = require("src.runtime")
 local doc = Model.new(800,450,24)
 local runtime = Runtime.new(doc)
+local symbolLibrary=Library.new()
+local selectedSymbol=nil
 local mode,tool="studio","brush"
 local selected,dragged,dragX,dragY,offset= nil,nil,0,0,1
 local undo,redo={},{}
@@ -48,7 +52,7 @@ local function dimensions()
 end
 
 local function snapshot()
-  undo[#undo+1]=Model.encode(doc)
+  undo[#undo+1]={document=Model.encode(doc),symbols=Library.encode(symbolLibrary)}
   if #undo>40 then table.remove(undo,1) end
   redo={}
 end
@@ -65,17 +69,27 @@ end
 local function history(reverse)
   local from,to=reverse and undo or redo,reverse and redo or undo
   if #from==0 then msg="Nada para "..(reverse and "desfazer" or "refazer");return end
-  to[#to+1]=Model.encode(doc)
+  to[#to+1]={document=Model.encode(doc),symbols=Library.encode(symbolLibrary)}
   local contents=table.remove(from)
-  local d,err=Model.decode(contents)
-  if d then install(d) else msg="Historico invalido: "..tostring(err) end
+  local d,err=Model.decode(contents.document)
+  local lib,liberr=Library.decode(contents.symbols)
+  if d and lib then
+    install(d)
+    symbolLibrary=lib
+    if selectedSymbol and not Library.find(lib,selectedSymbol) then selectedSymbol=nil end
+  else
+    msg="Historico invalido: "..tostring(err or liberr)
+  end
 end
 
 local function save()
   local filename=projectName..".lflash"
   local bytes=Model.encode(doc)
+  -- The native project stays LUAFLASH 1. Symbols live in a separate sidecar.
+  local libOk,libErr=love.filesystem.write(filename..".lflib",Library.encode(symbolLibrary))
+  if not libOk then msg="Erro ao salvar biblioteca: "..tostring(libErr);return end
   local ok,err=love.filesystem.write(filename,bytes)
-  msg=ok and ("Projeto salvo: "..love.filesystem.getSaveDirectory().."/"..filename) or ("Erro ao salvar: "..tostring(err))
+  msg=ok and ("Projeto salvo: "..love.filesystem.getSaveDirectory().."/"..filename.." (+ .lflib)") or ("Erro ao salvar: "..tostring(err))
 end
 local function beginSaveAs()
   naming=true
@@ -83,10 +97,14 @@ local function beginSaveAs()
   msg="Salvar como: digite um nome (letras, numeros, _ ou -). Enter confirma; Esc cancela."
 end
 
-local function load(data)
+local function load(data,libraryData)
   local d,err=Model.decode(data)
   if not d then msg="Nao foi possivel abrir: "..tostring(err);return end
+  local lib,liberr=libraryData and Library.decode(libraryData) or Library.new()
+  if not lib then msg="Biblioteca invalida: "..tostring(liberr);return end
   install(d)
+  symbolLibrary=lib
+  selectedSymbol=nil
   undo,redo={},{}
   msg="Projeto Lua-Flash aberto"
 end
@@ -94,6 +112,8 @@ end
 local function newProject()
   snapshot()
   install(Model.new(800,450,24))
+  symbolLibrary=Library.new()
+  selectedSymbol=nil
   runtime.playing=false
   mode="studio"
   projectName="projeto"
@@ -103,7 +123,10 @@ end
 
 local function openLast()
   local s,err=love.filesystem.read(projectName..".lflash")
-  if s then load(s) else msg="Arquivo nao encontrado: "..tostring(err) end
+  if s then
+    local libData=love.filesystem.read(projectName..".lflash.lflib")
+    load(s,libData)
+  else msg="Arquivo nao encontrado: "..tostring(err) end
 end
 
 local function setFrame(n)
@@ -220,9 +243,17 @@ local function ui()
     label("Palco "..doc.width.." x "..doc.height,w-185,track-92)
     label("FPS: "..doc.fps,w-185,track-72)
     label("Camada "..doc.currentLayer.." | F7 vis. F8 trava",w-185,track-52)
+    label("BIBLIOTECA  |  Ctrl+F8 cria Graphic",w-186,326,{.45,.82,1})
+    local symbolList=Library.list(symbolLibrary)
+    for i=1,math.min(#symbolList,5) do
+      local symbol=symbolList[i]
+      local title=symbol.id.." "..symbol.kind..": "..symbol.name
+      button(title:sub(1,24),w-187,348+(i-1)*28,175,26,selectedSymbol==symbol.id)
+    end
   end
 
   runtime.draw(doc,doc.currentFrame,view.x,view.y,view.w,view.h)
+  SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view)
   if mode=="studio" and selected then
     local layer=active()
     local shapes=layer and Model.frame(layer,doc.currentFrame)
@@ -301,6 +332,15 @@ function love.mousepressed(mx,my,mousebutton)
   for i,item in ipairs(tools) do
     if inBox(mx,my,11,92+(i-1)*39,146,34) then tool=item[1];msg="Ferramenta: "..tool;return end
   end
+  local symbols=Library.list(symbolLibrary)
+  for i=1,math.min(#symbols,5) do
+    if inBox(mx,my,w-187,348+(i-1)*28,175,26) then
+      selectedSymbol=symbols[i].id
+      tool="symbol"
+      msg="Instancia selecionada: "..symbols[i].name.." | clique no palco"
+      return
+    end
+  end
   for i in ipairs(palette) do
     if inBox(mx,my,12+(i-1)%3*46,375+math.floor((i-1)/3)*44,36,35) then colorIndex=i;return end
   end
@@ -354,7 +394,15 @@ function love.mousepressed(mx,my,mousebutton)
   if not layer or layer.locked then msg="Camada bloqueada";return end
   local x,y=xy(mx,my)
   local existing=Model.frame(layer,doc.currentFrame)
-  if tool=="select" then
+  if tool=="symbol" then
+    if not selectedSymbol or not Library.find(symbolLibrary,selectedSymbol) then
+      msg="Selecione um simbolo na biblioteca";return
+    end
+    snapshot()
+    Model.ensureKey(layer,doc.currentFrame)
+    local instance,err=Library.place(symbolLibrary,doc.currentLayer,doc.currentFrame,selectedSymbol,x,y)
+    msg=instance and "Instancia adicionada ao palco" or tostring(err)
+  elseif tool=="select" then
     selected=nil
     for i=#existing,1,-1 do if Model.hit(existing[i],x,y) then selected=i;break end end
     if selected then
@@ -497,6 +545,20 @@ function love.keypressed(key)
   end
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   local shift=love.keyboard.isDown("lshift","rshift")
+  if ctrl and key=="f8" and mode=="studio" then
+    if active().locked then msg="Camada bloqueada";return end
+    local kind=shift and "movieclip" or (love.keyboard.isDown("lalt","ralt") and "button" or "graphic")
+    local shapes=Model.frame(active(),doc.currentFrame)
+    if #shapes==0 then msg="Desenhe algo antes de criar um simbolo";return end
+    snapshot()
+    local symbol,err=Library.create(symbolLibrary,kind,"Simbolo "..symbolLibrary.nextSymbolId,shapes)
+    if symbol then
+      selectedSymbol=symbol.id
+      tool="symbol"
+      msg="Simbolo "..symbol.kind.." criado. Clique no palco para instanciar."
+    else msg=tostring(err) end
+    return
+  end
   if ctrl and key=="c" and mode=="studio" then
     frameClipboard=clone(Model.frame(active(),doc.currentFrame))
     msg="Quadro copiado para area interna do Studio"
@@ -550,6 +612,7 @@ function love.keypressed(key)
     if active().locked then msg="Camada bloqueada";return end
     snapshot()
     Exposure.insertBlankKey(active(),doc.currentFrame)
+    Library.ensureKey(symbolLibrary,doc.currentLayer,doc.currentFrame,true)
     selected=nil
     msg="Quadro-chave vazio inserido"
     return
@@ -557,7 +620,13 @@ function love.keypressed(key)
   if key=="f6" then
     if active().locked then msg="Camada bloqueada";return end
     snapshot()
-    if shift then Model.removeKey(active(),doc.currentFrame) else Model.ensureKey(active(),doc.currentFrame) end
+    if shift then
+      Model.removeKey(active(),doc.currentFrame)
+      Library.removeKey(symbolLibrary,doc.currentLayer,doc.currentFrame)
+    else
+      Model.ensureKey(active(),doc.currentFrame)
+      Library.ensureKey(symbolLibrary,doc.currentLayer,doc.currentFrame)
+    end
     selected=nil
     return
   end
