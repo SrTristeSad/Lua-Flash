@@ -91,6 +91,8 @@ jobs:
         run: lua tests/studio_spans_test.lua
       - name: Studio Flash symbols and instance sidecar regression
         run: lua tests/studio_symbols_test.lua
+      - name: Studio atomic artwork and symbol timeline transactions
+        run: lua tests/studio_timeline_ops_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
