@@ -22,6 +22,9 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 - **F7**: ocultar/mostrar camada atual.
 - **F8**: bloquear/desbloquear camada atual.
 - **F6**: inserir quadro-chave; **Shift+F6**: remover.
+- **Ctrl+C / Ctrl+V**: copiar formas do quadro atual e colar como quadro-chave na posição atual (na camada selecionada). A cópia é independente e pode ser desfeita.
+- **PageUp / PageDown**: ir para o quadro-chave anterior / seguinte da camada atual.
+- **Home / End**: ir ao primeiro / último quadro da timeline.
 - **Ctrl+S**: salvar o projeto com o nome atual na pasta de dados LÖVE.
 - **Ctrl+Shift+S**: Salvar como, com nome personalizado (letras, números, `_` e `-`), recusando sobrescrever arquivo com outro nome já existente.
 - **Camadas**: botões `O/-` e `L/X` ao lado do nome permitem mostrar/ocultar e bloquear/desbloquear cada camada com o mouse.
