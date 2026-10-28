@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.25. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.26. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -25,6 +25,7 @@ local Responsive=require("src.responsive")
 local FocusNav=require("src.focus_nav")
 local EditorNav=require("src.editor_nav")
 local VisualSettings=require("src.visual_settings")
+local TextScale=require("src.text_scale")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -53,6 +54,7 @@ local focused=FocusNav.new()
 local editorFocused=EditorNav.new()
 local showHelp=false
 local highContrast=false
+local textSize="normal"
 local C=VisualSettings.palette(false)
 local MAX_FILE=25*1024*1024
 -- CI-only graphical smoke mode; runs regular LÖVE graphics before exiting.
@@ -87,12 +89,22 @@ local function inside(x,y,bx,by,bw,bh)
   return x>=bx and x<=bx+bw and y>=by and y<=by+bh
 end
 
-local function label(s,x,y,color,font)
+local function label(s,x,y,color,font,widthLimit)
   local lg=love.graphics
   lg.setColor(color or C.text)
-  if font then lg.setFont(font) end
-  lg.print(tostring(s),x,y)
-  if font then lg.setFont(fonts.regular) end
+  local chosen=font or fonts.regular
+  if chosen then lg.setFont(chosen) end
+  local value,ratio=TextScale.fitted(s,chosen,widthLimit)
+  if ratio<1 then
+    lg.push("all")
+    lg.translate(x,y)
+    lg.scale(ratio,1)
+    lg.print(value,0,0)
+    lg.pop()
+  else
+    lg.print(value,x,y)
+  end
+  if chosen and fonts.regular then lg.setFont(fonts.regular) end
 end
 
 local function button(s,x,y,w,h,active)
@@ -101,7 +113,9 @@ local function button(s,x,y,w,h,active)
   lg.rectangle("fill",x,y,w,h,5,5)
   lg.setColor(C.line)
   lg.rectangle("line",x+.5,y+.5,w-1,h-1,5,5)
-  label(s,x+10,y+math.floor((h-14)/2))
+  local height=fonts.regular and fonts.regular.getHeight and
+    fonts.regular:getHeight() or 14
+  label(s,x+8,y+math.max(2,math.floor((h-height)/2)),nil,nil,w-16)
 end
 
 local function install(doc,name,isDemo)
@@ -793,10 +807,35 @@ local function toggleSmooth()
     "Interpolacao visual desativada: quadros exatos do projeto."
 end
 
+local function installFontSize(level)
+  local v=TextScale.sizes(level)
+  local ok,regular,small,heading=pcall(function()
+    return love.graphics.newFont(v.regular),
+      love.graphics.newFont(v.small),love.graphics.newFont(v.heading)
+  end)
+  if not ok then return false end
+  fonts.regular=regular
+  fonts.small=small
+  fonts.heading=heading
+  textSize=level
+  love.graphics.setFont(fonts.regular)
+  return true
+end
+local function changeFontSize(level)
+  if level==textSize then return end
+  if installFontSize(level) then
+    local saved=TextScale.save(love.filesystem,level)
+    notice="Tamanho dos textos: "..level..
+      (saved and " | preferencia salva." or " | falha ao salvar preferencia.")
+  else
+    notice="Nao foi possivel alterar o tamanho dos textos."
+  end
+end
+
 function love.load(arguments)
   highContrast=VisualSettings.load(love.filesystem)
   C=VisualSettings.palette(highContrast)
-  love.window.setTitle("Lua-Flash Player 0.25")
+  love.window.setTitle("Lua-Flash Player 0.26")
   love.window.setMode(1040,690,{resizable=true,minwidth=600,minheight=380,highdpi=true})
   if os.getenv("LUA_FLASH_SMOKE_COMPACT")=="1" then
     love.window.setMode(640,400,{resizable=true,minwidth=600,minheight=380,highdpi=true})
@@ -809,10 +848,8 @@ function love.load(arguments)
       love.window.setIcon(icon)
     end)
   end
-  fonts.regular=love.graphics.newFont(13)
-  fonts.heading=love.graphics.newFont(22)
-  fonts.small=love.graphics.newFont(12)
-  love.graphics.setFont(fonts.regular)
+  local chosen=TextScale.load(love.filesystem)
+  if not installFontSize(chosen) then installFontSize("normal") end
   local launchPath=FileImport.fromArguments(arguments)
   if launchPath then openNativePath(launchPath) end
   if os.getenv("LUA_FLASH_SMOKE_WIN_NATIVE")=="1" and launchPath then
@@ -897,7 +934,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.25  |  Editor por teclado e alto contraste",21,60,C.muted,fonts.small)
+  label("PLAYER 0.26  |  Fontes maiores e reproducao estavel",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -1050,13 +1087,13 @@ function love.draw()
     lg.setColor(0,0,0,.74)
     lg.rectangle("fill",0,0,w,h)
     local pw=math.min(w-100,690)
-    local x,y=(w-pw)/2,math.max(90,(h-490)/2)
+    local x,y=(w-pw)/2,math.max(90,(h-520)/2)
     lg.setColor(C.top)
-    lg.rectangle("fill",x,y,pw,490,12,12)
+    lg.rectangle("fill",x,y,pw,520,12,12)
     lg.setColor(C.accent)
     lg.setLineWidth(2)
-    lg.rectangle("line",x+1,y+1,pw-2,488,12,12)
-    label("AJUDA E ATALHOS — PLAYER 0.25",x+20,y+16,C.text,fonts.heading)
+    lg.rectangle("line",x+1,y+1,pw-2,518,12,12)
+    label("AJUDA E ATALHOS — PLAYER 0.26",x+20,y+16,C.text,fonts.heading)
     local keys={
       "TAB / Shift+TAB  : botoes e controles do editor",
       "ENTER           : ativar botao selecionado",
@@ -1068,6 +1105,7 @@ function love.draw()
       "Espaco          : pausar / reproduzir",
       "Setas esquerda/direita : navegar por quadros",
       "E               : editor de animacoes",
+      "Ctrl + / - / 0  : texto maior / menor / normal",
       "F2              : alto contraste (salvo no dispositivo)",
       "F3              : diagnostico de desempenho",
       "F5–F10         : canais de audio e volume",
@@ -1242,6 +1280,15 @@ end
 function love.keypressed(key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if pathPrompt.open then editPathKey(key,ctrl);return end
+  if ctrl and (key=="=" or key=="+" or key=="kp+") then
+    changeFontSize(TextScale.step(textSize,1));return
+  end
+  if ctrl and (key=="-" or key=="kp-") then
+    changeFontSize(TextScale.step(textSize,-1));return
+  end
+  if ctrl and (key=="0" or key=="kp0") then
+    changeFontSize("normal");return
+  end
   if key=="f2" then
     highContrast=not highContrast
     C=VisualSettings.palette(highContrast)
