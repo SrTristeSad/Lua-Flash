@@ -81,7 +81,8 @@ assert(Library.encode(restored)==encoded)
 local lastColor
 _G.love={graphics={
   push=function() end,pop=function() end,setScissor=function() end,
-  translate=function() end,scale=function() end,setColor=function(r,g,b) lastColor={r,g,b} end,
+  translate=function() end,scale=function() end,rotate=function() end,
+  setColor=function(r,g,b) lastColor={r,g,b} end,
   setLineWidth=function() end,rectangle=function() end,ellipse=function() end,
   line=function() end,circle=function() end
 }}
