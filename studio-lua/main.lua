@@ -13,6 +13,13 @@ local colorIndex,thickness=1,4
 local view={x=180,y=58,w=800,h=480,ox=0,oy=0,scale=1}
 local tools={{"select","V Selecionar"},{"brush","B Pincel"},{"line","L Linha"},{"rect","R Retangulo"},{"ellipse","O Elipse"},{"erase","E Borracha"}}
 local font
+local frameClipboard=nil
+local function clone(value)
+  if type(value)~="table" then return value end
+  local out={}
+  for k,v in pairs(value) do out[k]=clone(v) end
+  return out
+end
 local projectName="projeto"
 local naming=false
 local nameDraft=""
@@ -95,6 +102,18 @@ end
 
 local function active()
   return doc.layers[doc.currentLayer]
+end
+
+local function jumpKey(direction)
+  local layer=active()
+  if not layer then return end
+  local target
+  for frame in pairs(layer.keys) do
+    if type(frame)=="number" and ((direction>0 and frame>doc.currentFrame) or (direction<0 and frame<doc.currentFrame)) then
+      if not target or (direction>0 and frame<target) or (direction<0 and frame>target) then target=frame end
+    end
+  end
+  if target then runtime.playing=false;setFrame(target) else msg="Nenhum quadro-chave nessa direcao" end
 end
 
 local function currentShapes(create)
@@ -363,6 +382,20 @@ function love.keypressed(key)
   end
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   local shift=love.keyboard.isDown("lshift","rshift")
+  if ctrl and key=="c" and mode=="studio" then
+    frameClipboard=clone(Model.frame(active(),doc.currentFrame))
+    msg="Quadro copiado para area interna do Studio"
+    return
+  end
+  if ctrl and key=="v" and mode=="studio" then
+    if not frameClipboard then msg="Nenhum quadro copiado";return end
+    if active().locked then msg="Camada bloqueada";return end
+    snapshot()
+    active().keys[doc.currentFrame]=clone(frameClipboard)
+    selected=nil
+    msg="Quadro colado na camada atual"
+    return
+  end
   if ctrl and key=="n" then newProject();return end
   if ctrl and shift and key=="s" then beginSaveAs();return end
   if ctrl and key=="s" then save();return end
@@ -380,6 +413,10 @@ function love.keypressed(key)
   if key=="right" then runtime.playing=false;setFrame(doc.currentFrame+1);return end
   if key=="f1" then msg="TAB Studio/Player | F6 chave | F7 visibilidade | F8 trava | Ctrl+N novo | Ctrl+S salva";return end
   if mode~="studio" then return end
+  if key=="pageup" then jumpKey(-1);return end
+  if key=="pagedown" then jumpKey(1);return end
+  if key=="home" then runtime.playing=false;setFrame(1);return end
+  if key=="end" then runtime.playing=false;setFrame(doc.totalFrames);return end
   if key=="f7" then
     if not active() then return end
     snapshot()
