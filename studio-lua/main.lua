@@ -859,7 +859,8 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     if not hit then msg="Clique dentro de um caminho fechado";return end
     if layer.locked then msg="Camada bloqueada";return end
     local cleared=love.keyboard.isDown("lshift","rshift")
-    local fill=cleared and nil or palette[colorIndex]
+    local fill
+    if not cleared then fill=palette[colorIndex] end
     local plan,err=VectorEdit.planFill(vectorScope(),doc.currentLayer,
       doc.currentFrame,hit.id,fill)
     if not plan then msg=tostring(err);return end
