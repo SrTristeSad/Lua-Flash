@@ -5,6 +5,8 @@ local Exposure = require("src.frame_exposure")
 local Library = require("src.symbol_library")
 local SymbolPreview = require("src.symbol_preview")
 local Transform = require("src.instance_transform")
+local Handles = require("src.instance_handles")
+local Properties = require("src.instance_properties")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
 local Runtime = require("src.runtime")
@@ -24,6 +26,9 @@ local mode,tool="studio","brush"
 local selected,dragged,dragX,dragY,offset= nil,nil,0,0,1
 local selectedInstance=nil
 local instanceDragStarted=false
+local handleDrag=nil
+local propertiesOpen=true
+local propertyEditor=nil
 local undo,redo={},{}
 local msg="Lua-Flash: plataforma nova em Lua | F1 ajuda"
 local palette={{.16,.58,.94},{.98,.31,.37},{.24,.75,.49},{.99,.76,.24},{.16,.18,.23},{.65,.36,.93}}
@@ -82,6 +87,8 @@ local function install(newdoc)
   selected,dragged=nil,nil
   selectedInstance=nil
   instanceDragStarted=false
+  handleDrag=nil
+  propertyEditor=nil
   selectedKeys={}
   timelineDrag=nil
   dimensions()
@@ -194,6 +201,8 @@ local function setFrame(n)
   doc.currentFrame=runtime.frame
   selected=nil
   selectedInstance=nil
+  handleDrag=nil
+  propertyEditor=nil
 end
 
 local function active()
@@ -206,6 +215,18 @@ local function activeInstance()
     if item.uid==selectedInstance.uid then return item end
   end
   return nil
+end
+
+local function panelGeometry()
+  return view.x+view.w-236,65,226,219
+end
+local function selectedHandlePoints()
+  local item=activeInstance()
+  local symbol=item and Library.find(symbolLibrary,item.symbolId)
+  if not symbol then return nil end
+  local frame=SymbolMotion.frame(symbolMotion,symbolLibrary,symbol,item,
+    selectedInstance.layer,doc.currentFrame)
+  return Handles.points(item,symbol,frame,view.scale),symbol,frame
 end
 
 local function prepareInstanceEdit()
@@ -329,10 +350,9 @@ local function ui()
     label("Espessura: "..thickness.."  (- / +)",12,477)
     local chosenInstance=activeInstance()
     if chosenInstance then
-      label("INSTANCIA #"..chosenInstance.uid,12,511,{.45,.82,1})
-      label("X "..math.floor(chosenInstance.x).."  Y "..math.floor(chosenInstance.y),12,534)
-      label("Escala "..string.format("%.2f",chosenInstance.sx),12,557)
-      label("Angulo "..math.floor(chosenInstance.angle or 0).." graus",12,580)
+      button(propertiesOpen and "PROPRIEDADES -" or "PROPRIEDADES +",11,508,146,32,propertiesOpen)
+      label("Instancia #"..chosenInstance.uid,12,548,{.45,.82,1})
+      label(string.format("X %.1f | Y %.1f",chosenInstance.x,chosenInstance.y),12,570)
     end
     label("CAMADAS",w-186,65,{.45,.82,1})
     button("+ Nova camada",w-187,90,176,34,false)
@@ -365,17 +385,49 @@ local function ui()
   end
   if mode=="studio" and not editingSymbolId and selectedInstance then
     local item=activeInstance()
-    local symbol=item and Library.find(symbolLibrary,item.symbolId)
-    if item and symbol then
-      local frame=SymbolMotion.frame(symbolMotion,symbolLibrary,symbol,item,
-        selectedInstance.layer,doc.currentFrame)
-      local x1,y1,x2,y2=Transform.box(item,symbol,frame)
-      if x1 then
+    local points=selectedHandlePoints()
+    if item and points then
+      local function screen(pt)
+        return view.ox+pt[1]*view.scale,view.oy+pt[2]*view.scale
+      end
+      local ax,ay=screen(points.tl)
+      local bx,by=screen(points.tr)
+      local cx,cy=screen(points.br)
+      local dx,dy=screen(points.bl)
+      local rx,ry=screen(points.rotate)
+      lg.setColor(.1,.75,1)
+      lg.setLineWidth(1)
+      lg.line(ax,ay,bx,by,cx,cy,dx,dy,ax,ay)
+      lg.line((ax+bx)/2,(ay+by)/2,rx,ry)
+      for _,pt in ipairs({points.tl,points.tr,points.bl,points.br}) do
+        local px,py=screen(pt)
+        lg.setColor(.95,.96,.99)
+        lg.rectangle("fill",px-4,py-4,8,8)
         lg.setColor(.1,.75,1)
-        lg.setLineWidth(1)
-        lg.rectangle("line",view.ox+x1*view.scale-4,view.oy+y1*view.scale-4,
-          (x2-x1)*view.scale+8,(y2-y1)*view.scale+8)
-        lg.circle("fill",view.ox+x1*view.scale-4,view.oy+y1*view.scale-4,4)
+        lg.rectangle("line",px-4,py-4,8,8)
+      end
+      lg.setColor(1,.73,.30)
+      lg.circle("fill",rx,ry,6)
+      lg.setColor(.17,.20,.24)
+      lg.circle("line",rx,ry,6)
+    end
+    if item and propertiesOpen then
+      local px,py,pw,ph=panelGeometry()
+      lg.setColor(.11,.14,.19,.96)
+      lg.rectangle("fill",px,py,pw,ph,6,6)
+      lg.setColor(.36,.55,.72)
+      lg.rectangle("line",px,py,pw,ph,6,6)
+      label("PROPRIEDADES #"..item.uid,px+10,py+8,{.50,.85,1})
+      button("X",px+pw-31,py+4,26,26,false)
+      for i,field in ipairs(Properties.fields) do
+        local cy=py+35+(i-1)*31
+        local title=({x="X",y="Y",sx="Escala X",sy="Escala Y",angle="Angulo"})[field]
+        label(title,px+9,cy+6)
+        local focused=propertyEditor and propertyEditor.field==field
+        lg.setColor(focused and {.23,.37,.48} or {.20,.24,.30})
+        lg.rectangle("fill",px+82,cy,132,25,3,3)
+        local val=focused and (propertyEditor.draft.."_") or Properties.format(item,field)
+        label(val,px+88,cy+5,{.95,.97,1})
       end
     end
   end
@@ -533,6 +585,45 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     end
     return
   end
+  if mode=="studio" and not editingSymbolId and activeInstance() then
+    if inBox(mx,my,11,508,146,32) then
+      propertiesOpen=not propertiesOpen
+      propertyEditor=nil
+      return
+    end
+    if propertiesOpen then
+      local px,py,pw,ph=panelGeometry()
+      if inBox(mx,my,px,py,pw,ph) then
+        if inBox(mx,my,px+pw-31,py+4,26,26) then
+          propertiesOpen=false
+          propertyEditor=nil
+        else
+          for i,field in ipairs(Properties.fields) do
+            if inBox(mx,my,px+82,py+35+(i-1)*31,132,25) then
+              propertyEditor={field=field,draft=Properties.format(activeInstance(),field),replace=true}
+              msg="Edite "..field.." e pressione Enter para aplicar; Esc cancela"
+              break
+            end
+          end
+        end
+        return
+      end
+    end
+  end
+  -- The scale / rotate handles take precedence over instance body picking.
+  if mode=="studio" and tool=="select" and not editingSymbolId and activeInstance() then
+    local points,symbol,frame=selectedHandlePoints()
+    local kind=Handles.hit(points,view,mx,my)
+    if kind then
+      local item=activeInstance()
+      if doc.layers[selectedInstance.layer].locked then
+        msg="Camada bloqueada";return
+      end
+      handleDrag={kind=kind,base=Model.copy(item),symbol=symbol,
+        frame=frame,points=points,dirty=false}
+      return
+    end
+  end
   if not insideStage(mx,my) then return end
   local layer=active()
   if not layer or layer.locked then msg="Camada bloqueada";return end
@@ -548,7 +639,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     snapshot()
     Model.ensureKey(layer,doc.currentFrame)
     local instance,err=Library.place(symbolLibrary,doc.currentLayer,doc.currentFrame,selectedSymbol,x,y)
-    if instance then selectedInstance={uid=instance.uid,layer=doc.currentLayer} end
+    if instance then selectedInstance={uid=instance.uid,layer=doc.currentLayer};propertiesOpen=true end
     msg=instance and "Instancia adicionada ao palco" or tostring(err)
   elseif tool=="select" then
     selected=nil
@@ -558,6 +649,8 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
       if item then
         doc.currentLayer=layerIndex
         selectedInstance={uid=item.uid,layer=layerIndex}
+        propertiesOpen=true
+        propertyEditor=nil
         if not doc.layers[layerIndex].locked then
           dragged="instance"
           instanceDragStarted=false
@@ -604,6 +697,30 @@ function love.mousemoved(mx,my,dx,dy)
         and my<track+38+math.min(#doc.layers,3)*26 then
       local frame=offset+math.floor((mx-250)/timelineCell)
       if frame>=1 and frame<=doc.totalFrames then timelineDrag.target=frame end
+    end
+    return
+  end
+  if handleDrag and mode=="studio" then
+    local mxStage,myStage=xy(mx,my)
+    local proposal=Handles.apply(handleDrag.base,handleDrag.symbol,
+      handleDrag.frame,view.scale,handleDrag.kind,mxStage,myStage,handleDrag.points)
+    if proposal then
+      local source=activeInstance()
+      if not handleDrag.dirty and source and (
+        math.abs(proposal.x-source.x)>1e-4 or math.abs(proposal.y-source.y)>1e-4
+        or math.abs(proposal.sx-source.sx)>1e-4
+        or math.abs(proposal.sy-source.sy)>1e-4
+        or math.abs((proposal.angle or 0)-(source.angle or 0))>1e-4) then
+        if not prepareInstanceEdit() then handleDrag=nil;return end
+        handleDrag.dirty=true
+      end
+      if handleDrag.dirty then
+        local item=activeInstance()
+        if item then
+          item.x,item.y=proposal.x,proposal.y
+          item.sx,item.sy,item.angle=proposal.sx,proposal.sy,proposal.angle
+        end
+      end
     end
     return
   end
@@ -661,6 +778,7 @@ function love.mousereleased(_,_,button)
   end
   dragged=nil
   instanceDragStarted=false
+  handleDrag=nil
 end
 
 function love.wheelmoved(_,dy)
@@ -686,12 +804,48 @@ function love.wheelmoved(_,dy)
 end
 
 function love.textinput(text)
+  if propertyEditor then
+    if #text<=20 and text:match("^[%d%.%+%-]+$") then
+      if propertyEditor.replace then propertyEditor.draft="" end
+      propertyEditor.replace=false
+      if #propertyEditor.draft+#text<=24 then propertyEditor.draft=propertyEditor.draft..text end
+    end
+    return
+  end
   if naming and #nameDraft+#text<=64 and not text:find("[^%w_%-]") then
     nameDraft=nameDraft..text
   end
 end
 
 function love.keypressed(key)
+  if propertyEditor then
+    if key=="escape" then propertyEditor=nil;msg="Edicao de propriedade cancelada";return end
+    if key=="backspace" then
+      if propertyEditor.replace then propertyEditor.draft="" else
+        propertyEditor.draft=propertyEditor.draft:sub(1,-2)
+      end
+      propertyEditor.replace=false
+      return
+    end
+    if key=="return" or key=="kpenter" then
+      local source=activeInstance()
+      local result,err=source and Properties.set(source,propertyEditor.field,propertyEditor.draft)
+      if result then
+        if result[propertyEditor.field]~=Properties.read(source,propertyEditor.field) then
+          if prepareInstanceEdit() then
+            local item=activeInstance()
+            if item then item[propertyEditor.field]=result[propertyEditor.field] end
+          end
+        end
+        msg="Propriedade "..propertyEditor.field.." atualizada"
+        propertyEditor=nil
+      else
+        msg="Valor invalido: "..tostring(err or "instancia indisponivel")
+      end
+      return
+    end
+    return
+  end
   if naming then
     if key=="escape" then naming=false;msg="Salvar como cancelado";return end
     if key=="backspace" then nameDraft=nameDraft:sub(1,-2);return end
