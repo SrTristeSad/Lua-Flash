@@ -85,6 +85,7 @@ local function install(doc,name,isDemo)
   recoveryStore=nil
   editor={open=false,track=1,segment=1,scroll=0,drag=nil}
   document=doc
+  lastRuntimeError=nil
   transport=Transport.new(document)
   transport.playing=true
   sampler=Interpolation.new(document)
@@ -150,10 +151,10 @@ local function openGameBytes(content,name,originalKey)
   recoveryStore=history and Recovery.new(love.filesystem,GamePackage,
     originalKey or Recovery.identity(name or definition.title,content)) or nil
   smooth=definition.smooth
-  if recoveryStore and recoveryStore:read() then
-    notice="Copia de recuperacao disponivel para este projeto: Ctrl+R."
-  end
   notice="Jogo "..definition.title.." iniciado. Sem execucao de scripts externos."
+  if recoveryStore and recoveryStore:read() then
+    notice="Copia de recuperacao disponivel neste jogo: Ctrl+R."
+  end
   return true
 end
 
@@ -910,6 +911,7 @@ function love.keypressed(key)
   if ctrl and key=="z" then editorUndo(false);return end
   if ctrl and key=="r" then openRecovery();return end
   if key=="f3" then showDiagnostics=not showDiagnostics;return end
+  if key=="f4" then lastRuntimeError=nil;return end
   if key=="e" and packageDefinition and packageDefinition.version>=8 and
       packageDefinition.tweens and #packageDefinition.tweens>0 then
     editor.open=not editor.open
