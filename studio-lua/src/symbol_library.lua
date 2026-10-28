@@ -65,17 +65,11 @@ function M.ensureKey(lib,layer,frame,blank)
   local track=lib.tracks[layer]
   if not track then track={};lib.tracks[layer]=track end
   if not track[frame] then
-    local items={}
-    if not blank then
-      for n,entries in pairs(track) do
-        if n<frame and (not items.source or n>items.source) then
-          items={source=n}
-        end
-      end
-      local source=items.source
-      items=source and Model.copy(track[source]) or {}
+    local source=0
+    for n in pairs(track) do
+      if n<frame and n>source then source=n end
     end
-    track[frame]=items
+    track[frame]=not blank and source>0 and Model.copy(track[source]) or {}
   elseif blank then
     track[frame]={}
   end
