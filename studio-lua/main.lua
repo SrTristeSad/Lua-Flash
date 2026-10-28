@@ -371,6 +371,7 @@ function love.mousereleased(_,_,button)
     timelineDrag=nil
     local layer=active()
     if layer and not layer.locked and op.source~=op.target
+        and (op.duplicate or op.source~=1)
         and layer.keys[op.source] and not layer.keys[op.target] then
       snapshot()
       layer.keys[op.target]=clone(layer.keys[op.source])
@@ -378,7 +379,7 @@ function love.mousereleased(_,_,button)
       setFrame(op.target)
       msg=op.duplicate and "Quadro-chave duplicado" or "Quadro-chave movido"
     elseif op.source~=op.target then
-      msg="Destino ocupado ou camada bloqueada; nenhuma alteracao realizada"
+      msg="Movimento indisponivel (quadro inicial, destino ocupado ou camada bloqueada)"
     end
   end
   dragged=nil
