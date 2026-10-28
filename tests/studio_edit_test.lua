@@ -227,6 +227,9 @@ print("OK: Studio symbol creation, stage stamping, sidecar save and undo")
 
 
 -- Moving / copying an authored key must keep symbol-instance tracks aligned.
+-- Restore a stage instance after the preceding undo before exposing frame 2.
+love.mousepressed(325,260,1)
+love.mousereleased(325,260,1)
 press("right")
 press("f6")
 project()
