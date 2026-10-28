@@ -57,7 +57,7 @@ assert(drawnLines>0,"vector-only symbol must render in Studio stage preview")
 local picked=Preview.pickInstance(lib,doc,1,view,320,210,Motion.new(),vectors)
 assert(picked==item)
 local ids={[item.uid]=true}
-local item2=assert(Library.place(lib,1,1,symbol.id,410,200))
+local item2=assert(Library.place(lib,1,1,symbol.id,410,230))
 ids[item2.uid]=true
 assert(Marquee.select(lib,doc,1,1,290,190,500,300,vectors)[item.uid])
 local tx=assert(Group.plan(doc,lib,1,1,ids,"centerY",nil,vectors))
