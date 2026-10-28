@@ -5,12 +5,13 @@ local Native={}
 local cached
 local function api()
   if cached then return cached end
-  if not love or not love.system or not love.system.getOS or
-      love.system.getOS()~="Windows" then
-    return nil,"Seletor nativo disponivel somente no Windows."
-  end
   local ok,ffi=pcall(require,"ffi")
   if not ok then return nil,"LuaJIT FFI indisponivel." end
+  -- LuaJIT knows the host OS before the LÖVE graphics subsystem starts,
+  -- which also lets the CI smoke validate Unicode Win32 reads in conf.lua.
+  if ffi.os~="Windows" then
+    return nil,"Seletor nativo disponivel somente no Windows."
+  end
   local definitions=[[
     typedef struct {
       uint32_t lStructSize; void* hwndOwner; void* hInstance;
