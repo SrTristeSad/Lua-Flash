@@ -4,6 +4,7 @@ local Model = require("src.model")
 local Exposure = require("src.frame_exposure")
 local Library = require("src.symbol_library")
 local SymbolPreview = require("src.symbol_preview")
+local TimelineOps = require("src.timeline_ops")
 local Runtime = require("src.runtime")
 local doc = Model.new(800,450,24)
 local runtime = Runtime.new(doc)
@@ -467,37 +468,18 @@ function love.mousereleased(_,_,button)
   if timelineDrag then
     local op=timelineDrag
     timelineDrag=nil
-    local layer=active()
-    if layer and not layer.locked and op.source~=op.target then
-      local delta=op.target-op.source
-      local sourceSet={}
-      for _,key in ipairs(op.sources) do sourceSet[key]=true end
-      local valid=#op.sources>0
-      for _,key in ipairs(op.sources) do
-        local destination=key+delta
-        if destination<1 or destination>doc.totalFrames
-            or (not op.duplicate and key==1)
-            or (layer.keys[destination] and (op.duplicate or not sourceSet[destination])) then
-          valid=false
-          break
-        end
-      end
-      if valid then
+    if op.source~=op.target then
+      local tx,err=TimelineOps.plan(doc,symbolLibrary,doc.currentLayer,
+        op.sources,op.target-op.source,op.duplicate)
+      if tx then
         snapshot()
-        local copied={}
-        for _,key in ipairs(op.sources) do copied[key+delta]=clone(layer.keys[key]) end
-        if not op.duplicate then
-          for _,key in ipairs(op.sources) do layer.keys[key]=nil end
-        end
+        tx.apply()
         selectedKeys={}
-        for key,shapes in pairs(copied) do
-          layer.keys[key]=shapes
-          selectedKeys[key]=true
-        end
+        for _,frame in ipairs(tx.destinations) do selectedKeys[frame]=true end
         setFrame(op.target)
-        msg=op.duplicate and "Quadros-chave duplicados" or "Quadros-chave movidos"
+        msg=op.duplicate and "Quadros e instancias duplicados" or "Quadros e instancias movidos"
       else
-        msg="Operacao cancelada: destino ocupado, limite ou quadro inicial"
+        msg="Operacao cancelada: "..tostring(err)
       end
     end
   end
