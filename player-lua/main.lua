@@ -13,6 +13,7 @@ local KeyframeEditor=require("src.keyframe_editor")
 local EditHistory=require("src.edit_history")
 local Recovery=require("src.recovery")
 local Diagnostics=require("src.diagnostics")
+local ErrorReport=require("src.error_report")
 local SpriteTransform=require("src.sprite_transform")
 local MediaRuntime=require("src.media_runtime")
 local Session=require("src.session")
@@ -35,6 +36,8 @@ local history=nil
 local recoveryClock=0
 local recoveryStore=nil
 local diagnostics=Diagnostics.new()
+local errors=ErrorReport.new(love.filesystem)
+local lastRuntimeError=nil
 local showDiagnostics=false
 local editor={open=false,track=1,segment=1,scroll=0,drag=nil}
 local C={
@@ -622,7 +625,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.17")
+  love.window.setTitle("Lua-Flash Player 0.18")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -682,7 +685,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.17  |  Recuperacao segura e diagnostico",21,60,C.muted,fonts.small)
+  label("PLAYER 0.18  |  Estabilidade e testes de estresse",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -786,6 +789,14 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,h-26,w,26)
   label(notice,13,h-22,C.muted,fonts.small)
+  if lastRuntimeError then
+    lg.push("all")
+    lg.setColor(.35,.10,.11,.95)
+    lg.rectangle("fill",12,94,math.max(240,w-24),58,6,6)
+    label("Falha recuperavel registrada em player-errors.log",22,102,C.text,fonts.small)
+    label(lastRuntimeError:sub(1,112),22,123,C.text,fonts.small)
+    lg.pop()
+  end
   if showDiagnostics then
     local report=diagnostics:snapshot(packageDefinition,media,session)
     lg.push("all")
@@ -1009,4 +1020,39 @@ function love.filedropped(file)
   local displayName=filename:match("[^/\\]+$") or filename
   if isGame then openGameBytes(bytes,displayName)
   else openBytes(bytes,displayName) end
+end
+
+-- Keep application and user work open if callbacks fail unexpectedly.
+-- Logs remain local to the LÖVE save directory. If rendering itself fails,
+-- display a minimal error screen rather than recursively calling love.draw.
+local callbacks={
+  "load","update","draw","mousepressed","mousereleased","mousemoved",
+  "touchpressed","touchmoved","touchreleased","touchcancelled",
+  "keypressed","keyreleased","wheelmoved","filedropped","focus"
+}
+for _,name in ipairs(callbacks) do
+  local original=love[name]
+  if type(original)=="function" then
+    love[name]=function(...)
+      local ok,result=errors:protect("love."..name,original,...)
+      if not ok then
+        transport.playing=false
+        lastRuntimeError=tostring(result):gsub("[\r\n]+"," "):sub(1,240)
+        notice="Falha detectada; veja player-errors.log e F3."
+        if name=="draw" then
+          pcall(function()
+            local lg=love.graphics
+            if lg.reset then lg.reset() end
+            lg.clear(.08,.08,.11,1)
+            lg.setColor(1,.78,.78,1)
+            lg.print("Lua-Flash Player: erro de desenho recuperavel",24,28)
+            lg.print(lastRuntimeError:sub(1,135),24,56)
+            lg.print("Abra outro arquivo ou reinicie o Player.",24,86)
+          end)
+        end
+        return nil
+      end
+      return result
+    end
+  end
 end
