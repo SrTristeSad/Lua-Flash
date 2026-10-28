@@ -699,3 +699,59 @@ project()
 local styleUndo=assert(Paths.decode(files["projeto.lflash.lfvec"]))
 assert(styleUndo.tracks[1][1][1].width<styledPath.width)
 print("OK: Studio vector stroke/fill palette and outline width editing")
+
+
+-- Vector-only Graphic, editing its internal Bézier timeline and reloading scope.
+press("n",true)
+press("p")
+for _,point in ipairs({{320,260},{375,260},{375,310}}) do
+  love.mousepressed(point[1],point[2],1)
+  love.mousereleased(point[1],point[2],1)
+end
+love.mousepressed(320,260,1)
+love.mousereleased(320,260,1)
+love.keypressed("f")
+local sceneBeforeSymbol=project()
+assert(#sceneBeforeSymbol.layers[1].keys[1]==0)
+press("f8",true) -- Vector-only symbols must not demand legacy shapes.
+project()
+local captured=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local symbolScope=assert(Paths.scope(captured,1))
+assert(#Paths.at(symbolScope,1,1)==1)
+local symbolLib=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(symbolLib.symbols[1] and #symbolLib.symbols[1].definition.layers[1].keys[1]==0)
+press("return",true) -- Edit selected symbol's own vector timeline.
+press("f5")
+press("f9")
+press("p")
+for _,point in ipairs({{250,200},{300,200},{300,250}}) do
+  love.mousepressed(point[1],point[2],1)
+  love.mousereleased(point[1],point[2],1)
+end
+love.mousepressed(250,200,1)
+love.mousereleased(250,200,1)
+local nestedScene=project()
+assert(Model.encode(nestedScene)==Model.encode(sceneBeforeSymbol),
+  "saving a vector-scoped symbol must preserve root LUAFLASH model")
+local edited=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local inner=assert(Paths.scope(edited,1))
+assert(#Paths.at(inner,1,1)==1)
+assert(#Paths.at(inner,1,2)==1 and inner.tracks[1][2],
+  "internal symbol frame 2 must own its editable vector path")
+assert(inner.tracks[1][1][1].id~=inner.tracks[1][2][1].id,
+  "two independently drawn inner paths must have distinct identities")
+press("z",true)
+project()
+local nestedUndo=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(assert(Paths.scope(nestedUndo,1)),1,2)==0,
+  "undo should remove the last inner editing operation")
+press("y",true)
+project()
+local nestedRedo=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(assert(Paths.scope(nestedRedo,1)),1,2)==1)
+love.keypressed("escape")
+press("o",true)
+project()
+local nestedReopened=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(assert(Paths.scope(nestedReopened,1)),1,2)==1)
+print("OK: Studio vector-only symbols, internal Bézier timeline and nested undo/save/reopen")
