@@ -1,6 +1,7 @@
 -- Lua-Flash Studio 0.1 with built-in preview for the native .lflash format.
 -- No legacy Adobe SWF/FLA/ActionScript compatibility by design.
 local Model = require("src.model")
+local Exposure = require("src.frame_exposure")
 local Runtime = require("src.runtime")
 local doc = Model.new(800,450,24)
 local runtime = Runtime.new(doc)
@@ -253,16 +254,25 @@ local function ui()
         local n=offset+j-1
         if n<=doc.totalFrames then
           local cx=startX+(j-1)*cell
-          local hasKey=Model.isKey(layer,n)
+          local exposure=Exposure.exposure(layer,n,doc.totalFrames)
+          local hasKey=exposure and exposure.isKey
+          local blank=exposure and exposure.blank
           local chosen=layerIndex==doc.currentLayer and selectedKeys[n]
           lg.setColor(chosen and {.60,.40,.87} or
             (n==doc.currentFrame and {.2,.62,.88} or
-            (hasKey and {.52,.58,.66} or {.26,.29,.34})))
+            (blank and {.24,.26,.30} or {.36,.42,.50})))
           lg.rectangle("fill",cx,rowY,cell-2,23)
           if row==1 and (n%5==0 or j==1) then label(tostring(n),cx,track+17,{.72,.76,.82}) end
           if hasKey then
-            lg.setColor(.96,.79,.3)
-            lg.circle("fill",cx+math.min(8,cell/2),rowY+16,3)
+            lg.setColor(.97,.82,.32)
+            if blank then
+              lg.circle("line",cx+math.min(8,cell/2),rowY+16,3)
+            else
+              lg.circle("fill",cx+math.min(8,cell/2),rowY+16,3)
+            end
+          elseif exposure then
+            lg.setColor(.58,.63,.69)
+            lg.line(cx+3,rowY+16,cx+math.max(4,cell-5),rowY+16)
           end
         end
       end
@@ -539,7 +549,7 @@ function love.keypressed(key)
   if key=="f9" then
     if active().locked then msg="Camada bloqueada";return end
     snapshot()
-    Model.insertBlankKey(active(),doc.currentFrame)
+    Exposure.insertBlankKey(active(),doc.currentFrame)
     selected=nil
     msg="Quadro-chave vazio inserido"
     return
