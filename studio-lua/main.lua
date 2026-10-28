@@ -874,6 +874,18 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   elseif tool=="node" then
     local paths=Vector.at(vectorScope(),doc.currentLayer,doc.currentFrame)
     local tol=8/view.scale
+    if love.keyboard.isDown("lctrl","rctrl") then
+      if layer.locked then msg="Camada bloqueada";return end
+      local target,segment,t=VectorEdit.pickSegment(paths,x,y,tol)
+      if target and t>=.05 and t<=.95 then
+        selectedVector=target.id
+        selectedVectorNode=nil
+        vectorDrag={kind="bend",id=target.id,segment=segment,t=t,
+          startX=x,startY=y,base=Model.copy(target),dirty=false}
+        msg="Arraste para deformar o segmento sem mover suas extremidades"
+      else msg="Ctrl+arraste no corpo de um segmento Bézier" end
+      return
+    end
     if love.keyboard.isDown("lalt","ralt") then
       if layer.locked then msg="Camada bloqueada";return end
       local target,segment,t=VectorEdit.pickSegment(paths,x,y,tol)
@@ -1049,7 +1061,11 @@ function love.mousemoved(mx,my,dx,dy)
     if not p then vectorDrag=nil;return end
     if not vectorDrag.dirty and not editVectorFrame() then vectorDrag=nil;return end
     if not vectorDrag.dirty then vectorDrag.dirty=true;p=vectorOnFrame(vectorDrag.id) end
-    if vectorDrag.kind=="node" then
+    if vectorDrag.kind=="bend" then
+      local changed=VectorEdit.bendSegment(vectorDrag.base,vectorDrag.segment,
+        vectorDrag.t,x-vectorDrag.startX,y-vectorDrag.startY)
+      if changed then p.nodes=changed.nodes end
+    elseif vectorDrag.kind=="node" then
       Vector.moveNode(p,vectorDrag.node,x,y)
     elseif vectorDrag.kind=="in" or vectorDrag.kind=="out" then
       Vector.handle(p,vectorDrag.node,x,y,vectorDrag.kind)
