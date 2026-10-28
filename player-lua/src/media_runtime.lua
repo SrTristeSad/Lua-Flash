@@ -6,6 +6,7 @@ local Collision=require("src.collision")
 local PixelMask=require("src.pixel_mask")
 local SpriteTransform=require("src.sprite_transform")
 local SpriteTween=require("src.sprite_tween")
+local AudioMixer=require("src.audio_mixer")
 local M={}
 M.__index=M
 
@@ -13,7 +14,7 @@ function M.new(definition)
   local self=setmetatable({definition=definition,images={},sounds={},muted=false,
     volume=1,bindingsByIndex={},bindingsById={},animationsByIndex={},
     masks={},assetFiles={},maskBuilds=0,transformsByIndex={},
-    tween=SpriteTween.new(definition)},M)
+    tween=SpriteTween.new(definition),mixer=AudioMixer.new(love.audio)},M)
   for _,transform in ipairs(definition.transforms or {}) do
     self.transformsByIndex[transform.index]=transform
   end
@@ -34,7 +35,8 @@ function M.new(definition)
       self.images[asset.id]=image
     else
       local soundData=love.sound.newSoundData(data)
-      self.sounds[asset.id]=love.audio.newSource(soundData,"static")
+      self.sounds[asset.id]=soundData
+      self.mixer:add(asset.id,soundData)
     end
   end
   return self
@@ -50,31 +52,44 @@ function M:imageAsset(index,position)
   return anim.frames[sequence]
 end
 
-function M:playAsset(id)
-  if self.muted then return false end
-  local sound=self.sounds[id]
-  if not sound then return false end
-  sound:stop()
-  sound:play()
-  return true
+function M:playAsset(id,channel)
+  return self.mixer:play(id,channel or "effects")
 end
 
--- Fire when the actual playback CLOCK crosses the given frame. Seeking and
--- scrubbing do not call this method; pause also cannot trigger new cues.
--- Crossing a loop boundary visits the end of the timeline, then frame 1.
+-- Timeline WAV cues use a separate gain bus. Multi-loop advancement emits
+-- all crossed frames in chronological order (bounded to 64 cue starts per
+-- update, preventing audio storms after a huge clock jump).
 function M:timelineAdvance(oldPosition,newPosition,wasPlaying,wrapCount)
   if not wasPlaying or not self.definition.timelineSounds then return false end
-  if type(oldPosition)~="number" or type(newPosition)~="number" then return false end
+  if type(oldPosition)~="number" or type(newPosition)~="number" or
+     oldPosition~=oldPosition or newPosition~=newPosition then return false end
   local wraps=type(wrapCount)=="number" and math.max(0,math.floor(wrapCount)) or 0
+  if wraps==0 and newPosition<oldPosition then wraps=1 end
   if oldPosition==newPosition and wraps==0 then return false end
   local previous,current=math.floor(oldPosition),math.floor(newPosition)
-  local wrapped=wraps>0 or newPosition<oldPosition
-  local fired=false
-  for _,item in ipairs(self.definition.timelineSounds) do
-    if (not wrapped and item.frame>previous and item.frame<=current) or
-       (wrapped and (item.frame>previous or item.frame<=current)) then
-      fired=self:playAsset(item.asset) or fired
+  local total=self.definition.document.totalFrames
+  local fired,count=false,0
+  local function range(low,high)
+    -- Stable ordering for different cues at the same frame is kept.
+    local cues={}
+    for _,item in ipairs(self.definition.timelineSounds) do
+      if item.frame>low and item.frame<=high then cues[#cues+1]=item end
     end
+    table.sort(cues,function(a,b) return a.frame<b.frame end)
+    for _,item in ipairs(cues) do
+      if count>=64 then return false end
+      fired=self:playAsset(item.asset,"timeline") or fired
+      count=count+1
+    end
+    return true
+  end
+  if wraps==0 then range(previous,current)
+  else
+    if not range(previous,total) then return fired end
+    for _=1,math.min(wraps-1,64) do
+      if not range(0,total) then return fired end
+    end
+    range(0,current)
   end
   return fired
 end
@@ -129,12 +144,17 @@ function M:collides(idA,idB,position,scene)
 end
 
 function M:release()
-  for _,sound in pairs(self.sounds) do sound:stop() end
+  self.mixer:release()
 end
 function M:toggleMute()
-  self.muted=not self.muted
-  if self.muted then self:release() end
+  self.muted=self.mixer:toggleMute()
   return self.muted
+end
+function M:setChannelVolume(channel,value)
+  return self.mixer:setChannelVolume(channel,value)
+end
+function M:audioStats()
+  return self.mixer:stats()
 end
 -- Sprite rectangles are computed in STAGE coordinates. FOLLOW tracks the center
 -- of the native object through its bound keyframes and visual interpolation.
@@ -244,10 +264,7 @@ end
 
 function M:setVolume(value)
   if type(value)~="number" or value~=value then return self.volume end
-  self.volume=math.max(0,math.min(1,value))
-  for _,sound in pairs(self.sounds) do
-    if sound.setVolume then sound:setVolume(self.volume) end
-  end
+  self.volume=self.mixer:setVolume(value)
   return self.volume
 end
 
