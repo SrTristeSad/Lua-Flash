@@ -7,6 +7,7 @@ _G.love={
   keyboard={isDown=function() return false end},
   filesystem={
     write=function(name,data) saved=data;files[name]=data;return true end,
+    read=function(name) return files[name] end,
     getInfo=function(name) return files[name] and {type="file"} or nil end,
     getSaveDirectory=function() return "/tmp" end
   },
@@ -301,3 +302,55 @@ local poseUndone=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
 assert(poseUndone.symbols[1].definition.totalFrames==firstDefinition,
   "undo should restore the previous symbol timeline")
 print("OK: Studio Ctrl+F10 symbol pose authoring and undo")
+
+
+-- Symbol in-place editing must preserve the main scene and the saved sidecar.
+press("n",true)
+press("b")
+love.mousepressed(300,250,1)
+love.mousemoved(340,270,40,20)
+love.mousereleased(340,270,1)
+press("f8",true)
+local originalScene=project()
+assert(#originalScene.layers[1].keys[1]==1)
+press("return",true)  -- Ctrl+Enter enters the selected symbol definition.
+press("f5")           -- Append an ordinary exposure frame to the symbol.
+press("f9")           -- Add an explicit blank keyframe at frame two.
+press("r")
+love.mousepressed(350,250,1)
+love.mousemoved(390,290,40,40)
+love.mousereleased(390,290,1)
+local savedScene=project()
+assert(Model.encode(savedScene)==Model.encode(originalScene),
+  "editing symbol must never overwrite the main .lflash scene")
+local editedLibrary=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(editedLibrary.symbols[1].definition.totalFrames==2)
+assert(#editedLibrary.symbols[1].definition.layers[1].keys[2]==1,
+  "symbol edit must update the nested keyframe")
+press("z",true)
+project()
+local innerUndo=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(#innerUndo.symbols[1].definition.layers[1].keys[2]==0,
+  "undo must revert inner symbol artwork")
+press("y",true)
+project()
+local innerRedo=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(#innerRedo.symbols[1].definition.layers[1].keys[2]==1,
+  "redo must restore inner symbol artwork")
+love.keypressed("escape")
+assert(Model.encode(project())==Model.encode(originalScene),
+  "returning from symbol edit must preserve the root scene")
+press("o",true) -- Reload the two files from LÖVE filesystem.
+local reloaded=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(#reloaded.symbols[1].definition.layers[1].keys[2]==1)
+love.mousepressed(700,20,1) -- Edit symbol through toolbar button.
+press("f5")
+local expanded=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+-- Before save, the previous sidecar must still contain the older version.
+assert(expanded.symbols[1].definition.totalFrames==2)
+project()
+local savedAgain=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(savedAgain.symbols[1].definition.totalFrames==3)
+love.mousepressed(700,20,1) -- Back to main scene.
+assert(Model.encode(project())==Model.encode(originalScene))
+print("OK: nested symbol timeline, root-safe saving, undo/redo and reloading")
