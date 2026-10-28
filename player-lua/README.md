@@ -1,63 +1,52 @@
-# Lua-Flash Player 0.14 — easing e painel de curvas
+# Lua-Flash Player 0.15 — editor visual de quadros-chave
 
-Runtime Lua + LÖVE para animações `.lflash` e jogos `.lfgame`, com compatibilidade de leitura LUAFGAME 1–9. O Player não executa ActionScript/SWF nem scripts Lua fornecidos por jogos.
+Player experimental em Lua com LÖVE 11.5. Abre `.lflash` e jogos declarativos `.lfgame` (LUAFGAME 1–9), sem executar SWF nem código externo de jogos.
 
-## Curvas disponíveis
+## Editar animações pela interface
 
-Cada trecho entre **duas chaves consecutivas** pode receber uma curva própria. As seis opções são:
+1. Abra um jogo que tenha uma trilha de sprite LUAFGAME 8/9, usando o botão **PACOTE** ou arrastando o `.lfgame` para a janela.
+2. Pressione **E** para abrir o **EDITOR DE KEYFRAMES**. A animação será pausada.
+3. Clique numa chave da lista para selecioná-la e posicionar o cursor da timeline naquele quadro.
+4. Use os botões abaixo para alterar os dados, ou arraste o sprite destacado diretamente no palco para modificar seu deslocamento X/Y.
+5. Clique em **SALVAR** ou use **Ctrl+S** para gravar `player_game.lfgame` na pasta de dados do LÖVE.
 
-| Curva | Comportamento |
+### Botões e atalhos
+
+| Controle | Efeito |
 |---|---|
-| `LINEAR` | Velocidade constante (padrão dos jogos v8). |
-| `EASE_IN` | Começa lentamente e acelera. |
-| `EASE_OUT` | Começa rapidamente e desacelera. |
-| `EASE_IN_OUT` | Acelera e depois desacelera. |
-| `SMOOTH` | Transição suave com derivadas nulas nos extremos (*smoothstep*). |
-| `STEP` | Mantém a pose inicial até atingir o próximo quadro-chave. |
+| **+CHAVE** / **Insert** | Insere um quadro-chave na posição atual da timeline; se já houver uma chave, tenta o ponto intermediário até a próxima chave. |
+| **-CHAVE** / **Delete** | Remove a chave selecionada. O quadro inicial não pode ser excluído. |
+| **Q -** / **Q +** | Move a chave um quadro para trás/frente, sem cruzar as vizinhas. |
+| **X - / X + / Y - / Y +** | Ajusta em 5 unidades o deslocamento da chave selecionada. |
+| **Arrastar sprite no palco** | Modifica a posição X/Y da chave usando o mouse. |
+| **CURVA** / **C** | Alterna os seis modos de easing da 0.14 no trecho selecionado. |
+| **Setas ↑/↓** | Navega entre chaves, inclusive a última. |
+| **PageUp/PageDown** | Troca de sprite/trilha. |
+| **E** / **Escape** | Abre/fecha o editor. |
+| **Ctrl+S** | Salva uma cópia do jogo modificado. |
 
-A curva atua sobre deslocamento X/Y, escala X/Y e avanço de rotação entre chaves. A rotação ainda utiliza o arco angular mais curto. A posição `FOLLOW` e os dados da animação vetorial continuam funcionando.
+O **quadro 1 é protegido contra exclusão ou mudança de tempo**, mas sua posição pode ser alterada. Cada trilha precisa conservar pelo menos duas chaves. A inserção amostra a pose interpolada para não criar uma mudança brusca de posição inesperada; o easing correspondente também é preservado quando um intervalo é dividido. Ao excluir uma chave, referências de easing que deixam de corresponder a um trecho são removidas.
 
-## Painel visual de curvas
+O painel é um editor inicial de poses: nesta versão, o mouse altera **posição X/Y**; ângulos e escalas animados continuam editáveis na definição do jogo ou por `tools/animate_transform.lua`. O editor não possui desfazer/refazer, seleção múltipla ou curvas Bézier desenháveis. Essas funcionalidades ficam para versões posteriores.
 
-1. Execute `love player-lua`, clique em **PACOTE** ou arraste um jogo LUAFGAME 8/9 com uma trilha de transformação.
-2. Pressione **E** para abrir/fechar o painel. A reprodução é pausada para facilitar a inspeção.
-3. Use **‹/›** para escolher a trilha (sprite). Clique em um dos trechos da lista para selecioná-lo; o Player vai para o quadro-chave inicial.
-4. Clique no botão **CURVA** para alternar entre os seis modos. Também é possível pressionar **C**, usar setas para cima/baixo para escolher trechos, PageUp/PageDown para outras trilhas e a roda do mouse dentro do painel para percorrer uma lista longa.
-5. Clique em **SALVAR** ou use **Ctrl+S**. A cópia editada é gravada em `player_game.lfgame`, no diretório de salvamento do LÖVE.
+## Integridade e compatibilidade
 
-Um jogo v8 aberto continua no formato antigo até a primeira alteração; quando se edita uma curva, ele passa para **LUAFGAME 9**. Os jogos antigos não são regravados automaticamente. O Studio permanece intocado.
+A implementação das operações está em `player-lua/src/keyframe_editor.lua`, separada da interface. Ela rejeita índices, posições, quadros e valores inválidos antes de modificar o arquivo em memória.
 
-Este painel é um **editor inicial de curvas**, não um editor completo de keyframes: você seleciona intervalos e muda o easing, mas a criação, movimentação ou exclusão visual das chaves ainda não está disponível.
+O formato segue LUAFGAME 9 e mantém compatibilidade com os jogos 1–8 sem conversão obrigatória. Uma edição visual não altera arquivos originais: **Ctrl+S cria uma cópia na pasta de salvamento do Player**.
 
-## Publicação via linha de comando
+O Studio `studio-lua/` permanece inalterado.
 
-A ferramenta `tools/set_easing.lua` pode adicionar ou atualizar uma curva sem abrir o Player:
-
-```bash
-lua tools/set_easing.lua jogo-v8.lfgame jogo-v9.lfgame 1 1 EASE_IN_OUT
-```
-
-Os parâmetros finais são `spriteIndex`, `quadroInicialDoTrecho` e `modo`. Para restaurar a interpolação padrão, use `LINEAR`. O quadro informado deve existir na trilha e não pode ser o último quadro-chave.
-
-Para ver o exemplo:
+## Testes
 
 ```bash
-lua tools/export_example.lua dist/Exemplo-0.14.lfgame
-love player-lua
-```
-
-O botão **PACOTE** abre a demonstração 0.14, com trechos de aceleração, desaceleração e suavização diferentes.
-
-## Testes e limites
-
-```bash
-lua tests/package_v9_test.lua
-lua tests/package_v8_test.lua
+lua tests/keyframe_editor_test.lua
 lua tests/gui_smoke.lua
+lua tests/package_v9_test.lua
 python3 tools/sync_core.py --check
 python3 tools/package_player.py
 ```
 
-A CI executa a suíte completa de versões anteriores e um smoke test com LÖVE real em display virtual, além de publicar o `.love` e jogos `.lfgame`.
+O GitHub Actions também inicializa o Player no LÖVE real em display virtual, executa os testes anteriores e gera o arquivo `.love`.
 
-**Pendente para o 1.0:** editor visual completo de poses, estabilidade/performance em PCs reais, áudio avançado, suporte a projetos maiores e uma distribuição nativa Windows sem instalação separada de LÖVE. Colisões continuam aproximadas por amostragem; o formato não oferece Bézier editável ou scripting externo.
+O desempenho e a usabilidade precisam de validação em PCs reais. Ainda não há EXE Windows autônomo nem recuperação avançada de edições.

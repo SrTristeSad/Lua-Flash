@@ -1,36 +1,38 @@
-# Lua-Flash — roteiro do Player
+# Lua-Flash — roteiro de desenvolvimento do Player
 
-## Direção
+## Objetivo
 
-Criar um runtime próprio para jogos e animações em Lua/LÖVE, sem compatibilidade obrigatória com SWF/FLA/ActionScript. O Player (`player-lua/`) continua sendo desenvolvido separadamente do Studio (`studio-lua/`).
+Construir um runtime Lua/LÖVE independente para animações e jogos. O Player fica em `player-lua/`; o Studio, em `studio-lua/`, permanece separado. Não há compromisso de executar SWF/FLA/ActionScript antigos.
 
-## Implementado — versões 0.1–0.13
+## Base implementada — 0.1 até 0.14
 
-- [x] Reprodução vetorial, quadros-chave, controle de reprodução e interpolação.
-- [x] Mouse, toque, teclado, regras declarativas e estados de jogo.
-- [x] LUAFGAME 1–8: nomes de objetos, colisões, PNG/WAV, sprites animados, transformações e animação de poses.
-- [x] Máscaras de transparência, cache e colisão temporal amostrada.
-- [x] Testes Lua e LÖVE em monitor virtual, empacotamento .love.
+- [x] Animações vetoriais, timeline, reprodução, velocidade e interpolação.
+- [x] Mouse, toque, teclado e regras declarativas de jogos.
+- [x] LUAFGAME 1–9: sprites, áudio, animações, keyframes e curvas de easing.
+- [x] Colisões, máscaras alfa e cache de dados visuais.
+- [x] Painel inicial de seleção de sprites/trechos com curvas.
+- [x] Testes Lua, teste LÖVE com display virtual e build `.love`.
 
-## Player 0.14 — curvas e edição inicial
+## Player 0.15 — edição de keyframes
 
-- [x] **LUAFGAME 9**: easing por segmento de transformação.
-- [x] Linear, ease-in, ease-out, ease-in-out, smoothstep e STEP.
-- [x] Mesma pose interpolada aplicada a desenho, mouse e colisões.
-- [x] Painel dentro do Player para selecionar sprites/trechos e alternar curvas.
-- [x] Gravação em `.lfgame` e conversão editável de v8 para v9.
-- [x] Ferramenta `tools/set_easing.lua`.
-- [x] Demonstração e testes de compatibilidade, integridade, interação.
-- [ ] Interface para adicionar/excluir/mover keyframes e ajustar poses visualmente.
-- [ ] Testes de usabilidade e desempenho em hardware real.
+- [x] Inserção visual de quadro-chave com pose interpolada.
+- [x] Remoção protegida de chaves, com saneamento de referências de easing.
+- [x] Deslocamento temporal da chave sem cruzar outras chaves.
+- [x] Ajuste X/Y por botões e arrastar o sprite no palco.
+- [x] Destaque visual do sprite selecionado.
+- [x] Atualização imediata do runtime após edição e salvamento em `.lfgame`.
+- [x] Testes automatizados de rejeição de operações inválidas e integração GUI.
+- [x] Formato LUAFGAME 9 e Studio preservados.
+- [ ] Undo/redo e edição visual de escala e rotação.
+- [ ] Homologação de usabilidade e desempenho em PC real.
 
-## Prioridades rumo à versão 1.0 para PC
+## Prioridades para 1.0 (PC)
 
-- [ ] Edição visual mais completa de poses e quadros-chave.
-- [ ] Otimização de CPU, memória e renderização para projetos maiores.
-- [ ] Mistura de áudio e canais independentes.
-- [ ] Tratamento de erros e recuperação segura de projetos.
-- [ ] Pacote executável para Windows com runtime embutido e validação de instalação.
-- [ ] Testes manuais e de estabilidade em Windows e Linux reais.
+- [ ] Histórico de desfazer/refazer, edição completa de transformações e atalhos acessíveis.
+- [ ] Estabilidade, logs e recuperação segura de erros em arquivos/projetos.
+- [ ] Áudio com canais independentes, polifonia e ajustes de volume por categoria.
+- [ ] Benchmarks, redução de memória e otimização com grandes cenas.
+- [ ] Aplicativo Windows independente com LÖVE incorporado, seguido por Linux/macOS.
+- [ ] Testes reais de instalação e uso antes da versão estável.
 
-Depois da versão 1.0, o plano pode incluir Android/Web e um modelo de scripts externos com isolamento e permissões rigorosas. O Studio continua sem mudanças nesta versão.
+A API de scripts externos e as plataformas Android/Web ficam fora do escopo imediato do Player 1.0. Jogos importados continuam sem execução arbitrária de Lua.

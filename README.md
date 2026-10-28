@@ -1,34 +1,34 @@
 # Lua-Flash
 
-**O Flash renasce em Lua:** uma plataforma independente de animações e jogos, sem executar SWF, FLA, XFL ou ActionScript antigos.
+**O Flash renasce em Lua** — runtime independente de animações e jogos com formatos próprios, sem compatibilidade com SWF, FLA, XFL ou ActionScript antigos.
 
-## Aplicações separadas
+## Aplicações independentes
 
-| Aplicação | Diretório | Executar | Estado |
+| Aplicação | Pasta | Executar | Estado |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.14 experimental** |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.15 experimental — foco atual** |
 | **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-## Player 0.14 — curvas e edição de animação
+## Player 0.15 — edição visual de quadros-chave
 
-O **LUAFGAME 9** acrescenta curvas de animação por trecho aos sprites da versão 0.13. Além de interpolação linear, há aceleração, desaceleração, aceleração/desaceleração, transição suave e quadros mantidos (STEP). A seleção da curva afeta a mesma pose usada pelo desenho, pelos cliques e pelas colisões.
+O Player já tinha um painel para alterar curvas de animação. Agora ele também permite **inserir, mover e excluir quadros-chave**, alterar os deslocamentos X/Y por botões ou **arrastar o próprio sprite no palco**. As alterações aparecem imediatamente em desenho, hit-testing e colisões e podem ser salvas com **Ctrl+S**.
 
-**Novo painel visual:** ao abrir um jogo com trilhas de transformações (LUAFGAME 8 ou 9), pressione **E** para selecionar um sprite e seu trecho de quadros-chave. Clique em **CURVA** para alternar a interpolação ou pressione **C**. Salve com **Ctrl+S**: um jogo v8 editado é gravado em formato v9. Não é preciso modificar scripts.
+O mecanismo protege a chave inicial no quadro 1, os limites de posição/tempo, a ordem das chaves e referências de easing; edições inválidas são recusadas sem corromper a sessão.
 
-Os jogos LUAFGAME 1–8 continuam aceitos sem migração obrigatória e os documentos `.lflash` continuam com o codec anterior. Arquivos recebidos são dados validados, nunca programas Lua externos.
+**Não foi necessário alterar o formato**: continua sendo LUAFGAME 9. Jogos LUAFGAME 1–9 abrem normalmente e os documentos `.lflash` permanecem intactos. Jogos importados nunca executam scripts Lua externos.
 
-## Executar e empacotar
+## Executar
 
-Instale [LÖVE 11.5](https://love2d.org/) e execute na raiz:
+Instale [LÖVE 11.5](https://love2d.org/), depois:
 
 ```bash
 love player-lua
 python3 tools/package_player.py
-lua tools/export_example.lua dist/Exemplo-0.14.lfgame
+lua tools/export_example.lua dist/Exemplo-0.15.lfgame
 ```
 
-A distribuição `dist/Lua-Flash-Player-0.14.love` exige o LÖVE instalado (não é um EXE autônomo). Os artefatos de teste estão no [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
+O `dist/Lua-Flash-Player-0.15.love` requer LÖVE instalado, não sendo um EXE Windows autônomo. O [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions) publica o Player e jogos de demonstração em ZIP.
 
-[Manual do Player](player-lua/README.md) · [LUAFGAME 9](docs/FORMAT_LUAFGAME9.md) · [Roadmap](docs/ROADMAP.md).
+[Manual do Player](player-lua/README.md) · [Formato LUAFGAME 9](docs/FORMAT_LUAFGAME9.md) · [Roadmap](docs/ROADMAP.md).
 
-Projeto independente e não afiliado à Adobe.
+Projeto independente, não afiliado à Adobe.
