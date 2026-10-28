@@ -99,6 +99,8 @@ jobs:
         run: lua tests/studio_instance_transform_test.lua
       - name: Studio mouse transform handles and numeric property limits
         run: lua tests/studio_instance_handles_test.lua
+      - name: Studio multi-instance alignment and group operations
+        run: lua tests/studio_instance_group_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
