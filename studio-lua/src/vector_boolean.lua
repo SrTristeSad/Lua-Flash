@@ -3,6 +3,7 @@
 -- boolean topology); touching edges, self-crossings and excessive contour
 -- complexity are rejected instead of producing incorrect fills.
 local Vector=require("src.vector_paths")
+local Flatten=require("src.bezier_flatten")
 local M={}
 local EPS=1e-7
 local SNAP=1e-5
@@ -71,11 +72,8 @@ local function flatten(path)
     if #nodes<3 or #nodes>48 then
       return nil,"contorno deve ter entre 3 e 48 nos"
     end
-    local sampled=Vector.sample({nodes=nodes,closed=true},8)
-    local points={}
-    for i=1,#sampled,2 do
-      points[#points+1]={x=sampled[i],y=sampled[i+1]}
-    end
+    local points,flattenError=Flatten.ring(nodes,{tolerance=.25,maxPoints=385})
+    if not points then return nil,flattenError end
     local poly=clean(points)
     if not poly or #poly>384 then return nil,"contorno invalido ou complexo" end
     total=total+#poly
@@ -86,10 +84,12 @@ local function flatten(path)
   if not outer then return nil,err end
   region.outer=outer
   region.rings[#region.rings+1]=outer
+  region.sources={{polygon=outer,nodes=path.nodes}}
   for _,nodes in ipairs(path.holes or {}) do
     local hole,reason=ringFor(nodes)
     if not hole then return nil,reason end
     region.holes[#region.holes+1]=hole
+    region.sources[#region.sources+1]={polygon=hole,nodes=nodes}
     -- Edges must follow the boundary of the filled set, so hole rings run
     -- clockwise while outer rings run counterclockwise.
     local reversed={}
@@ -304,6 +304,39 @@ local function contours(edges)
   if #outers==0 then return nil,"no filled outer contour" end
   return outers
 end
+-- When an entire source ring survives a Boolean unchanged, retain its
+-- ORIGINAL cubic nodes. Only boundaries that the operation actually cuts are
+-- linearized. This also preserves curved holes and disconnected islands.
+local function sameRing(a,b)
+  if #a~=#b or #a==0 then return false end
+  local function equal(p,q)
+    return math.abs(p.x-q.x)<=1e-5 and math.abs(p.y-q.y)<=1e-5
+  end
+  for offset=1,#b do
+    if equal(a[1],b[offset]) then
+      for _,direction in ipairs({1,-1}) do
+        local matched=true
+        for i=1,#a do
+          local index=(offset-1+(i-1)*direction)%#b+1
+          if not equal(a[i],b[index]) then matched=false;break end
+        end
+        if matched then return true end
+      end
+    end
+  end
+  return false
+end
+local function originalRing(polygon,regions)
+  for _,region in ipairs(regions) do
+    for _,source in ipairs(region.sources) do
+      if sameRing(polygon,source.polygon) then
+        return copy(source.nodes)
+      end
+    end
+  end
+  return nil
+end
+
 local function calculate(a,b,operation)
   local ca,err=flatten(a)
   if not ca then return nil,err end
@@ -349,6 +382,13 @@ local function calculate(a,b,operation)
   if #result==0 then return nil,"empty result" end
   local shapes,err=contours(result)
   if not shapes then return nil,err end
+  for _,shape in ipairs(shapes) do
+    shape.outerNodes=originalRing(shape.outer,{ca,cb})
+    shape.holeNodes={}
+    for i,hole in ipairs(shape.holes) do
+      shape.holeNodes[i]=originalRing(hole,{ca,cb})
+    end
+  end
   return shapes
 end
 local function pathFromPolygon(shape,source,id)
@@ -361,8 +401,10 @@ local function pathFromPolygon(shape,source,id)
     end
     return output
   end
-  p.nodes=nodesFor(shape.outer)
-  for _,hole in ipairs(shape.holes) do p.holes[#p.holes+1]=nodesFor(hole) end
+  p.nodes=shape.outerNodes or nodesFor(shape.outer)
+  for i,hole in ipairs(shape.holes) do
+    p.holes[#p.holes+1]=(shape.holeNodes and shape.holeNodes[i]) or nodesFor(hole)
+  end
   if #p.holes==0 then p.holes=nil end
   return p
 end
