@@ -568,8 +568,13 @@ function love.keypressed(key)
     return
   end
   if ctrl and key=="f10" and mode=="studio" then
-    if not selectedSymbol then msg="Selecione um simbolo na biblioteca";return end
+    local symbol=selectedSymbol and Library.find(symbolLibrary,selectedSymbol)
+    if not symbol then msg="Selecione um simbolo na biblioteca";return end
     if active().locked then msg="Camada bloqueada";return end
+    local limit=symbol.kind=="button" and 4 or 10000
+    if symbol.definition.totalFrames>=limit then
+      msg="Limite de quadros internos do simbolo atingido";return
+    end
     local shapes=Model.frame(active(),doc.currentFrame)
     snapshot()
     local frame,err=Library.appendPose(symbolLibrary,selectedSymbol,shapes)
@@ -577,7 +582,6 @@ function love.keypressed(key)
       msg="Pose "..frame.." adicionada ao simbolo. Button: 1 Up, 2 Over, 3 Down, 4 Hit."
       SymbolMotion.reset(symbolMotion)
     else
-      table.remove(undo) -- No mutation occurred on validation failure.
       msg=tostring(err)
     end
     return
