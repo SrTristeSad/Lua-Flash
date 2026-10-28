@@ -151,3 +151,30 @@ do
   assert(V.encode(assert(V.decode(V.encode(v))))==V.encode(v))
   print("OK: clipped circle/circle intersection retains cubic arcs and bounded area")
 end
+
+
+do
+  local Retain=require("src.bezier_retention")
+  local v=V.new()
+  local c=circle(v,100,100,50)
+  local raw,edgeMap=Flat.ringWithEdges(c.nodes,{tolerance=.2,maxPoints=256})
+  assert(raw and edgeMap and #edgeMap==#raw,
+    "each adaptive polygon edge needs an original cubic interval")
+  local lookup=Retain.lookup(raw,edgeMap,c.nodes)
+  local edges={}
+  for i,p in ipairs(raw) do
+    local nextPoint=raw[i%#raw+1]
+    local original=assert(Retain.get(lookup,p,nextPoint))
+    edges[#edges+1]={a=p,b=nextPoint,meta=original}
+  end
+  local restored,err=Retain.fromEdges(edges,256)
+  assert(restored,err)
+  assert(#restored==#c.nodes,"whole cubic ring should compact to original anchors")
+  unchanged(c.nodes,restored)
+  -- Turning a kept segment backward should reverse both its parameter interval
+  -- and its tangent direction, but never lose the original coordinates.
+  local start=edges[1]
+  local reverse=assert(Retain.get(lookup,start.b,start.a))
+  assert(reverse.t0==start.meta.t1 and reverse.t1==start.meta.t0)
+  print("OK: provenance recovery compacts adaptive samples back to exact cubic arcs")
+end
