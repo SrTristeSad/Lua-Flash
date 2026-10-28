@@ -1,39 +1,38 @@
 # Lua-Flash
 
-**O Flash renasce em Lua** — uma plataforma independente de animações e jogos, com formatos próprios. Não abre SWF/FLA/ActionScript antigos.
+**O Flash renasce em Lua** — runtime independente de animações e jogos, usando formatos próprios. Não executa SWF, FLA, XFL ou ActionScript antigos.
 
-## Projetos independentes
+## Aplicativos separados
 
-| Aplicação | Pasta | Executar | Estado |
+| Aplicativo | Pasta | Execução | Status |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.17 experimental — foco atual** |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.18 experimental** |
 | **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-### Player 0.17 — recuperação por projeto e diagnósticos
+## Player 0.18 — robustez e cenas maiores
 
-O Player passa a conservar **duas cópias de recuperação alternadas por jogo**, isoladas por uma identidade derivada do nome e dos bytes do arquivo original. Cada recuperação recebe um contador de versão e verificação de integridade dos dados. Uma cópia parcial ou danificada pode ser ignorada em favor da outra.
+Esta versão melhora o comportamento diante de falhas de atualização, interface e desenho. Os principais eventos do LÖVE são tratados com proteção de exceções, registradas **localmente** em um arquivo `player-errors.log`, na pasta de dados do aplicativo. O log possui limite de tamanho e suprime repetição contínua da mesma mensagem. Em uma falha recuperável, o Player pausa a animação e tenta mostrar um aviso, evitando perder a sessão por uma exceção simples.
 
-- **Ctrl+R:** abre a última recuperação válida **do jogo atualmente aberto**, desde que não haja mudanças pendentes. É necessário abrir primeiro o jogo original para identificar sua recuperação.
-- **Ctrl+S:** salva o trabalho e descarta as cópias automáticas daquele jogo.
-- **F3:** mostra/oculta painel com FPS aproximado, memória Lua, recursos, máscaras de alfa e pares de colisão.
-- Uma tentativa de abrir outro jogo enquanto existem edições não salvas é bloqueada para evitar perda acidental.
+**F3** ainda abre diagnósticos de memória e FPS; **F4** fecha o aviso de erro, sem excluir o registro.
 
-**Atenção:** o sistema usa alternância e leitura de verificação, não gravação atômica garantida pelo sistema operacional. Não substitui backups externos. As recuperações são específicas de cada arquivo: renomear ou alterar o arquivo original muda sua identidade.
+Também otimizamos a busca dos quadros-chave usados na interpolação vetorial: em vez de percorrer todas as chaves de cada camada, ela usa **busca binária**. A CI agora testa cenas sintéticas com **11.520 formas vetoriais** e mais de cem amostras de timeline, além dos testes dos jogos anteriores.
 
-Formatos `LUAFGAME 1–9` e arquivos `.lflash` permanecem compatíveis, sem executar código Lua de terceiros. Não houve alteração no Studio.
+A nova camada de proteção **não garante recuperação de erros internos do LÖVE, GPU, sistema operacional, falta de memória ou falhas irreversíveis**. Os dados de projetos continuam protegidos pelas rotinas de salvamento e recuperação introduzidas nas versões anteriores.
 
-## Executar / empacotar
+Formatos LUAFGAME 1–9 e animações `.lflash` continuam compatíveis. Pacotes importados são dados, não código executável; o Studio não foi alterado.
 
-Instale [LÖVE](https://love2d.org/) e, na raiz do projeto:
+## Executar
+
+Instale [LÖVE](https://love2d.org/) e execute na raiz:
 
 ```bash
 love player-lua
 python3 tools/package_player.py
-lua tools/export_example.lua dist/Exemplo-0.17.lfgame
+lua tools/export_example.lua dist/Exemplo-0.18.lfgame
 ```
 
-O pacote `dist/Lua-Flash-Player-0.17.love` necessita do LÖVE instalado; ainda não é um EXE autônomo para Windows. Builds disponíveis nos artefatos de [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
+O pacote `dist/Lua-Flash-Player-0.18.love` precisa do LÖVE instalado; ainda não é um EXE Windows independente. Veja os downloads nos artefatos aprovados do [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
 
 [Manual do Player](player-lua/README.md) · [Roadmap](docs/ROADMAP.md) · [Formato LUAFGAME 9](docs/FORMAT_LUAFGAME9.md).
 
-Projeto independente, sem vínculo com a Adobe.
+Projeto independente e não afiliado à Adobe.

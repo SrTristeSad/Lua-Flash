@@ -1,59 +1,50 @@
-# Lua-Flash Player 0.17 — recuperação rotativa e diagnósticos
+# Lua-Flash Player 0.18 — diagnósticos de falhas e desempenho
 
-Player experimental de animações `.lflash` e jogos declarativos `.lfgame` (LUAFGAME 1–9), em Lua com LÖVE 11.5. O Studio é independente e não foi alterado nesta versão.
+Reprodutor experimental de jogos LUAFGAME 1–9 (`.lfgame`) e projetos de animação `.lflash` em Lua/LÖVE. O Studio permanece separado.
 
-## Recuperação segura por jogo
+## Tratamento de erros
 
-Na versão anterior existia apenas `player_recovery.lfgame`, que podia ser substituído durante a edição de outro jogo. A 0.17 substitui essa estratégia por um **identificador por arquivo original** e duas cópias alternadas:
+Eventos do aplicativo — desenho, atualização, clique, teclado, toque e importação — agora são executados com proteção de erros. Se alguma dessas rotinas falhar, o Player tenta:
 
-```text
-recovery/<id-do-projeto>-a.rec
-recovery/<id-do-projeto>-b.rec
-```
+- Pausar a reprodução, preservando o jogo/projeto aberto em memória;
+- Registrar mensagem e rastreamento local no arquivo `player-errors.log`;
+- Mostrar um aviso na interface, ou uma tela de erro simples se o desenho normal falhar;
+- Continuar respondendo aos demais eventos para permitir inspecionar ou abrir novamente um projeto.
 
-O identificador é um hash não criptográfico calculado a partir do nome e dos bytes do jogo original. É usado para **separação operacional**, não como autenticação ou proteção contra alterações maliciosas. Arquivos com nomes diferentes têm identidades diferentes; renomear, alterar ou substituir o original pode impedir a localização automática das cópias anteriores.
+O registro fica na pasta de dados do LÖVE, identificada como `lua-flash` em `player-lua/conf.lua`. Há um limite de 32 KiB para o log, e mensagens repetidas de forma consecutiva não são gravadas continuamente.
 
-Cada `.rec` guarda o pacote `.lfgame` completo, o número da sequência, o tamanho e uma soma de verificação. Ao recuperar, o Player valida o envelope, o checksum e o formato do jogo. Se o último slot estiver corrompido, tenta o outro.
+**F4** dispensa o banner do último erro na interface, mantendo o log no disco. **F3** apresenta FPS, memória Lua, número de recursos, máscaras e pares de colisão.
 
-**Uso:**
+**Limitação:** essas proteções atuam sobre erros Lua nos callbacks monitorados. Não impedem crashes de driver de vídeo, falhas nativas do LÖVE, indisponibilidade grave de memória ou encerramento do sistema operacional. Nem todo erro de renderização pode ser recuperado: a tela de fallback também depende do sistema gráfico.
 
-1. Abra o jogo original usando **PACOTE** ou arraste seu `.lfgame`.
-2. Edite no painel **E**. Após cerca de 12 segundos com alterações não salvas, o Player tenta salvar uma cópia.
-3. Após reiniciar, abra novamente **o mesmo arquivo original**. Pressione **Ctrl+R** para restaurar o slot válido mais recente.
-4. Verifique o resultado e use **Ctrl+S** para salvar `player_game.lfgame`; as duas cópias automáticas daquele projeto são apagadas depois de um salvamento bem-sucedido.
+## Melhorias de desempenho
 
-O Player não substitui automaticamente projetos abertos: se houver edições pendentes, recusa carregar um jogo diferente ou recuperar outro estado. Primeiro salve com Ctrl+S.
+A busca do par de keyframes de cada camada usa agora pesquisa binária em uma lista de quadros ordenada na abertura da animação. Isso reduz a busca de **O(K) para O(log K)** por camada e posição, onde K é o número de keys daquela camada.
 
-**Limitações reais:** a alternância entre dois slots mantém uma cópia anterior durante uma nova gravação, mas a escrita de cada slot não é atômica nem uma garantia contra falha de disco, sistema, permissão ou energia. O primeiro salvamento de recuperação tem apenas um slot. Recuperações geradas pela 0.16 no nome global `player_recovery.lfgame` não são importadas automaticamente, para evitar misturar dados de jogos diferentes. Copie manualmente seus arquivos importantes antes de atualizar.
+A interpolação continua mantendo cache de uma cena por posição e não altera o documento-fonte. As colisões com máscaras PNG e amostragem temporal continuam funcionando como antes.
 
-## Diagnóstico de desempenho — F3
+## Testes de estresse
 
-Pressione **F3** para mostrar/ocultar um painel que apresenta FPS médio da amostragem recente, pior duração de atualização desde a abertura, memória Lua aproximada em MB, número de trilhas/chaves/recursos, máscaras alfa geradas e pares de colisões. É útil para comparar cenas e identificar crescimento de memória durante testes.
+A CI executa `tests/stress_player_test.lua`, que gera uma cena sintética de **18 camadas, 32 keyframes por camada e 20 formas por keyframe** (11.520 formas no total). Ela verifica renderização de amostras interpoladas, cache, integridade dos keyframes, serialização e limite de memória retida, apresentando dados aproximados de tempo e uso de memória.
 
-As estatísticas são aproximadas: `collectgarbage("count")` mede memória gerenciada por Lua e **não** toda a memória de GPU, texturas e decodificadores do LÖVE. F3 não executa benchmarks nem mede latência de renderização por GPU.
+O teste é reprodutível, mas não constitui um benchmark definitivo em hardware Windows e não estabelece um valor mínimo de FPS. Ainda precisamos validar cenas reais maiores em computadores físicos.
 
-## Ferramentas preservadas
+## Recuperação e edição existentes
 
-- **E**: editor visual de quadros-chave, incluindo posição, rotação e escala.
-- **Ctrl+Z / Ctrl+Y**: histórico de até 32 alterações.
-- **Ctrl+S**: salvar jogo válido.
-- **Ctrl+R**: recuperação do jogo aberto.
-- **F8/F9/F10**: volume e silêncio de efeitos WAV.
-- **F11**: tela cheia.
+Continuam disponíveis **E** (editor de quadros-chave), **Ctrl+Z/Y** (desfazer/refazer), **Ctrl+S** (salvar), **Ctrl+R** (recuperação verificada por projeto), **F8/F9/F10** (volume e mudo), **F11** (tela cheia). Não houve alteração do formato LUAFGAME 9.
 
-O formato de jogo continua **LUAFGAME 9**; jogos antigos permanecem aceitos. Nenhum arquivo importado executa scripts Lua arbitrários.
-
-## Testes
+## Testar e empacotar
 
 ```bash
+lua tests/error_report_test.lua
+lua tests/stress_player_test.lua
 lua tests/recovery_test.lua
-lua tests/edit_history_test.lua
 lua tests/gui_smoke.lua
 lua tests/package_v9_test.lua
 python3 tools/sync_core.py --check
 python3 tools/package_player.py
 ```
 
-A CI também executa o Player em LÖVE real com display virtual e publica `Lua-Flash-Player-0.17.love`.
+Além desses testes, o GitHub Actions executa o Player no LÖVE real, com display virtual, e publica a versão 0.18.
 
-A homologação em equipamentos Windows reais e a distribuição sem a instalação separada do LÖVE continuam pendentes.
+O arquivo `.love` ainda exige LÖVE instalado e não é um aplicativo Windows autônomo.

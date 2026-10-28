@@ -1,38 +1,37 @@
-# Lua-Flash — roadmap do Player
+# Lua-Flash — roteiro do Player
 
-## Meta
+## Objetivo
 
-Runtime independente de animações/jogos em Lua/LÖVE para PC, sem dependência de SWF, FLA ou ActionScript antigos. O Player (`player-lua/`) permanece separado do Studio (`studio-lua/`).
+Entregar um Player para PC com runtime próprio de animações/jogos em Lua e formatos declarativos, sem compatibilidade obrigatória com SWF/FLA/ActionScript. O Player permanece em `player-lua/`, separado do Studio em `studio-lua/`.
 
-## Base implementada até 0.16
+## Base 0.1–0.17
 
-- [x] Reprodução vetorial, timeline, interpolação e velocidades.
-- [x] Jogos declarativos LUAFGAME 1–9, mídias PNG/WAV e sprites animados.
-- [x] Mouse, teclado, toque, máscaras alfa e colisão temporal.
-- [x] Editor visual de quadros-chave, rotação, escala e easing.
-- [x] Undo/redo de 32 alterações e recuperação básica.
-- [x] Testes em Lua e LÖVE, empacotamento `.love`.
+- [x] Reprodução vetorial, timeline, keyframes, easing e velocidades.
+- [x] Jogos LUAFGAME 1–9 com mídias PNG/WAV, estados e regras.
+- [x] Sprites interativos, transformações e colisões amostradas no tempo.
+- [x] Editor de poses com histórico Undo/Redo e recuperação por projeto.
+- [x] Diagnósticos F3, testes Lua e LÖVE em CI e pacote `.love`.
 
-## Player 0.17 — recuperação e diagnóstico
+## Player 0.18 — falhas e cenas maiores
 
-- [x] Cópias de recuperação isoladas por jogo original, sem utilizar um nome global compartilhado.
-- [x] Rotação de dois slots com sequência e verificação de integridade.
-- [x] Rejeição de recuperação corrompida ou pertencente a outro jogo.
-- [x] Recuperação apenas quando não há edições pendentes no projeto atual.
-- [x] Proteção contra abertura acidental de outro projeto com alterações não salvas.
-- [x] F3 com FPS, duração de atualização, memória Lua e contagem de elementos.
-- [x] Testes de corrupção, falha de escrita, isolamento, reset e indicadores.
-- [x] Compatibilidade com LUAFGAME 1–9, sem alterar Studio.
-- [ ] Gravação atômica no nível do sistema operacional e histórico persistente.
-- [ ] Perfil de GPU/CPU e testes reais com projetos grandes.
+- [x] Proteção para callbacks principais do Player e tentativa de preservar a sessão após falha Lua.
+- [x] Log local de erros limitado a 32 KiB e supressão de mensagens repetidas.
+- [x] Aviso de falha e tela de emergência para exceções de renderização.
+- [x] Busca binária de keyframes vetoriais por camada.
+- [x] Teste sintético com 11.520 formas vetoriais e mais de 100 posições amostradas.
+- [x] Testes de falhas injetadas, logs locais e comportamento da interface.
+- [x] Compatibilidade LUAFGAME 1–9 e Studio preservado.
+- [ ] Validação de FPS/VRAM e latência em jogos reais no Windows.
+- [ ] Otimizações de alocação de renderização, colisões e recursos grandes.
+- [ ] Recuperação diante de erros nativos do LÖVE (não garantida).
 
-## Prioridades até a versão 1.0 de PC
+## Prioridades rumo ao Player 1.0 no PC
 
-- [ ] Robustez de carga, logs de erro e relatórios de crash.
-- [ ] Testes de estresse em cenas reais maiores e melhorias de memória/CPU.
-- [ ] Áudio polifônico e canais independentes.
-- [ ] Melhorias ergonômicas no editor e importação de mídia.
-- [ ] Windows standalone com LÖVE incorporado, além de empacotamentos Linux/macOS.
-- [ ] Validação de instalação, experiência de uso e estabilidade em máquinas reais.
+- [ ] Canais independentes e polifonia de áudio, sem interrupção indevida de efeitos.
+- [ ] Perfil de CPU, renderização e colisões em hardware real; reduzir desperdícios.
+- [ ] Testes mais abrangentes de importação de mídia e arquivos hostis.
+- [ ] Melhorias no fluxo de edição e tratamento de erros de filesystem.
+- [ ] Aplicativo Windows standalone com runtime LÖVE incorporado.
+- [ ] Testar instalação e desempenho real antes de declarar versão estável.
 
-O Studio ainda não foi modificado e os jogos importados não executam código Lua fornecido por terceiros.
+Ainda não há suporte à execução de código Lua fornecido por jogos externos. Android e Web permanecem fora do escopo imediato da versão 1.0 para PC.
