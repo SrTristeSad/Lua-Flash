@@ -82,6 +82,36 @@ love.draw()
 love.mousepressed(745,239,1,false)
 love.keypressed("c")
 love.draw()
+-- Add a key midway through the selected segment (frame 23..45).
+love.mousepressed(748,408,1,false)
+love.draw()
+-- Change pose X/Y and move its frame forward; delete it again.
+love.mousepressed(808,442,1,false)
+love.mousepressed(955,442,1,false)
+love.mousepressed(972,408,1,false)
+love.draw()
+love.mousepressed(818,408,1,false)
+love.draw()
+-- Drag the actual sprite at frame 23 to modify its saved position.
+love.mousepressed(745,239,1,false)
+local Demo9=require("src.game_example_v9")
+local Media=require("src.media_runtime")
+local Interpolation=require("src.interpolation")
+local SpriteTransform=require("src.sprite_transform")
+local StageRuntime=require("src.runtime")
+local def=Demo9.definition()
+local view={x=18,y=100,w=1004,h=434}
+local ox,oy,scale=StageRuntime.geometry(def.document,view.x,view.y,view.w,view.h)
+local preview=Media.new(def)
+local scene=Interpolation.new(def.document):sample(23)
+local rect=assert(preview:spriteRect(1,23,scene))
+local sx,sy=SpriteTransform.toWorld(rect,.70,.50)
+local px,py=ox+sx*scale,oy+sy*scale
+preview:release()
+love.mousepressed(px,py,1,false)
+love.mousemoved(px+19,py+10,19,10,false)
+love.mousereleased(px+19,py+10,1,false)
+love.draw()
 love.keypressed("e")
 love.keypressed("z")
 love.keypressed("f8")
@@ -105,6 +135,11 @@ for _,curve in ipairs(savedGame.easings) do
   end
 end
 assert(edited,"GUI must modify selected easing segment")
+assert(#savedGame.tweens[1].keys==5,
+  "visual add then delete must leave original key count")
+assert(savedGame.tweens[1].keys[2].frame==23)
+assert(savedGame.tweens[1].keys[2].x>30,
+  "dragging sprite must update the selected keyframe pose")
 love.keyreleased("w")
 love.focus(false)
 love.draw()
