@@ -137,6 +137,19 @@ jobs:
           if ($data[0] -ne 77 -or $data[1] -ne 90) { throw "Missing Windows PE header" }
           if ($data.Length -lt 100000) { throw "Fused executable is too small" }
           Write-Host "Fused Windows executable validated with $($dlls.Count) bundled DLLs."
+      - name: Verify native Windows executable launches
+        shell: pwsh
+        run: |
+          $exe = Join-Path (Resolve-Path ".cache/win/Lua-Flash-Player-0.20-Windows-x64").Path "Lua-Flash-Player.exe"
+          $process = Start-Process -FilePath $exe -ArgumentList "--version" -PassThru
+          if (-not $process.WaitForExit(15000)) {
+            Stop-Process -Id $process.Id -Force
+            throw "Native LÖVE executable did not exit after --version"
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Native Windows executable failed to start; exit=$($process.ExitCode)"
+          }
+          Write-Host "Windows bundled LÖVE native process started and exited correctly."
       - name: Upload portable Windows 64-bit build
         uses: actions/upload-artifact@v4
         with:

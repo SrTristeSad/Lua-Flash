@@ -1,50 +1,47 @@
-# Lua-Flash Player 0.19 — áudio polifônico e canais
+# Lua-Flash Player 0.20 — portátil para Windows
 
-O Player é escrito em Lua com LÖVE e abre animações `.lflash` e jogos declarativos `.lfgame` (LUAFGAME 1–9). Não executa SWF/ActionScript nem código Lua importado de jogos.
+Player em Lua e LÖVE para animações `.lflash` e jogos `.lfgame` (LUAFGAME 1–9). O Studio segue como aplicativo separado.
 
-## Áudio polifônico
+## O que mudou
 
-Antes desta versão, cada arquivo WAV tinha uma única fonte sonora, reiniciada ao receber um novo evento. Isso cortava efeitos que ainda estavam tocando.
+Pela primeira vez, além do pacote `.love` universal, o Player tem um **executável Windows 64 bits** com o LÖVE incorporado. Não é necessário instalar o motor LÖVE na máquina do usuário.
 
-Agora o módulo `src/audio_mixer.lua` gerencia um conjunto pequeno de fontes por arquivo WAV. Quando um efeito é disparado e a fonte anterior ainda está tocando, ele pode iniciar outra fonte e manter a primeira. Os efeitos de cliques/teclado/colisões/vitória e os sons programados na linha do tempo passam por dois canais de volume distintos.
+### Executar no Windows
 
-O orçamento é de **16 vozes totais** e **4 por arquivo WAV**. Ao atingir o limite, o mixer interrompe e reutiliza a voz mais antiga, priorizando estabilidade e uso previsível de memória. É possível que um efeito curto seja cortado se o jogo disparar sons além da capacidade configurada.
+1. Acesse o [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions) e abra a execução verde da versão 0.20.
+2. Em **Artifacts**, baixe `lua-flash-player-0.20-windows-x64-portable`.
+3. Extraia o ZIP baixado. Ele contém um segundo ZIP, `Lua-Flash-Player-0.20-Windows-x64.zip`, que também deve ser extraído.
+4. Entre na pasta `Lua-Flash-Player-0.20-Windows-x64` e execute **`Lua-Flash-Player.exe`**.
+5. Não remova nem separe as DLLs da pasta do executável.
 
-A trilha `timeline` mantém a semântica de tocar quando a reprodução atravessa um quadro. Agora também reconhece voltas completas consecutivas e dispara cada passagem pelos respectivos quadros em ordem cronológica. Como proteção contra loops extremos, são permitidos **no máximo 64 disparos da timeline por atualização**.
+Os controles de animação, importação de jogos, editor de quadros-chave, áudio WAV polifônico, Ctrl+S, Ctrl+Z/Ctrl+Y, Ctrl+R e F3 continuam disponíveis. Para importar, arraste um `.lflash` ou `.lfgame` para a janela.
 
-O volume final de cada voz corresponde a `volumeGeral × volumeDoCanal`. O mudo interrompe vozes ativas e impede novos disparos enquanto está ativado.
+### O que esta distribuição é (e o que não é)
 
-### Controles de áudio
+- **Portátil:** ZIP, sem instalador, sem a instalação adicional de LÖVE.
+- **Windows x64:** não foi produzida uma distribuição Windows 32 bits.
+- **Sem assinatura digital:** o Windows SmartScreen pode sinalizar o executável como desconhecido. Nunca ignore alertas de segurança sem verificar a origem do pacote.
+- **Runtime incluído:** versão oficial LÖVE 11.5 e DLLs locais. O programa não precisa baixar seu motor pela internet para abrir.
+- **Experimental:** estrutura e startup são verificados no CI Windows; o uso gráfico em máquinas físicas ainda precisa de homologação. Não afirmamos compatibilidade com todas as GPUs.
 
-| Tecla | Função |
-|---|---|
-| **F5** | Alternar entre o canal `effects` e `timeline`. |
-| **F6 / F7** | Diminuir/aumentar em 10% o volume do canal selecionado. |
-| **F8 / F9** | Diminuir/aumentar em 10% o volume geral. |
-| **F10** | Silenciar ou reativar todo o áudio. |
-| **F3** | Mostrar vozes totais/ativas, reutilizações e volumes dos canais, além dos diagnósticos existentes. |
+Não se trata de um instalador MSI/EXE de setup, nem de uma reconstrução de Flash Player Adobe. Os arquivos aceitos são apenas os formatos nativos de Lua-Flash.
 
-Os demais controles de editor e timeline continuam: **E** abre o editor de chaves; **Ctrl+S** salva; **Ctrl+Z/Ctrl+Y** desfazem/refazem; **Ctrl+R** restaura cópias verificadas.
+## Como a build é feita
 
-## Implementação e compatibilidade
+A suíte Linux empacota todos os módulos de `player-lua/` em `Lua-Flash-Player-0.20.love` e executa os testes de regressão. Um segundo job `windows-latest` obtém o arquivo oficial `love-11.5-win64.zip`, confere seu **SHA-256 fixo**, combina `love.exe` com `.love` e inclui os binários auxiliares e textos de licença da distribuição LÖVE.
 
-As amostras PCM são decodificadas uma vez e fontes `love.audio.Source` são criadas sob demanda. Os recursos PNG continuam usando a otimização existente de máscaras alfa e cena interpolada. Na ausência de `Source:isPlaying` (como em simulações e versões simplificadas de áudio), o mixer reutiliza a fonte sem criar vozes extras.
+O packager `tools/package_player_windows.py` valida também o ZIP de entrada, previne caminhos de arquivo maliciosos e verifica que o executável gerado contém o jogo correto. O job Windows confere o cabeçalho executável PE, a presença das DLLs e a saída do processo `--version`.
 
-**O formato LUAFGAME 9 não mudou.** Jogos LUAFGAME 1–9 e arquivos `.lflash` mantêm a leitura anterior. Nenhum arquivo externo executa Lua arbitrário. O aplicativo Studio não foi modificado.
-
-## Testar
+Para testar localmente:
 
 ```bash
-lua tests/audio_mixer_test.lua
-lua tests/package_v6_test.lua
-lua tests/package_v4_test.lua
-lua tests/gui_smoke.lua
-python3 tools/sync_core.py --check
 python3 tools/package_player.py
+python3 tests/windows_package_test.py
+python3 tools/package_player_windows.py --love-zip /caminho/love-11.5-win64.zip
 ```
 
-A CI verifica sobreposição, volumes dos canais, limites de vozes e múltiplos loops e também executa o LÖVE real em display virtual, com áudio fictício (*dummy audio*) para validar a criação de fontes.
+O último comando recusa arquivos do LÖVE alterados. Consulte a distribuição oficial e as licenças originais em [LÖVE 11.5](https://github.com/love2d/love/releases/tag/11.5).
 
-**Limitações:** ainda não existem streaming de áudio para faixas longas, panorâmica estéreo individual, música de fundo separada em outro formato, fades automáticos ou mixer profissional com efeitos DSP. São necessários testes manuais em Windows e medições de latência de áudio com placas reais antes da versão 1.0.
+## Próximas prioridades
 
-O Player ainda é distribuído em `.love` e requer LÖVE instalado.
+Ainda faltam testes visuais no Windows real, experiência de instalação, perfis de CPU/GPU, suporte aprimorado a projetos grandes e validação de aplicações de longo prazo. O formato LUAFGAME 9 permanece sem alteração. O Studio não foi modificado.
