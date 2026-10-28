@@ -249,8 +249,10 @@ end
 function love.update(dt)
   runtime:update(dt)
   if runtime.playing then doc.currentFrame=runtime.frame end
-  SymbolMotion.update(symbolMotion,symbolLibrary,doc,doc.currentFrame,dt,runtime.playing)
-  if mode=="player" and love.mouse and love.mouse.getPosition then
+  if not editingSymbolId then
+    SymbolMotion.update(symbolMotion,symbolLibrary,doc,doc.currentFrame,dt,runtime.playing)
+  end
+  if mode=="player" and not editingSymbolId and love.mouse and love.mouse.getPosition then
     local mx,my=love.mouse.getPosition()
     SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
   end
@@ -270,6 +272,9 @@ local function ui()
   if mode=="studio" then
     button("SALVAR",465,8,82,34,false)
     button("+ CAMADA",555,8,109,34,false)
+    if editingSymbolId or selectedSymbol then
+      button(editingSymbolId and "VOLTAR PALCO" or "EDIT SIMBOLO",672,8,138,34,editingSymbolId~=nil)
+    end
     label("Formato proprio .lflash | Sem SWF/FLA",w-337,17,{.67,.72,.8})
   else
     label("Previa de publicacao Lua-Flash | ESPACO inicia/pausa",475,17,{.67,.72,.8})
@@ -303,6 +308,10 @@ local function ui()
     label("Palco "..doc.width.." x "..doc.height,w-185,track-92)
     label("FPS: "..doc.fps,w-185,track-72)
     label("Camada "..doc.currentLayer.." | F7 vis. F8 trava",w-185,track-52)
+    if editingSymbolId then
+      local sym=Library.find(symbolLibrary,editingSymbolId)
+      label("EDITANDO: "..(sym and sym.name or "?"),w-185,track-112,{.98,.78,.38})
+    end
     local libY,visibleSlots=libraryPanel(track)
     if libY<track-108 then label("BIBLIOTECA | Ctrl+F8",w-186,libY,{.45,.82,1}) end
     local symbolList=Library.list(symbolLibrary)
@@ -314,7 +323,9 @@ local function ui()
   end
 
   runtime.draw(doc,doc.currentFrame,view.x,view.y,view.w,view.h)
-  SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view,symbolMotion)
+  if not editingSymbolId then
+    SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view,symbolMotion)
+  end
   if mode=="studio" and selected then
     local layer=active()
     local shapes=layer and Model.frame(layer,doc.currentFrame)
@@ -330,7 +341,7 @@ local function ui()
   lg.rectangle("fill",0,track,w,h-track)
   lg.setColor(.25,.28,.32)
   lg.line(0,track,w,track)
-  label(mode=="studio" and "TIMELINE | F6: chave  F9: vazio  SHIFT+F6: excluir" or "REPRODUCAO  |  ESPACO: play/pause",12,track+10,{.44,.82,1})
+  label(mode=="studio" and (editingSymbolId and "SIMBOLO | F5: estender  F6: chave  F9: vazio  Esc: voltar" or "TIMELINE | F6: chave  F9: vazio  SHIFT+F6: excluir") or "REPRODUCAO  |  ESPACO: play/pause",12,track+10,{.44,.82,1})
   label("Quadro "..doc.currentFrame.." / "..doc.totalFrames.."    "..doc.fps.." FPS",12,track+41)
   label("Anterior/Proximo: <- ->",12,track+64,{.64,.7,.78})
   if mode=="studio" then
@@ -385,8 +396,14 @@ function love.mousepressed(mx,my,mousebutton)
   if inBox(mx,my,160,8,95,34) then mode="studio";runtime.playing=false;return end
   if inBox(mx,my,263,8,95,34) then mode="player";runtime.playing=true;return end
   if inBox(mx,my,366,8,91,34) then runtime.playing=not runtime.playing;return end
+  if mode=="studio" and inBox(mx,my,672,8,138,34) then
+    if editingSymbolId then exitSymbol() elseif selectedSymbol then editSymbol(selectedSymbol) end
+    return
+  end
   if mode=="player" then
-    SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+    if not editingSymbolId then
+      SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+    end
     SymbolMotion.press(symbolMotion)
     return
   end
@@ -401,9 +418,13 @@ function love.mousepressed(mx,my,mousebutton)
   local libY,visibleSlots=libraryPanel(track)
   for i=1,math.min(#symbols,visibleSlots) do
     if inBox(mx,my,w-187,libY+22+(i-1)*28,175,26) then
+      if editingSymbolId then
+        msg="Saia da edicao interna para selecionar outro simbolo"
+        return
+      end
       selectedSymbol=symbols[i].id
       tool="symbol"
-      msg="Instancia selecionada: "..symbols[i].name.." | clique no palco"
+      msg="Simbolo selecionado: "..symbols[i].name.." | Ctrl+Enter edita, clique no palco instancia"
       return
     end
   end
@@ -461,6 +482,9 @@ function love.mousepressed(mx,my,mousebutton)
   local x,y=xy(mx,my)
   local existing=Model.frame(layer,doc.currentFrame)
   if tool=="symbol" then
+    if editingSymbolId then
+      msg="Instancias aninhadas ainda nao disponiveis";return
+    end
     if not selectedSymbol or not Library.find(symbolLibrary,selectedSymbol) then
       msg="Selecione um simbolo na biblioteca";return
     end
@@ -496,7 +520,9 @@ end
 
 function love.mousemoved(mx,my,dx,dy)
   if mode=="player" then
-    SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+    if not editingSymbolId then
+      SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
+    end
     return
   end
   if timelineDrag then
@@ -533,7 +559,7 @@ function love.mousereleased(_,_,button)
     local op=timelineDrag
     timelineDrag=nil
     if op.source~=op.target then
-      local tx,err=TimelineOps.plan(doc,symbolLibrary,doc.currentLayer,
+      local tx,err=TimelineOps.plan(doc,trackLibrary(),doc.currentLayer,
         op.sources,op.target-op.source,op.duplicate)
       if tx then
         snapshot()
@@ -599,6 +625,7 @@ function love.keypressed(key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   local shift=love.keyboard.isDown("lshift","rshift")
   if ctrl and key=="f8" and mode=="studio" then
+    if editingSymbolId then msg="Volte ao palco para criar outro simbolo";return end
     if active().locked then msg="Camada bloqueada";return end
     local kind=shift and "movieclip" or (love.keyboard.isDown("lalt","ralt") and "button" or "graphic")
     local shapes=Model.frame(active(),doc.currentFrame)
@@ -613,6 +640,7 @@ function love.keypressed(key)
     return
   end
   if ctrl and key=="f10" and mode=="studio" then
+    if editingSymbolId then msg="Use F5 e F6 para editar a timeline interna";return end
     local symbol=selectedSymbol and Library.find(symbolLibrary,selectedSymbol)
     if not symbol then msg="Selecione um simbolo na biblioteca";return end
     if active().locked then msg="Camada bloqueada";return end
@@ -634,14 +662,14 @@ function love.keypressed(key)
   if ctrl and key=="c" and mode=="studio" then
     frameClipboard={
       shapes=clone(Model.frame(active(),doc.currentFrame)),
-      instances=clone(Library.at(symbolLibrary,doc.currentLayer,doc.currentFrame))
+      instances=clone(Library.at(trackLibrary(),doc.currentLayer,doc.currentFrame))
     }
     msg="Quadro e instancias copiados"
     return
   end
   if ctrl and key=="v" and mode=="studio" then
     if not frameClipboard then msg="Nenhum quadro copiado";return end
-    local tx,err=TimelineOps.planPaste(doc,symbolLibrary,doc.currentLayer,
+    local tx,err=TimelineOps.planPaste(doc,trackLibrary(),doc.currentLayer,
       doc.currentFrame,frameClipboard)
     if not tx then msg="Nao foi possivel colar: "..tostring(err);return end
     snapshot()
@@ -650,6 +678,13 @@ function love.keypressed(key)
     msg="Quadro e instancias colados"
     return
   end
+  if ctrl and (key=="return" or key=="kpenter") and mode=="studio" then
+    if editingSymbolId then exitSymbol()
+    elseif selectedSymbol then editSymbol(selectedSymbol)
+    else msg="Selecione um simbolo na biblioteca antes de editar" end
+    return
+  end
+  if key=="escape" and editingSymbolId then exitSymbol();return end
   if ctrl and key=="n" then newProject();return end
   if ctrl and shift and key=="s" then beginSaveAs();return end
   if ctrl and key=="s" then save();return end
@@ -671,6 +706,17 @@ function love.keypressed(key)
   if key=="pagedown" then jumpKey(1);return end
   if key=="home" then runtime.playing=false;setFrame(1);return end
   if key=="end" then runtime.playing=false;setFrame(doc.totalFrames);return end
+  if key=="f5" and editingSymbolId then
+    local symbol=Library.find(symbolLibrary,editingSymbolId)
+    local limit=symbol and symbol.kind=="button" and 4 or 10000
+    if doc.totalFrames>=limit then msg="Limite de quadros internos atingido";return end
+    snapshot()
+    doc.totalFrames=doc.totalFrames+1
+    runtime.playing=false
+    setFrame(doc.totalFrames)
+    msg="Timeline do simbolo estendida para "..doc.totalFrames.." quadros"
+    return
+  end
   if key=="f7" then
     if not active() then return end
     snapshot()
@@ -689,7 +735,7 @@ function love.keypressed(key)
     if active().locked then msg="Camada bloqueada";return end
     snapshot()
     Exposure.insertBlankKey(active(),doc.currentFrame)
-    Library.ensureKey(symbolLibrary,doc.currentLayer,doc.currentFrame,true)
+    Library.ensureKey(trackLibrary(),doc.currentLayer,doc.currentFrame,true)
     selected=nil
     msg="Quadro-chave vazio inserido"
     return
@@ -699,10 +745,10 @@ function love.keypressed(key)
     snapshot()
     if shift then
       Model.removeKey(active(),doc.currentFrame)
-      Library.removeKey(symbolLibrary,doc.currentLayer,doc.currentFrame)
+      Library.removeKey(trackLibrary(),doc.currentLayer,doc.currentFrame)
     else
       Model.ensureKey(active(),doc.currentFrame)
-      Library.ensureKey(symbolLibrary,doc.currentLayer,doc.currentFrame)
+      Library.ensureKey(trackLibrary(),doc.currentLayer,doc.currentFrame)
     end
     selected=nil
     return
