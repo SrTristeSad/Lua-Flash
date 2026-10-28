@@ -116,6 +116,7 @@ function M.planBreak(scope,layer,frame,id,index)
       or not integer(scope.nextId) or scope.nextId>10000000 then
     return nil,"interior anchor required on open path"
   end
+  if #V.at(scope,layer,frame)>=500 then return nil,"path limit" end
   local first,second=clone(path),clone(path)
   first.nodes,second.nodes={},{}
   for n=1,index do first.nodes[#first.nodes+1]=clone(path.nodes[n]) end
@@ -203,11 +204,29 @@ function M.planJoin(scope,layer,frame,aId,bId,maxDistance)
     table.remove(items,ib)
   end}
 end
--- Fill the topmost CLOSED path under the cursor, including its interior.
+-- Closed boundaries must accept a fill click even if they are currently
+-- unfilled. Stroke selection in V.hit cannot cover this case by itself.
+local function contains(path,x,y)
+  local pts=V.sample(path,24)
+  if #pts<6 then return false end
+  local hit=false
+  local prev=#pts-1
+  for i=1,#pts-1,2 do
+    local ax,ay=pts[i],pts[i+1]
+    local bx,by=pts[prev],pts[prev+1]
+    if (ay>y)~=(by>y) and x<(bx-ax)*(y-ay)/(by-ay)+ax then
+      hit=not hit
+    end
+    prev=i
+  end
+  return hit
+end
+-- Fill the topmost CLOSED path under cursor regardless of its old fill.
 function M.pickFill(paths,x,y)
+  if not valid(x) or not valid(y) then return nil end
   for i=#paths,1,-1 do
     local p=paths[i]
-    if p.closed and V.hit(p,x,y,1.5) then return p end
+    if p.closed and (contains(p,x,y) or V.hit(p,x,y,2)) then return p end
   end
   return nil
 end
