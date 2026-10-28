@@ -187,7 +187,7 @@ end
 function M.planTransfer(v,layer,sources,delta,duplicate,totalFrames)
   if not int(layer,1,128) or not int(delta,-10000,10000) or delta==0
       or type(sources)~="table" or #sources==0 then return nil,"invalid transfer" end
-  local from={}, selected={}, outputs={}
+  local from,selected,outputs={},{},{}
   local track=v.tracks[layer] or {}
   for _,n in ipairs(sources) do
     if not int(n,1,totalFrames) then return nil,"invalid source" end
@@ -280,7 +280,7 @@ function M.svg(v,doc,frame)
       end
     end
   end
-  return table.concat(result,"\\n")
+  return table.concat(result," ")
 end
 
 function M.encode(v)
