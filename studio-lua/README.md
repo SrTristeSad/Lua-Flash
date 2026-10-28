@@ -22,6 +22,11 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 - **F7**: ocultar/mostrar camada atual.
 - **F8**: bloquear/desbloquear camada atual.
 - **F6**: inserir quadro-chave; **Shift+F6**: remover.
+- **Ctrl+F8**: criar símbolo `Graphic` copiando o desenho do quadro ativo; **Ctrl+Shift+F8**: `MovieClip`; **Ctrl+Alt+F8**: `Button`.
+- **Biblioteca de símbolos (primeira etapa)**: lista até cinco símbolos na lateral; clique no nome e depois no palco para criar uma instância reutilizável. A prévia dos três tipos é **estática** nesta versão; o comportamento temporal e de botão do Flash ainda não está implementado.
+- **Salvamento de símbolos**: o Studio grava um arquivo auxiliar `nome.lflash.lflib` além de `nome.lflash`. Mantenha **os dois arquivos juntos**. O Player Lua 0.28 não lê a biblioteca auxiliar e, por enquanto, não reproduz essas instâncias; somente o Studio as desenha em prévia. Abrir apenas o `.lflash` ou importá-lo por arrastar não recupera a biblioteca auxiliar.
+- **Histórico**: desfazer/refazer inclui a biblioteca e as instâncias criadas, além do documento principal.
+
 - **Ctrl+C / Ctrl+V**: copiar formas do quadro atual e colar como quadro-chave na posição atual (na camada selecionada). A cópia é independente e pode ser desfeita.
 - **PageUp / PageDown**: ir para o quadro-chave anterior / seguinte da camada atual.
 - **Home / End**: ir ao primeiro / último quadro da timeline.
@@ -42,6 +47,7 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 
 ```bash
 lua tests/studio_edit_test.lua
+lua tests/studio_symbols_test.lua
 lua tests/gui_smoke.lua
 python3 tools/package_studio.py
 ```
