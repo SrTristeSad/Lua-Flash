@@ -338,19 +338,26 @@ function M.svg(v,doc,frame)
   for li,layer in ipairs(doc.layers) do
     if layer.visible then
       for _,path in ipairs(M.at(v,li,frame)) do
-        local n=path.nodes
-        local commands={"M",svgNum(n[1].x),svgNum(n[1].y)}
-        local count=path.closed and #n or #n-1
-        for j=1,count do
-          local a,b=n[j],n[j%#n+1]
-          commands[#commands+1]="C"
-          for _,coordinate in ipairs({a.ox,a.oy,b.ix,b.iy,b.x,b.y}) do
-            commands[#commands+1]=svgNum(coordinate)
+        local commands={}
+        local function svgRing(n,closed)
+          if #n==0 then return end
+          commands[#commands+1]="M"
+          commands[#commands+1]=svgNum(n[1].x)
+          commands[#commands+1]=svgNum(n[1].y)
+          local count=closed and #n or #n-1
+          for j=1,count do
+            local a,b=n[j],n[j%#n+1]
+            commands[#commands+1]="C"
+            for _,coordinate in ipairs({a.ox,a.oy,b.ix,b.iy,b.x,b.y}) do
+              commands[#commands+1]=svgNum(coordinate)
+            end
           end
+          if closed then commands[#commands+1]="Z" end
         end
-        if path.closed then commands[#commands+1]="Z" end
+        svgRing(path.nodes,path.closed)
+        for _,hole in ipairs(path.holes or {}) do svgRing(hole,true) end
         result[#result+1]=string.format(
-          '<path d="%s" fill="%s" stroke="%s" stroke-width="%s" stroke-linejoin="round"/>',
+          '<path d="%s" fill="%s" fill-rule="evenodd" stroke="%s" stroke-width="%s" stroke-linejoin="round"/>',
           table.concat(commands," "),svgColor(path.closed and path.fill),
           svgColor(path.stroke),svgNum(path.width))
       end
