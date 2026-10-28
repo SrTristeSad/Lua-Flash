@@ -181,7 +181,9 @@ local function ui()
     button("+ Nova camada",w-187,90,176,34,false)
     for i,layer in ipairs(doc.layers) do
       local name=(layer.visible and "o " or "- ")..layer.name..(layer.locked and " [X]" or "")
-      button(name,w-187,132+(i-1)*35,176,31,i==doc.currentLayer)
+      button(name,w-187,132+(i-1)*35,118,31,i==doc.currentLayer)
+      button(layer.visible and "O" or "-",w-65,132+(i-1)*35,25,31,layer.visible)
+      button(layer.locked and "X" or "L",w-37,132+(i-1)*35,26,31,layer.locked)
     end
     label("Palco "..doc.width.." x "..doc.height,w-185,track-92)
     label("FPS: "..doc.fps,w-185,track-72)
@@ -251,8 +253,19 @@ function love.mousepressed(mx,my,mousebutton)
   for i in ipairs(palette) do
     if inBox(mx,my,12+(i-1)%3*46,375+math.floor((i-1)/3)*44,36,35) then colorIndex=i;return end
   end
-  for i in ipairs(doc.layers) do
-    if inBox(mx,my,w-187,132+(i-1)*35,176,31) then doc.currentLayer=i;selected=nil;return end
+  for i,layer in ipairs(doc.layers) do
+    local cy=132+(i-1)*35
+    if inBox(mx,my,w-65,cy,25,31) then
+      snapshot();layer.visible=not layer.visible
+      msg=layer.visible and "Camada visivel" or "Camada oculta";return
+    end
+    if inBox(mx,my,w-37,cy,26,31) then
+      snapshot();layer.locked=not layer.locked
+      msg=layer.locked and "Camada bloqueada" or "Camada desbloqueada";return
+    end
+    if inBox(mx,my,w-187,cy,118,31) then
+      doc.currentLayer=i;selected=nil;return
+    end
   end
   if my>=track+38 and my<=track+79 and mx>=250 then
     local n=offset+math.floor((mx-250)/19)
