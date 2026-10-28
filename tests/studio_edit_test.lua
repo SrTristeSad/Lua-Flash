@@ -159,6 +159,10 @@ print("OK: Studio zoom-aware timeline mouse dragging")
 
 
 -- Shift selection and atomic multi-keyframe moves.
+-- Restore 19px cells after the preceding zoom regression.
+modifiers.lctrl=true
+love.wheelmoved(0,-4)
+modifiers.lctrl=false
 press("n",true)
 press("right")
 press("f6")
