@@ -59,6 +59,28 @@ for frame=1,510,5 do
 end
 assert(inspected>=100)
 assert(sampler.compatibilityChecks==LAYERS*(KEYS-1))
+-- Conservative edge checks: thick strokes touching the stage must survive.
+local edge=Render.new()
+local function shape(kind,points,thickness)
+  return {kind=kind,points=points,color={1,1,1},thickness=thickness}
+end
+assert(edge:visible(shape("rect",{-10,20,10,40}),800,450),
+  "partially visible rectangle was culled")
+assert(edge:visible(shape("line",{-8,50,-8,100},20),800,450),
+  "thick line touching left edge was culled")
+assert(edge:visible(shape("brush",{805,10,805,90,805,130},12),800,450),
+  "thick brush touching right edge was culled")
+assert(not edge:visible(shape("rect",{900,500,920,530}),800,450),
+  "fully offscreen rectangle was not culled")
+assert(not edge:visible(shape("line",{-100,-20,-80,-20},4),800,450),
+  "fully offscreen line was not culled")
+local mutable=shape("rect",{900,10,920,30})
+assert(not edge:visible(mutable,800,450))
+mutable.points={10,10,20,20}
+edge:invalidate()
+assert(edge:visible(mutable,800,450),
+  "bounds cache did not refresh after explicit invalidation")
+
 assert(M.encode(doc)==before,"renderer and sampler changed source game")
 collectgarbage("collect")
 local kb=collectgarbage("count")
