@@ -1,38 +1,39 @@
 # Lua-Flash
 
-**O Flash renasce em Lua** — runtime independente de animações e jogos, usando formatos próprios. Não executa SWF, FLA, XFL ou ActionScript antigos.
+**O Flash renasce em Lua** — runtime independente de animações e jogos com formatos próprios. Não executa SWF, FLA, XFL ou ActionScript antigos.
 
 ## Aplicativos separados
 
-| Aplicativo | Pasta | Execução | Status |
+| Aplicativo | Diretório | Executar | Estado |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.18 experimental** |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.19 experimental** |
 | **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-## Player 0.18 — robustez e cenas maiores
+## Player 0.19 — áudio polifônico com canais
 
-Esta versão melhora o comportamento diante de falhas de atualização, interface e desenho. Os principais eventos do LÖVE são tratados com proteção de exceções, registradas **localmente** em um arquivo `player-errors.log`, na pasta de dados do aplicativo. O log possui limite de tamanho e suprime repetição contínua da mesma mensagem. Em uma falha recuperável, o Player pausa a animação e tenta mostrar um aviso, evitando perder a sessão por uma exceção simples.
+A atualização introduz um **mixer de efeitos WAV**, com reprodução simultânea independente, separação entre sons de eventos e da timeline e limites previsíveis de recursos.
 
-**F3** ainda abre diagnósticos de memória e FPS; **F4** fecha o aviso de erro, sem excluir o registro.
+- **Até 16 vozes em memória e 4 vozes por WAV** para impedir crescimento descontrolado em jogos muito movimentados.
+- **Categorias independentes:** `effects` para cliques, teclado, colisões e vitória; `timeline` para eventos programados por quadro.
+- **F5** muda a categoria selecionada; **F6/F7** reduzem/aumentam seu volume; **F8/F9** controlam o volume geral; **F10** ativa/desativa o mudo.
+- **F3** mostra número de fontes, vozes ativas, reutilizações e volume das duas categorias.
+- **Timeline corrigida:** eventos sonoros são percorridos cronologicamente mesmo quando uma atualização atravessa mais de um loop completo, com teto de 64 disparos por atualização.
+- Cada WAV é decodificado uma vez para `SoundData`; fontes adicionais são criadas conforme necessário, e vozes antigas são reutilizadas quando os limites são alcançados.
 
-Também otimizamos a busca dos quadros-chave usados na interpolação vetorial: em vez de percorrer todas as chaves de cada camada, ela usa **busca binária**. A CI agora testa cenas sintéticas com **11.520 formas vetoriais** e mais de cem amostras de timeline, além dos testes dos jogos anteriores.
+**Compatibilidade:** o formato continua **LUAFGAME 9**, mantendo os jogos LUAFGAME 1–9 e os projetos `.lflash`. O Studio foi mantido intacto; não há execução de scripts externos fornecidos pelos jogos.
 
-A nova camada de proteção **não garante recuperação de erros internos do LÖVE, GPU, sistema operacional, falta de memória ou falhas irreversíveis**. Os dados de projetos continuam protegidos pelas rotinas de salvamento e recuperação introduzidas nas versões anteriores.
+## Executar e testar
 
-Formatos LUAFGAME 1–9 e animações `.lflash` continuam compatíveis. Pacotes importados são dados, não código executável; o Studio não foi alterado.
-
-## Executar
-
-Instale [LÖVE](https://love2d.org/) e execute na raiz:
+Instale [LÖVE](https://love2d.org/) e execute:
 
 ```bash
 love player-lua
 python3 tools/package_player.py
-lua tools/export_example.lua dist/Exemplo-0.18.lfgame
+lua tools/export_example.lua dist/Exemplo-0.19.lfgame
 ```
 
-O pacote `dist/Lua-Flash-Player-0.18.love` precisa do LÖVE instalado; ainda não é um EXE Windows independente. Veja os downloads nos artefatos aprovados do [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
+O pacote `dist/Lua-Flash-Player-0.19.love` ainda exige LÖVE instalado, não sendo EXE Windows autônomo. Builds estão disponíveis nos artefatos do [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions).
 
-[Manual do Player](player-lua/README.md) · [Roadmap](docs/ROADMAP.md) · [Formato LUAFGAME 9](docs/FORMAT_LUAFGAME9.md).
+[Manual do Player](player-lua/README.md) · [Roadmap](docs/ROADMAP.md) · [LUAFGAME 9](docs/FORMAT_LUAFGAME9.md).
 
 Projeto independente e não afiliado à Adobe.

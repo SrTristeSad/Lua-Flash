@@ -1,37 +1,35 @@
-# Lua-Flash — roteiro do Player
+# Lua-Flash — roadmap do Player
 
 ## Objetivo
 
-Entregar um Player para PC com runtime próprio de animações/jogos em Lua e formatos declarativos, sem compatibilidade obrigatória com SWF/FLA/ActionScript. O Player permanece em `player-lua/`, separado do Studio em `studio-lua/`.
+Construir um runtime para jogos/animações em Lua e formatos próprios, sem executar SWF/FLA/ActionScript. O Player (`player-lua/`) permanece separado do Studio (`studio-lua/`).
 
-## Base 0.1–0.17
+## Base implementada — 0.1 a 0.18
 
-- [x] Reprodução vetorial, timeline, keyframes, easing e velocidades.
-- [x] Jogos LUAFGAME 1–9 com mídias PNG/WAV, estados e regras.
-- [x] Sprites interativos, transformações e colisões amostradas no tempo.
-- [x] Editor de poses com histórico Undo/Redo e recuperação por projeto.
-- [x] Diagnósticos F3, testes Lua e LÖVE em CI e pacote `.love`.
+- [x] Timeline vetorial, interpolação de poses, easing e edição de quadros-chave.
+- [x] LUAFGAME 1–9: recursos PNG/WAV, sprites, regras e colisões.
+- [x] Mouse, toque, teclado, máscaras alfa, transformações e colisões temporais.
+- [x] Undo/redo, recuperação verificada por projeto e logging local de falhas Lua.
+- [x] Teste de estresse com 11.520 formas vetoriais e validação LÖVE com display virtual.
 
-## Player 0.18 — falhas e cenas maiores
+## Player 0.19 — áudio robusto
 
-- [x] Proteção para callbacks principais do Player e tentativa de preservar a sessão após falha Lua.
-- [x] Log local de erros limitado a 32 KiB e supressão de mensagens repetidas.
-- [x] Aviso de falha e tela de emergência para exceções de renderização.
-- [x] Busca binária de keyframes vetoriais por camada.
-- [x] Teste sintético com 11.520 formas vetoriais e mais de 100 posições amostradas.
-- [x] Testes de falhas injetadas, logs locais e comportamento da interface.
+- [x] Sons WAV simultâneos com pool de fontes `Source`.
+- [x] Limites de 16 vozes totais e 4 por WAV, com reutilização de vozes mais antigas.
+- [x] Volume por categoria de efeitos/timeline e volume mestre.
+- [x] Controles F5/F6/F7, mantendo F8/F9/F10.
+- [x] Cues temporais repetidos corretamente em múltiplas voltas, com limite de 64 disparos por atualização.
+- [x] Diagnóstico de vozes e categorias no painel F3.
+- [x] Testes de reprodução simulada, limites, eventos e smoke com áudio real do LÖVE.
 - [x] Compatibilidade LUAFGAME 1–9 e Studio preservado.
-- [ ] Validação de FPS/VRAM e latência em jogos reais no Windows.
-- [ ] Otimizações de alocação de renderização, colisões e recursos grandes.
-- [ ] Recuperação diante de erros nativos do LÖVE (não garantida).
+- [ ] Testes de latência e mixagem com dispositivo de áudio real, especialmente Windows.
 
-## Prioridades rumo ao Player 1.0 no PC
+## Próximos passos rumo ao Player 1.0 para PC
 
-- [ ] Canais independentes e polifonia de áudio, sem interrupção indevida de efeitos.
-- [ ] Perfil de CPU, renderização e colisões em hardware real; reduzir desperdícios.
-- [ ] Testes mais abrangentes de importação de mídia e arquivos hostis.
-- [ ] Melhorias no fluxo de edição e tratamento de erros de filesystem.
-- [ ] Aplicativo Windows standalone com runtime LÖVE incorporado.
-- [ ] Testar instalação e desempenho real antes de declarar versão estável.
+- [ ] Melhorar reprodução de faixas longas, música de fundo e transições suaves de áudio.
+- [ ] Instrumentação de CPU/GPU e otimização dos recursos em projetos reais grandes.
+- [ ] Melhorar importação, mensagens de erro e recuperação em cenários reais.
+- [ ] Construir e testar uma distribuição **Windows standalone com LÖVE incorporado**.
+- [ ] Testes manuais de instalação, estabilidade e usabilidade em Windows/Linux.
 
-Ainda não há suporte à execução de código Lua fornecido por jogos externos. Android e Web permanecem fora do escopo imediato da versão 1.0 para PC.
+O formato continuará declarativo até haver um projeto separado de sandbox para scripts Lua externos.

@@ -1,50 +1,50 @@
-# Lua-Flash Player 0.18 — diagnósticos de falhas e desempenho
+# Lua-Flash Player 0.19 — áudio polifônico e canais
 
-Reprodutor experimental de jogos LUAFGAME 1–9 (`.lfgame`) e projetos de animação `.lflash` em Lua/LÖVE. O Studio permanece separado.
+O Player é escrito em Lua com LÖVE e abre animações `.lflash` e jogos declarativos `.lfgame` (LUAFGAME 1–9). Não executa SWF/ActionScript nem código Lua importado de jogos.
 
-## Tratamento de erros
+## Áudio polifônico
 
-Eventos do aplicativo — desenho, atualização, clique, teclado, toque e importação — agora são executados com proteção de erros. Se alguma dessas rotinas falhar, o Player tenta:
+Antes desta versão, cada arquivo WAV tinha uma única fonte sonora, reiniciada ao receber um novo evento. Isso cortava efeitos que ainda estavam tocando.
 
-- Pausar a reprodução, preservando o jogo/projeto aberto em memória;
-- Registrar mensagem e rastreamento local no arquivo `player-errors.log`;
-- Mostrar um aviso na interface, ou uma tela de erro simples se o desenho normal falhar;
-- Continuar respondendo aos demais eventos para permitir inspecionar ou abrir novamente um projeto.
+Agora o módulo `src/audio_mixer.lua` gerencia um conjunto pequeno de fontes por arquivo WAV. Quando um efeito é disparado e a fonte anterior ainda está tocando, ele pode iniciar outra fonte e manter a primeira. Os efeitos de cliques/teclado/colisões/vitória e os sons programados na linha do tempo passam por dois canais de volume distintos.
 
-O registro fica na pasta de dados do LÖVE, identificada como `lua-flash` em `player-lua/conf.lua`. Há um limite de 32 KiB para o log, e mensagens repetidas de forma consecutiva não são gravadas continuamente.
+O orçamento é de **16 vozes totais** e **4 por arquivo WAV**. Ao atingir o limite, o mixer interrompe e reutiliza a voz mais antiga, priorizando estabilidade e uso previsível de memória. É possível que um efeito curto seja cortado se o jogo disparar sons além da capacidade configurada.
 
-**F4** dispensa o banner do último erro na interface, mantendo o log no disco. **F3** apresenta FPS, memória Lua, número de recursos, máscaras e pares de colisão.
+A trilha `timeline` mantém a semântica de tocar quando a reprodução atravessa um quadro. Agora também reconhece voltas completas consecutivas e dispara cada passagem pelos respectivos quadros em ordem cronológica. Como proteção contra loops extremos, são permitidos **no máximo 64 disparos da timeline por atualização**.
 
-**Limitação:** essas proteções atuam sobre erros Lua nos callbacks monitorados. Não impedem crashes de driver de vídeo, falhas nativas do LÖVE, indisponibilidade grave de memória ou encerramento do sistema operacional. Nem todo erro de renderização pode ser recuperado: a tela de fallback também depende do sistema gráfico.
+O volume final de cada voz corresponde a `volumeGeral × volumeDoCanal`. O mudo interrompe vozes ativas e impede novos disparos enquanto está ativado.
 
-## Melhorias de desempenho
+### Controles de áudio
 
-A busca do par de keyframes de cada camada usa agora pesquisa binária em uma lista de quadros ordenada na abertura da animação. Isso reduz a busca de **O(K) para O(log K)** por camada e posição, onde K é o número de keys daquela camada.
+| Tecla | Função |
+|---|---|
+| **F5** | Alternar entre o canal `effects` e `timeline`. |
+| **F6 / F7** | Diminuir/aumentar em 10% o volume do canal selecionado. |
+| **F8 / F9** | Diminuir/aumentar em 10% o volume geral. |
+| **F10** | Silenciar ou reativar todo o áudio. |
+| **F3** | Mostrar vozes totais/ativas, reutilizações e volumes dos canais, além dos diagnósticos existentes. |
 
-A interpolação continua mantendo cache de uma cena por posição e não altera o documento-fonte. As colisões com máscaras PNG e amostragem temporal continuam funcionando como antes.
+Os demais controles de editor e timeline continuam: **E** abre o editor de chaves; **Ctrl+S** salva; **Ctrl+Z/Ctrl+Y** desfazem/refazem; **Ctrl+R** restaura cópias verificadas.
 
-## Testes de estresse
+## Implementação e compatibilidade
 
-A CI executa `tests/stress_player_test.lua`, que gera uma cena sintética de **18 camadas, 32 keyframes por camada e 20 formas por keyframe** (11.520 formas no total). Ela verifica renderização de amostras interpoladas, cache, integridade dos keyframes, serialização e limite de memória retida, apresentando dados aproximados de tempo e uso de memória.
+As amostras PCM são decodificadas uma vez e fontes `love.audio.Source` são criadas sob demanda. Os recursos PNG continuam usando a otimização existente de máscaras alfa e cena interpolada. Na ausência de `Source:isPlaying` (como em simulações e versões simplificadas de áudio), o mixer reutiliza a fonte sem criar vozes extras.
 
-O teste é reprodutível, mas não constitui um benchmark definitivo em hardware Windows e não estabelece um valor mínimo de FPS. Ainda precisamos validar cenas reais maiores em computadores físicos.
+**O formato LUAFGAME 9 não mudou.** Jogos LUAFGAME 1–9 e arquivos `.lflash` mantêm a leitura anterior. Nenhum arquivo externo executa Lua arbitrário. O aplicativo Studio não foi modificado.
 
-## Recuperação e edição existentes
-
-Continuam disponíveis **E** (editor de quadros-chave), **Ctrl+Z/Y** (desfazer/refazer), **Ctrl+S** (salvar), **Ctrl+R** (recuperação verificada por projeto), **F8/F9/F10** (volume e mudo), **F11** (tela cheia). Não houve alteração do formato LUAFGAME 9.
-
-## Testar e empacotar
+## Testar
 
 ```bash
-lua tests/error_report_test.lua
-lua tests/stress_player_test.lua
-lua tests/recovery_test.lua
+lua tests/audio_mixer_test.lua
+lua tests/package_v6_test.lua
+lua tests/package_v4_test.lua
 lua tests/gui_smoke.lua
-lua tests/package_v9_test.lua
 python3 tools/sync_core.py --check
 python3 tools/package_player.py
 ```
 
-Além desses testes, o GitHub Actions executa o Player no LÖVE real, com display virtual, e publica a versão 0.18.
+A CI verifica sobreposição, volumes dos canais, limites de vozes e múltiplos loops e também executa o LÖVE real em display virtual, com áudio fictício (*dummy audio*) para validar a criação de fontes.
 
-O arquivo `.love` ainda exige LÖVE instalado e não é um aplicativo Windows autônomo.
+**Limitações:** ainda não existem streaming de áudio para faixas longas, panorâmica estéreo individual, música de fundo separada em outro formato, fades automáticos ou mixer profissional com efeitos DSP. São necessários testes manuais em Windows e medições de latência de áudio com placas reais antes da versão 1.0.
+
+O Player ainda é distribuído em `.love` e requer LÖVE instalado.
