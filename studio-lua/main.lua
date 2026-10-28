@@ -7,6 +7,7 @@ local SymbolPreview = require("src.symbol_preview")
 local Transform = require("src.instance_transform")
 local Handles = require("src.instance_handles")
 local Properties = require("src.instance_properties")
+local Group = require("src.instance_group")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
 local Runtime = require("src.runtime")
@@ -25,6 +26,8 @@ end
 local mode,tool="studio","brush"
 local selected,dragged,dragX,dragY,offset= nil,nil,0,0,1
 local selectedInstance=nil
+local selectedInstances={}
+local groupDragStarted=false
 local instanceDragStarted=false
 local handleDrag=nil
 local propertiesOpen=true
@@ -86,6 +89,8 @@ local function install(newdoc)
   SymbolMotion.reset(symbolMotion)
   selected,dragged=nil,nil
   selectedInstance=nil
+  selectedInstances={}
+  groupDragStarted=false
   instanceDragStarted=false
   handleDrag=nil
   propertyEditor=nil
@@ -201,6 +206,8 @@ local function setFrame(n)
   doc.currentFrame=runtime.frame
   selected=nil
   selectedInstance=nil
+  selectedInstances={}
+  groupDragStarted=false
   handleDrag=nil
   propertyEditor=nil
 end
@@ -215,6 +222,38 @@ local function activeInstance()
     if item.uid==selectedInstance.uid then return item end
   end
   return nil
+end
+
+local function selectedCount()
+  return editingSymbolId and 0 or Group.count(selectedInstances)
+end
+
+local groupActions={
+  {label="ESQ",op="left",col=0,row=0},
+  {label="CENT X",op="centerX",col=1,row=0},
+  {label="DIR",op="right",col=2,row=0},
+  {label="TOPO",op="top",col=0,row=1},
+  {label="CENT Y",op="centerY",col=1,row=1},
+  {label="BASE",op="bottom",col=2,row=1},
+  {label="DIST X",op="distributeX",col=0,row=2},
+  {label="DIST Y",op="distributeY",col=1,row=2},
+  {label="1:1",op="scale",value=1,col=2,row=2},
+  {label="MENOS",op="scale",value=.9,col=0,row=3},
+  {label="MAIS",op="scale",value=1.1,col=1,row=3},
+  {label="-5 G",op="rotate",value=-5,col=2,row=3},
+  {label="+5 G",op="rotate",value=5,col=0,row=4},
+}
+local function applyGroup(op,value)
+  if editingSymbolId or not selectedInstance or selectedCount()<2 then
+    msg="Selecione duas ou mais instancias";return false
+  end
+  local tx,err=Group.plan(doc,symbolLibrary,selectedInstance.layer,
+    doc.currentFrame,selectedInstances,op,value)
+  if not tx then msg="Grupo: "..tostring(err);return false end
+  snapshot()
+  tx.apply()
+  msg="Grupo: "..op.." aplicado a "..selectedCount().." instancias"
+  return true
 end
 
 local function panelGeometry()
@@ -350,9 +389,15 @@ local function ui()
     label("Espessura: "..thickness.."  (- / +)",12,477)
     local chosenInstance=activeInstance()
     if chosenInstance then
+      if selectedCount()>1 then
+        label("GRUPO: "..selectedCount().." instancias",12,513,{.45,.82,1})
+        label("Shift+clique: incluir/remover",12,541)
+        label("Arraste para mover o grupo",12,565)
+      else
       button(propertiesOpen and "PROPRIEDADES -" or "PROPRIEDADES +",11,508,146,32,propertiesOpen)
       label("Instancia #"..chosenInstance.uid,12,548,{.45,.82,1})
       label(string.format("X %.1f | Y %.1f",chosenInstance.x,chosenInstance.y),12,570)
+      end
     end
     label("CAMADAS",w-186,65,{.45,.82,1})
     button("+ Nova camada",w-187,90,176,34,false)
@@ -385,7 +430,7 @@ local function ui()
   end
   if mode=="studio" and not editingSymbolId and selectedInstance then
     local item=activeInstance()
-    local points=selectedHandlePoints()
+    local points=selectedCount()==1 and selectedHandlePoints() or nil
     if item and points then
       local function screen(pt)
         return view.ox+pt[1]*view.scale,view.oy+pt[2]*view.scale
@@ -411,7 +456,33 @@ local function ui()
       lg.setColor(.17,.20,.24)
       lg.circle("line",rx,ry,6)
     end
-    if item and propertiesOpen then
+    if item and selectedCount()>1 then
+      for uid in pairs(selectedInstances) do
+        for _,entry in ipairs(Library.at(symbolLibrary,selectedInstance.layer,doc.currentFrame)) do
+          if entry.uid==uid then
+            local sym=Library.find(symbolLibrary,entry.symbolId)
+            local x1,y1,x2,y2=Transform.box(entry,sym,1)
+            if x1 then
+              lg.setColor(.15,.83,1)
+              lg.setLineWidth(1)
+              lg.rectangle("line",view.ox+x1*view.scale-2,view.oy+y1*view.scale-2,
+                (x2-x1)*view.scale+4,(y2-y1)*view.scale+4)
+            end
+          end
+        end
+      end
+      local px,py,pw,ph=panelGeometry()
+      lg.setColor(.11,.14,.19,.96)
+      lg.rectangle("fill",px,py,pw,ph,6,6)
+      lg.setColor(.36,.55,.72)
+      lg.rectangle("line",px,py,pw,ph,6,6)
+      label("ALINHAR / DISTRIBUIR ("..selectedCount()..")",px+8,py+8,{.50,.85,1})
+      for _,action in ipairs(groupActions) do
+        button(action.label,px+7+action.col*73,py+38+action.row*34,
+          69,30,false)
+      end
+    end
+    if item and selectedCount()==1 and propertiesOpen then
       local px,py,pw,ph=panelGeometry()
       lg.setColor(.11,.14,.19,.96)
       lg.rectangle("fill",px,py,pw,ph,6,6)
@@ -585,7 +656,19 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     end
     return
   end
-  if mode=="studio" and not editingSymbolId and activeInstance() then
+  if mode=="studio" and not editingSymbolId and activeInstance() and selectedCount()>1 then
+    local px,py=panelGeometry()
+    if inBox(mx,my,px,py,226,219) then
+      for _,action in ipairs(groupActions) do
+        if inBox(mx,my,px+7+action.col*73,py+38+action.row*34,69,30) then
+          applyGroup(action.op,action.value)
+          return
+        end
+      end
+      return
+    end
+  end
+  if mode=="studio" and not editingSymbolId and activeInstance() and selectedCount()==1 then
     if inBox(mx,my,11,508,146,32) then
       propertiesOpen=not propertiesOpen
       propertyEditor=nil
@@ -611,7 +694,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     end
   end
   -- The scale / rotate handles take precedence over instance body picking.
-  if mode=="studio" and tool=="select" and not editingSymbolId and activeInstance() then
+  if mode=="studio" and tool=="select" and not editingSymbolId and activeInstance() and selectedCount()==1 then
     local points,symbol,frame=selectedHandlePoints()
     local kind=Handles.hit(points,view,mx,my)
     if kind then
@@ -639,26 +722,60 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     snapshot()
     Model.ensureKey(layer,doc.currentFrame)
     local instance,err=Library.place(symbolLibrary,doc.currentLayer,doc.currentFrame,selectedSymbol,x,y)
-    if instance then selectedInstance={uid=instance.uid,layer=doc.currentLayer};propertiesOpen=true end
+    if instance then
+      selectedInstance={uid=instance.uid,layer=doc.currentLayer}
+      selectedInstances={[instance.uid]=true}
+      propertiesOpen=true
+    end
     msg=instance and "Instancia adicionada ao palco" or tostring(err)
   elseif tool=="select" then
     selected=nil
-    selectedInstance=nil
     if not editingSymbolId then
       local item,layerIndex=SymbolPreview.pickInstance(symbolLibrary,doc,doc.currentFrame,view,mx,my,symbolMotion)
       if item then
+        local shift=love.keyboard.isDown("lshift","rshift")
+        if shift and selectedCount()>0 then
+          if selectedInstance and selectedInstance.layer~=layerIndex then
+            msg="Selecao multipla limitada a uma camada";return
+          end
+          if selectedInstances[item.uid] then
+            selectedInstances[item.uid]=nil
+            if selectedCount()==0 then selectedInstance=nil
+            elseif selectedInstance.uid==item.uid then
+              for uid in pairs(selectedInstances) do
+                selectedInstance={uid=uid,layer=layerIndex};break
+              end
+            end
+          else
+            selectedInstances[item.uid]=true
+            selectedInstance={uid=item.uid,layer=layerIndex}
+          end
+          dragged=nil
+          msg="Instancias selecionadas: "..selectedCount()
+          return
+        end
+        local alreadySelected=selectedInstances[item.uid]
+        if not alreadySelected or selectedCount()==0 then
+          selectedInstances={[item.uid]=true}
+        end
         doc.currentLayer=layerIndex
         selectedInstance={uid=item.uid,layer=layerIndex}
         propertiesOpen=true
         propertyEditor=nil
         if not doc.layers[layerIndex].locked then
-          dragged="instance"
+          dragged=selectedCount()>1 and "group" or "instance"
+          groupDragStarted=false
           instanceDragStarted=false
           dragX,dragY=x,y
         end
-        msg="Instancia #"..item.uid.." selecionada | arraste, [ / ] gira, Ctrl+[ / ] escala"
+        msg=selectedCount()>1 and "Grupo selecionado | arraste para mover"
+          or ("Instancia #"..item.uid.." selecionada | arraste, [ / ] gira")
         return
       end
+    end
+    if not love.keyboard.isDown("lshift","rshift") then
+      selectedInstance=nil
+      selectedInstances={}
     end
     for i=#existing,1,-1 do if Model.hit(existing[i],x,y) then selected=i;break end end
     if selected then
@@ -727,6 +844,19 @@ function love.mousemoved(mx,my,dx,dy)
   if not dragged or mode~="studio" then return end
   local x,y=xy(mx,my)
   x,y=math.max(0,math.min(doc.width,x)),math.max(0,math.min(doc.height,y))
+  if dragged=="group" then
+    local dx,dy=x-dragX,y-dragY
+    if dx~=0 or dy~=0 then
+      local tx,err=Group.plan(doc,symbolLibrary,selectedInstance.layer,
+        doc.currentFrame,selectedInstances,"move",{dx=dx,dy=dy})
+      if tx then
+        if not groupDragStarted then snapshot();groupDragStarted=true end
+        tx.apply()
+        dragX,dragY=x,y
+      elseif err~="nenhuma alteracao" then msg=tostring(err) end
+    end
+    return
+  end
   if dragged=="instance" then
     local dx,dy=x-dragX,y-dragY
     if dx~=0 or dy~=0 then
@@ -778,6 +908,7 @@ function love.mousereleased(_,_,button)
   end
   dragged=nil
   instanceDragStarted=false
+  groupDragStarted=false
   handleDrag=nil
 end
 
@@ -866,6 +997,21 @@ function love.keypressed(key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   local shift=love.keyboard.isDown("lshift","rshift")
   local alt=love.keyboard.isDown("lalt","ralt")
+  if mode=="studio" and not editingSymbolId and selectedCount()>1 then
+    if key=="leftbracket" or key=="rightbracket" then
+      applyGroup(ctrl and "scale" or "rotate",
+        ctrl and (key=="leftbracket" and .9 or 1.1)
+          or (key=="leftbracket" and -5 or 5))
+      return
+    elseif alt and (key=="left" or key=="right" or key=="up" or key=="down") then
+      local step=shift and 10 or 1
+      applyGroup("move",{
+        dx=(key=="right" and step or 0)-(key=="left" and step or 0),
+        dy=(key=="down" and step or 0)-(key=="up" and step or 0)
+      })
+      return
+    end
+  end
   if mode=="studio" and not editingSymbolId and selectedInstance then
     local dx,dy,scale,rotation=0,0,1,0
     local handled=false
