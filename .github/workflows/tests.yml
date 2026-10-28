@@ -81,6 +81,8 @@ jobs:
           lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Com-Keyframes-0.21.lfgame","rb")); local g=assert(require("src.package_v8").decode(f:read("*a"))); f:close(); assert(g.version==8 and #g.tweens==1 and #g.tweens[1].keys==4)'
           lua tools/set_easing.lua dist/Com-Keyframes-0.21.lfgame dist/Com-Easing-0.21.lfgame 1 1 EASE_IN_OUT
           lua -e 'package.path="./player-lua/?.lua;"..package.path; local f=assert(io.open("dist/Com-Easing-0.21.lfgame","rb")); local g=assert(require("src.package_v9").decode(f:read("*a"))); f:close(); assert(g.version==9 and #g.easings==1 and g.easings[1].mode=="EASE_IN_OUT")'
+      - name: Real LÖVE startup with native .lfgame command-line argument
+        run: xvfb-run -a env SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 LUA_FLASH_SMOKE=1 LUA_FLASH_SMOKE_CLI=1 timeout 30s love player-lua dist/Exemplo-0.21.lfgame
       - name: Upload Player test build
         uses: actions/upload-artifact@v4
         with:
