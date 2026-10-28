@@ -1,40 +1,45 @@
-# Lua-Flash Player 0.21 — abrir projetos nativos no PC
+# Lua-Flash Player 0.22 — Windows nativo
 
-Reprodutor em Lua/LÖVE para animações `.lflash` e jogos declarativos `.lfgame` (LUAFGAME 1–9). O Studio permanece independente e não foi modificado.
+Player experimental feito em Lua e LÖVE para `.lflash` e `.lfgame` (LUAFGAME 1–9). Não abre SWF nem executa ActionScript.
 
-## Formas de abrir arquivos
+## Abrir arquivos
 
-**1. Arrastar e soltar.** Arraste um arquivo `.lflash` ou `.lfgame` para a janela do Player. O jogo é validado antes de substituir o projeto aberto.
+**No Windows:** pressione **Ctrl+O** ou clique em **ABRIR ARQUIVO**. O seletor padrão do Windows permite navegar por pastas e escolher um arquivo `.lflash` ou `.lfgame`. Depois de escolher, o Player lê o arquivo e valida o conteúdo. Cancelar o diálogo não altera o projeto aberto.
 
-**2. Ctrl+O — ABRIR ARQUIVO.** Digite ou cole o caminho completo do arquivo. No Windows, no Explorador de Arquivos, use **Copiar como caminho**, pressione **Ctrl+O**, cole com **Ctrl+V** e pressione **Enter**. O Player aceita o caminho entre aspas duplas fornecido pelo Explorador. **Escape** cancela. Esse campo não é um seletor de arquivos nativo do Windows.
+O seletor usa o diálogo Win32 `GetOpenFileNameW` via LuaJIT FFI. O leitor associa a ele APIs `CreateFileW` / `ReadFile`, sem executar PowerShell ou outros comandos; isso permite abrir caminhos Unicode, inclusive nomes acentuados, diretamente no Windows.
 
-**3. Menu Abrir com...** No Explorador do Windows, clique com o botão direito no `.lflash` ou `.lfgame`, escolha **Abrir com...** e selecione `Lua-Flash-Player.exe`. O Player agora processa o caminho passado na inicialização, desde que o Windows entregue o caminho como argumento do programa. A build portátil não altera automaticamente associações do Windows.
+**Em outros sistemas:** Ctrl+O abre o campo de caminho introduzido na versão 0.21. No Windows, **Ctrl+Shift+O** abre esse campo manual também. Cole o caminho do Explorador e pressione Enter.
 
-**4. Lançador portátil `ABRIR-JOGO.cmd`.** Arraste um arquivo `.lflash` ou `.lfgame` sobre o arquivo `ABRIR-JOGO.cmd`, que fica na mesma pasta do `Lua-Flash-Player.exe`. O script abre o EXE passando o caminho do jogo, sem modificar o Registro do Windows e sem instalar componentes.
+**Em qualquer plataforma:** é possível arrastar/soltar um arquivo diretamente na janela do Player. No Windows portátil há ainda `ABRIR-JOGO.cmd`, sobre o qual se pode arrastar um jogo para abrir o executável, ou selecionar o Player pelo menu **Abrir com...**.
 
-## Tratamento de arquivos e proteção
+Só são aceitas extensões `.lflash` e `.lfgame`, limitadas a 25 MB. Os arquivos são validados pelos formatos existentes antes da instalação da cena. Nenhum arquivo importado executa código Lua arbitrário. Se existirem alterações não salvas, o carregamento de outro arquivo é bloqueado.
 
-O módulo `src/file_import.lua` centraliza a leitura dos arquivos por caminho ou arrastar/soltar. Usa o limite de **25 MiB**, verifica a extensão, recusa arquivos vazios e interrompe importações com erro. O carregamento de jogos usa os validadores LUAFGAME existentes; scripts Lua enviados dentro de arquivos não são executados.
+## Ícone do Player
 
-Se o editor tiver modificações ainda não salvas, o Player avisa e impede que outro projeto as substitua. **Ctrl+S** salva uma cópia e **Ctrl+R** abre a recuperação verificada do projeto ativo.
+Foi criado um ícone original em azul escuro, ciano e dourado, com um raio e um arco, a partir de código em `src/window_icon.lua`. Ele é aplicado à janela do LÖVE durante a execução. O empacotador Windows inclui um `.ico` independente com o mesmo desenho, para atalhos personalizados.
 
-**Limitações:** o diálogo Ctrl+O recebe um caminho, em vez de exibir uma janela nativa de navegação. O acesso a caminhos com certos caracteres Unicode depende do suporte da biblioteca Lua/JIT e do sistema Windows. A distribuição continua sem assinatura digital ou instalador MSI.
+**Importante:** isso ainda não substitui o ícone do recurso PE do próprio `Lua-Flash-Player.exe`, que continua herdado do runtime LÖVE. A incorporação do ícone no PE, metadados de versão e assinatura de código estão previstos para outra etapa.
 
-## Executar no Windows
+## Distribuição e verificação
 
-Baixe `lua-flash-player-0.21-windows-x64-portable` em [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions). Extraia o ZIP externo e o ZIP interno, entre na pasta `Lua-Flash-Player-0.21-Windows-x64`, execute `Lua-Flash-Player.exe` e mantenha todas as DLLs juntas.
+A build Windows segue usando o runtime oficial LÖVE 11.5 com checksum SHA-256 fixo e verificado. O GitHub Actions constrói o executável portátil, valida ZIP/PE/DLLs, seu conteúdo `.love`, a existência do ícone e do lançador, e verifica a inicialização da aplicação. Há também um teste automatizado para importação de um arquivo com nome Unicode no Windows, e testes de fallback quando o seletor nativo não está disponível.
 
-A build inclui o runtime LÖVE 11.5 oficial, previamente validado por SHA-256; não é necessário instalar o LÖVE no PC. O executável não é assinado; o Windows pode solicitar confirmação de segurança.
+O diálogo real é interativo e precisa ser testado manualmente em um PC Windows para homologação da experiência. O ícone do Windows é aplicado apenas à janela em execução.
 
-## Testes e build
+Para preparar os arquivos:
 
 ```bash
+python3 tools/package_player.py
+python3 tools/package_player_windows.py --love-zip love-11.5-win64.zip
+```
+
+Para verificar:
+
+```bash
+lua tests/native_dialog_test.lua
 lua tests/file_import_test.lua
 lua tests/gui_smoke.lua
 python3 tests/windows_package_test.py
-python3 tools/package_player.py
 ```
 
-A CI executa os demais testes de regressão, abre o Player graficamente com o LÖVE em display virtual, verifica o carregamento de um `.lfgame` recebido pela linha de comando e constrói o ZIP portátil em Windows x64. A build é validada por estrutura PE, DLLs, conteúdo `.love` e inicialização do executável.
-
-A execução gráfica no Windows com diferentes GPUs e drivers ainda precisa de testes físicos. O formato permanece LUAFGAME 9; nenhum arquivo do Studio foi modificado.
+Não alteramos o Studio. O formato permanece LUAFGAME 9, e todos os jogos antigos seguem compatíveis. A distribuição Windows ainda não possui assinatura digital nem instalador MSI.

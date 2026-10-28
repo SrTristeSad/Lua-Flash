@@ -1,46 +1,43 @@
 # Lua-Flash
 
-**O Flash renasce em Lua** — plataforma independente para animações e jogos com formatos próprios. Não reproduz SWF/FLA/ActionScript antigos da Adobe.
+**O Flash renasce em Lua** — Player independente para animações e jogos em formatos próprios; não executa SWF/FLA/ActionScript antigos.
 
-## Aplicações separadas
+## Projetos independentes
 
-| Aplicação | Diretório | Execução | Estado |
+| Aplicação | Pasta | Executar | Estado |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.21 experimental** |
-| **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental; não modificado |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.22 experimental** |
+| **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-## Player 0.21 — abrir projetos no Windows com mais facilidade
+## Player 0.22 — seletor nativo Windows e identidade visual
 
-Agora o Player permite abrir arquivos nativos de mais formas, inclusive na distribuição portátil Windows sem instalação separada do LÖVE:
+A versão 0.22 acrescenta uma janela **Abrir Arquivo** do próprio Windows, integrada diretamente por APIs Win32 Unicode. Ao clicar em **ABRIR ARQUIVO** ou pressionar **Ctrl+O**, o Player mostra o seletor padrão para arquivos `.lflash` ou `.lfgame`.
 
-- **Arraste e solte** arquivos `.lflash` ou `.lfgame` na janela;
-- **Ctrl+O** ou **ABRIR ARQUIVO** mostra um campo onde é possível colar o caminho do arquivo (inclusive **Ctrl+V** com o caminho copiado do Explorador);
-- **Abra com…** no Windows e selecione `Lua-Flash-Player.exe` para passar um arquivo como argumento;
-- **Arraste o arquivo sobre `ABRIR-JOGO.cmd`**, incluído na pasta portátil Windows, sem alterar as associações de arquivos do sistema.
+A versão 0.21 já aceitava arrastar/soltar, caminho digitado e argumentos de inicialização; todos permanecem. **Ctrl+Shift+O** abre o campo manual, útil em plataformas sem seletor nativo ou se o usuário preferir colar caminhos. O leitor Windows utiliza `CreateFileW`, `GetFileSizeEx` e `ReadFile` para oferecer suporte UTF-16 a nomes com acentos, dentro do limite de 25 MB.
 
-O importador limita os arquivos a **25 MB**, recusa extensões inválidas, trata erros de leitura e respeita a proteção contra troca de jogo com alterações não salvas. Ele não executa código presente em arquivos recebidos.
+O novo **ícone original de raio** é desenhado por código Lua e aplicado à janela em execução. O ZIP Windows também contém `Lua-Flash-Player.ico`, utilizável em atalhos personalizados. **O recurso de ícone embutido no próprio `.exe` permanece o do LÖVE oficial**, enquanto a versão de arquivo e a assinatura digital ainda estão pendentes.
 
-Não houve alteração no formato **LUAFGAME 9**, na compatibilidade LUAFGAME 1–9 ou no Studio.
+O Windows portátil continua incluindo `Lua-Flash-Player.exe`, as DLLs do LÖVE 11.5, `ABRIR-JOGO.cmd` e documentação, sem instalar LÖVE separadamente.
 
-## Baixar e executar
+## Baixar
 
-Na execução aprovada de [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions), escolha um dos artefatos:
+Na página de execução aprovada de [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions), procure:
 
-- **`lua-flash-player-0.21-windows-x64-portable`**: contém o ZIP portátil com `Lua-Flash-Player.exe`, DLLs do LÖVE oficial, `ABRIR-JOGO.cmd` e instruções. Extraia os ZIPs inteiros e execute o EXE. Não precisa instalar LÖVE separadamente.
-- **`lua-flash-player-0.21-love-and-game`**: arquivo `.love` e jogos de exemplo para quem já tem [LÖVE](https://love2d.org/) instalado.
+- `lua-flash-player-0.22-windows-x64-portable`: ZIP Windows com executável, DLLs, ícone e lançador portátil;
+- `lua-flash-player-0.22-love-and-game`: Player `.love` e exemplos, para sistemas com [LÖVE](https://love2d.org/) instalado.
 
-A distribuição Windows não é assinada digitalmente; pode apresentar aviso do SmartScreen. Ainda faltam testes de usabilidade e desempenho gráfico em PCs Windows reais.
+Extraia o conteúdo integral dos ZIPs antes de abrir o executável. A distribuição é experimental, não assinada, e ainda precisa de homologação gráfica em computadores Windows físicos. Ela não modifica associações do Registro e não possui instalador MSI.
 
 ## Desenvolvimento
 
 ```bash
 love player-lua
-python3 tools/package_player.py
+lua tests/native_dialog_test.lua
 lua tests/file_import_test.lua
-lua tests/gui_smoke.lua
 python3 tests/windows_package_test.py
+python3 tools/package_player.py
 ```
 
 [Manual do Player](player-lua/README.md) · [Roadmap](docs/ROADMAP.md) · [Formato LUAFGAME 9](docs/FORMAT_LUAFGAME9.md)
 
-Projeto independente, sem vínculo com a Adobe.
+O Studio não foi modificado. Arquivos externos são dados validados, nunca código Lua executado.

@@ -1,37 +1,38 @@
-# Lua-Flash — desenvolvimento do Player
+# Lua-Flash — roteiro do Player
 
-## Direção
+## Objetivo
 
-Runtime próprio para jogos e animações em Lua e formatos declarativos, sem compatibilidade com SWF/FLA/ActionScript antigos. Player em `player-lua/`; Studio em `studio-lua/`, preservado.
+Reprodutor independente de jogos/animações em Lua e formatos próprios; não executa SWF/FLA/ActionScript. O Player fica em `player-lua/` e o Studio em `studio-lua/`, sem mudanças nas etapas de Player.
 
-## Base — 0.1 a 0.20
+## Base implementada — 0.1 a 0.21
 
-- [x] Timeline, formas, quadros-chave, easing e editor de transformações.
-- [x] LUAFGAME 1–9: PNG, WAV, sprites animados, regras de jogo e colisões.
-- [x] Undo/redo, recuperação por projeto, diagnóstico de desempenho e logs.
-- [x] Áudio polifônico limitado e com canais independentes.
-- [x] Player `.love` e Windows x64 portátil com LÖVE 11.5 incorporado.
-- [x] Testes Lua, estresse sintético, LÖVE virtual e construção Windows.
+- [x] Timeline vetorial, keyframes, easing e edição de sprites.
+- [x] Mídia PNG/WAV, estados, eventos, áudio polifônico e colisões.
+- [x] Undo/redo, recuperação por projeto, diagnósticos e logs locais.
+- [x] Pacotes LUAFGAME 1–9 e `.lflash`, sem execução de scripts externos.
+- [x] Player `.love` e Windows x64 portátil com o LÖVE incorporado.
+- [x] Drag/drop, Ctrl+O para caminho, abertura por argumento e lançador portátil.
+- [x] Testes Lua, integração LÖVE, empacotamento Windows e estresse sintético.
 
-## Player 0.21 — abertura e experiência do usuário
+## Player 0.22 — abertura e identidade original
 
-- [x] Importador centralizado com validação de arquivo e limites de leitura.
-- [x] Ctrl+O e botão ABRIR ARQUIVO para digitar/colar caminhos.
-- [x] Suporte a abertura de `.lflash`/`.lfgame` como argumento de inicialização do Player.
-- [x] Script `ABRIR-JOGO.cmd` para abrir arquivos arrastados, sem Registro.
-- [x] Compatibilidade com drag/drop, validação de mudanças não salvas e relatórios de erros.
-- [x] Testes de leitura, argumentos, extensões, tamanhos e GUI.
-- [x] Teste com LÖVE real carregando jogo da linha de comando e build Windows portátil.
-- [ ] Seletor nativo de arquivos Windows e acesso Unicode integral em todos os sistemas.
-- [ ] Teste manual completo de GUI no Windows, com GPUs e drivers diferentes.
+- [x] Seletor nativo Windows com filtros de formatos.
+- [x] Leitura de caminhos Unicode por API Win32, com limites de tamanho.
+- [x] Cancelamento do diálogo preserva o jogo aberto.
+- [x] Ctrl+Shift+O conserva o campo manual de caminhos.
+- [x] Ícone original de raio aplicado à janela e incluído como arquivo `.ico` no pacote portátil.
+- [x] Testes de fallback e de integridade do ícone/empacotamento.
+- [x] Compatibilidade LUAFGAME 1–9 e Studio preservado.
+- [ ] Teste manual do diálogo interativo e de UTF-16 em vários Windows reais.
+- [ ] Ícone incorporado no recurso PE e informações de versão do executável.
 
-## Prioridades rumo ao Player 1.0
+## Rumo ao Player 1.0
 
-- [ ] Ícone e identidade visual originais para executável Windows.
-- [ ] Um seletor de arquivos real, sem depender de colagem de caminhos.
-- [ ] Testes de estabilidade prolongados com jogos e áudio em PC real.
-- [ ] Benchmarks de CPU/GPU/VRAM e otimização para projetos grandes.
-- [ ] Publicação assinada digitalmente e instalador opcional.
-- [ ] Melhorias de ergonomia, acessibilidade e localização.
+- [ ] Homologar a interface e os controles em máquinas Windows reais.
+- [ ] Incorporar ícone, metadados de versão e assinatura digital no executável.
+- [ ] Ajustar interface para escalonamento DPI, janelas pequenas e acessibilidade.
+- [ ] Perfis de desempenho com GPU/CPU e jogos reais grandes.
+- [ ] Instalação opcional e integração de arquivos (com consentimento do usuário).
+- [ ] Testes de resistência, erros e recuperação em hardware real.
 
-O Player permanece experimental, e o Studio não foi alterado.
+O Player permanece experimental. O Studio não recebeu alterações.
