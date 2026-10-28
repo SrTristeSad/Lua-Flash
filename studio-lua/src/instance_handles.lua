@@ -70,9 +70,8 @@ function M.apply(initial,symbol,frame,zoom,kind,mouseX,mouseY,points)
     local b=math.atan2 and math.atan2(mouseY-pivot[2],mouseX-pivot[1])
       or math.atan(mouseY-pivot[2],mouseX-pivot[1])
     local rad=math.rad(initial.angle or 0)+(b-a)
-    local localX=(bounds or points.localBounds)[1]
-    local localY=(bounds or points.localBounds)[2]
-    local x1,y1,x2,y2=table.unpack(points.localBounds)
+    local x1,y1,x2,y2=points.localBounds[1],points.localBounds[2],
+      points.localBounds[3],points.localBounds[4]
     local centerX,centerY=(x1+x2)/2,(y1+y2)/2
     local offX,offY=rotate(centerX*initial.sx,centerY*initial.sy,rad)
     output.angle=math.deg(rad)%360
