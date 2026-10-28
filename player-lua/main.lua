@@ -727,14 +727,14 @@ local function drawCurveEditor()
     end
     label(finish and string.format("%3d > %3d    %s",start.frame,finish.frame,current)
       or string.format("%3d   (FINAL)",start.frame),
-      x+17,yy+4,i==editor.segment and C.text or C.muted,fonts.small)
+      x+17,yy+4,i==editor.segment and C.text or C.muted,fonts.small,w-34)
   end
   label(string.format("Chave %d/%d  Q:%d X:%d Y:%d",
     editor.segment,#track.keys,key.frame,key.x,key.y),
-    x+12,y+203,C.green,fonts.small)
+    x+12,y+203,C.green,fonts.small,w-24)
   label(string.format("Ang:%d  Escala X:%d%%  Y:%d%%",
     key.angle,key.scaleX,key.scaleY),
-    x+12,y+222,C.muted,fonts.small)
+    x+12,y+222,C.muted,fonts.small,w-24)
   button("+CHAVE",x+12,y+239,80,28,false)
   button("-CHAVE",x+102,y+239,80,28,false)
   button("Q -",x+192,y+239,43,28,false)
@@ -934,7 +934,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.26  |  Fontes maiores e reproducao estavel",21,60,C.muted,fonts.small)
+  label("PLAYER 0.26  |  Fontes maiores e reproducao estavel",21,60,C.muted,fonts.small,w-620)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -1037,7 +1037,7 @@ function love.draw()
 
   lg.setColor(C.top)
   lg.rectangle("fill",0,h-26,w,26)
-  label(notice,13,h-22,C.muted,fonts.small)
+  label(notice,13,h-22,C.muted,fonts.small,w-26)
   if lastRuntimeError then
     lg.push("all")
     lg.setColor(.35,.10,.11,.95)
@@ -1113,7 +1113,7 @@ function love.draw()
       "F1              : abrir ou fechar esta ajuda",
     }
     for i,key in ipairs(keys) do
-      label(key,x+23,y+67+(i-1)*25,C.text,fonts.small)
+      label(key,x+23,y+67+(i-1)*25,C.text,fonts.small,pw-46)
     end
     lg.pop()
   end
