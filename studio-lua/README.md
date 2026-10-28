@@ -26,6 +26,7 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 - **PageUp / PageDown**: ir para o quadro-chave anterior / seguinte da camada atual.
 - **Home / End**: ir ao primeiro / último quadro da timeline.
 - **Roda do mouse sobre a timeline**: deslocar a janela de quadros; **Ctrl+roda**: ampliar/reduzir o tamanho das células (12–38 px).
+- **Shift+clique nos quadros-chave**: selecionar ou retirar vários quadros da seleção (destacados em roxo). Arraste um dos selecionados para mover todos juntos; Ctrl+arrastar duplica o grupo. A operação é atômica: se qualquer destino estiver ocupado ou fora dos limites, nada é alterado.
 - **Arrastar quadro-chave na timeline**: mover para quadro vazio da camada atual. **Ctrl+arrastar**: duplicar mantendo a origem. Destinos ocupados não são sobrescritos. O primeiro quadro-chave (quadro 1) não pode ser movido, mas pode ser duplicado.
 - **Ctrl+S**: salvar o projeto com o nome atual na pasta de dados LÖVE.
 - **Ctrl+Shift+S**: Salvar como, com nome personalizado (letras, números, `_` e `-`), recusando sobrescrever arquivo com outro nome já existente.
