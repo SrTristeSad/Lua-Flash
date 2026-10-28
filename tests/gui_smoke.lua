@@ -43,6 +43,15 @@ dofile("player-lua/main.lua")
 assert(type(love.load)=="function" and type(love.draw)=="function")
 love.load()
 love.draw()
+-- Player 0.18: a rendering fault is logged and shows fallback instead of
+-- escaping the LÖVE callback and closing the user's current work.
+local oldClear=love.graphics.clear
+love.graphics.clear=function() error("injected Player draw failure") end
+love.draw()
+love.graphics.clear=oldClear
+assert(saved["player-errors.log"] and
+  saved["player-errors.log"]:find("injected Player draw failure",1,true))
+love.draw()
 love.update(1/30)
 love.keypressed("space")
 love.draw()
