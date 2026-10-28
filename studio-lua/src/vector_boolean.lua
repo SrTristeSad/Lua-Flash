@@ -172,7 +172,7 @@ local function selectedEdges(poly,other,ts,operation,fromB)
         if operation=="union" then keep=not isInside
         elseif operation=="intersection" then keep=isInside
         elseif operation=="difference" then
-          keep=fromB and isInside or not isInside
+          if fromB then keep=isInside else keep=not isInside end
         end
         if keep then
           local p=point(a,b,t0)
