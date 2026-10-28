@@ -1155,7 +1155,7 @@ function love.textinput(text)
 end
 
 function love.keypressed(key)
-  if mode=="studio" and not editingSymbolId then
+  if mode=="studio" and not editingSymbolId and not naming and not propertyEditor then
     if key=="return" and tool=="pen" and penPath and not love.keyboard.isDown("lctrl","rctrl") then
       penPath=nil;vectorDrag=nil;msg="Caminho aberto finalizado";return
     end
