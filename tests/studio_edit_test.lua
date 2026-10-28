@@ -355,3 +355,31 @@ assert(savedAgain.symbols[1].definition.totalFrames==3)
 love.mousepressed(700,20,1) -- Back to main scene.
 assert(Model.encode(project())==Model.encode(originalScene))
 print("OK: nested symbol timeline, root-safe saving, undo/redo and reloading")
+
+
+-- Double-click library navigation and Button's four internal states.
+press("n",true)
+press("b")
+love.mousepressed(300,250,1)
+love.mousemoved(340,270,40,20)
+love.mousereleased(340,270,1)
+modifiers.lctrl=true;modifiers.lalt=true
+love.keypressed("f8")
+modifiers.lctrl=false;modifiers.lalt=false
+local buttonRoot=project()
+love.mousepressed(1050,357,1,false,2)
+for i=1,3 do press("f5") end
+project()
+local buttonStates=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(buttonStates.symbols[1].kind=="button")
+assert(buttonStates.symbols[1].definition.totalFrames==4,
+  "button timeline should reach four states")
+press("f5")
+project()
+local cappedButton=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(cappedButton.symbols[1].definition.totalFrames==4,
+  "button state 5 must be rejected")
+love.keypressed("escape")
+assert(Model.encode(project())==Model.encode(buttonRoot),
+  "button editing must not affect the root document")
+print("OK: library double-click and four-state Button editor limit")
