@@ -8,6 +8,7 @@ local Transform = require("src.instance_transform")
 local Handles = require("src.instance_handles")
 local Properties = require("src.instance_properties")
 local Group = require("src.instance_group")
+local Marquee = require("src.marquee_selection")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
 local Runtime = require("src.runtime")
@@ -28,6 +29,7 @@ local selected,dragged,dragX,dragY,offset= nil,nil,0,0,1
 local selectedInstance=nil
 local selectedInstances={}
 local groupDragStarted=false
+local marquee=nil
 local instanceDragStarted=false
 local handleDrag=nil
 local propertiesOpen=true
@@ -91,6 +93,7 @@ local function install(newdoc)
   selectedInstance=nil
   selectedInstances={}
   groupDragStarted=false
+  marquee=nil
   instanceDragStarted=false
   handleDrag=nil
   propertyEditor=nil
@@ -208,6 +211,7 @@ local function setFrame(n)
   selectedInstance=nil
   selectedInstances={}
   groupDragStarted=false
+  marquee=nil
   handleDrag=nil
   propertyEditor=nil
 end
@@ -257,6 +261,15 @@ end
 
 local function panelGeometry()
   return view.x+view.w-236,65,226,219
+end
+local groupPropertyFields={
+  {id="dx",name="Mover X",default="0"},
+  {id="dy",name="Mover Y",default="0"},
+  {id="scale",name="Escala %",default="100"},
+  {id="rotation",name="Giro graus",default="0"}
+}
+local function groupPanelHeight()
+  return 354
 end
 local function selectedHandlePoints()
   local item=activeInstance()
@@ -427,6 +440,20 @@ local function ui()
   if not editingSymbolId then
     SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view,symbolMotion)
   end
+  if mode=="studio" and marquee then
+    local x1,y1,x2,y2=Marquee.bounds(marquee.ax,marquee.ay,marquee.bx,marquee.by)
+    if x1 then
+      lg.setScissor(view.x,view.y,view.w,view.h)
+      lg.setColor(.12,.66,.98,.16)
+      lg.rectangle("fill",view.ox+x1*view.scale,view.oy+y1*view.scale,
+        (x2-x1)*view.scale,(y2-y1)*view.scale)
+      lg.setColor(.21,.76,1)
+      lg.setLineWidth(1)
+      lg.rectangle("line",view.ox+x1*view.scale,view.oy+y1*view.scale,
+        (x2-x1)*view.scale,(y2-y1)*view.scale)
+      lg.setScissor()
+    end
+  end
   if mode=="studio" and not editingSymbolId and selectedInstance then
     local item=activeInstance()
     local points=selectedCount()==1 and selectedHandlePoints() or nil
@@ -472,13 +499,22 @@ local function ui()
       end
       local px,py,pw,ph=panelGeometry()
       lg.setColor(.11,.14,.19,.96)
-      lg.rectangle("fill",px,py,pw,ph,6,6)
+      lg.rectangle("fill",px,py,pw,groupPanelHeight(),6,6)
       lg.setColor(.36,.55,.72)
-      lg.rectangle("line",px,py,pw,ph,6,6)
+      lg.rectangle("line",px,py,pw,groupPanelHeight(),6,6)
       label("ALINHAR / DISTRIBUIR ("..selectedCount()..")",px+8,py+8,{.50,.85,1})
       for _,action in ipairs(groupActions) do
         button(action.label,px+7+action.col*73,py+38+action.row*34,
           69,30,false)
+      end
+      label("TRANSFORMACAO DO GRUPO",px+8,py+211,{.50,.85,1})
+      for i,field in ipairs(groupPropertyFields) do
+        local y=py+232+(i-1)*29
+        label(field.name,px+8,y+5)
+        local editing=propertyEditor and propertyEditor.group and propertyEditor.field==field.id
+        lg.setColor(editing and {.23,.37,.48} or {.20,.24,.30})
+        lg.rectangle("fill",px+106,y,110,24,3,3)
+        label(editing and (propertyEditor.draft.."_") or field.default,px+114,y+5,{.95,.97,1})
       end
     end
     if item and selectedCount()==1 and propertiesOpen then
@@ -657,10 +693,17 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   end
   if mode=="studio" and not editingSymbolId and activeInstance() and selectedCount()>1 then
     local px,py=panelGeometry()
-    if inBox(mx,my,px,py,226,219) then
+    if inBox(mx,my,px,py,226,groupPanelHeight()) then
       for _,action in ipairs(groupActions) do
         if inBox(mx,my,px+7+action.col*73,py+38+action.row*34,69,30) then
           applyGroup(action.op,action.value)
+          return
+        end
+      end
+      for i,field in ipairs(groupPropertyFields) do
+        if inBox(mx,my,px+106,py+232+(i-1)*29,110,24) then
+          propertyEditor={group=true,field=field.id,draft=field.default,replace=true}
+          msg="Digite o ajuste relativo e pressione Enter; Esc cancela"
           return
         end
       end
@@ -781,6 +824,10 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
       snapshot()
       Model.ensureKey(layer,doc.currentFrame)
       dragged="move";dragX,dragY=x,y
+    elseif not editingSymbolId then
+      marquee={ax=x,ay=y,bx=x,by=y,
+        add=love.keyboard.isDown("lshift","rshift"),layer=doc.currentLayer}
+      msg="Selecao por area: esquerda→direita contem; direita→esquerda cruza"
     end
   elseif tool=="erase" then
     for i=#existing,1,-1 do
@@ -805,6 +852,12 @@ function love.mousemoved(mx,my,dx,dy)
     if not editingSymbolId then
       SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my)
     end
+    return
+  end
+  if marquee then
+    local x,y=xy(mx,my)
+    marquee.bx=math.max(0,math.min(doc.width,x))
+    marquee.by=math.max(0,math.min(doc.height,y))
     return
   end
   if timelineDrag then
@@ -887,6 +940,27 @@ end
 function love.mousereleased(_,_,button)
   if button~=1 then return end
   if mode=="player" then SymbolMotion.release(symbolMotion);return end
+  if marquee then
+    local box=marquee
+    marquee=nil
+    local dx,dy=box.bx-box.ax,box.by-box.ay
+    if math.abs(dx)*view.scale>=4 or math.abs(dy)*view.scale>=4 then
+      local found=Marquee.select(symbolLibrary,doc,box.layer,doc.currentFrame,
+        box.ax,box.ay,box.bx,box.by)
+      selectedInstances=Marquee.merge(selectedInstances,found,box.add)
+      selectedInstance=nil
+      for _,item in ipairs(Library.at(symbolLibrary,box.layer,doc.currentFrame)) do
+        if selectedInstances[item.uid] then
+          selectedInstance={uid=item.uid,layer=box.layer}
+        end
+      end
+      propertyEditor=nil
+      selected=nil
+      msg="Area selecionada: "..selectedCount().." instancias"
+    end
+    dragged=nil
+    return
+  end
   if timelineDrag then
     local op=timelineDrag
     timelineDrag=nil
@@ -958,6 +1032,14 @@ function love.keypressed(key)
       return
     end
     if key=="return" or key=="kpenter" then
+      if propertyEditor.group then
+        local op,value=Group.parseProperty(propertyEditor.field,propertyEditor.draft)
+        if op then
+          applyGroup(op,value)
+          propertyEditor=nil
+        else msg="Valor relativo invalido: "..tostring(value) end
+        return
+      end
       local source=activeInstance()
       local result,err=source and Properties.set(source,propertyEditor.field,propertyEditor.draft)
       if result then
@@ -993,9 +1075,17 @@ function love.keypressed(key)
     end
     return
   end
+  if key=="escape" and marquee then marquee=nil;msg="Selecao por area cancelada";return end
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   local shift=love.keyboard.isDown("lshift","rshift")
   local alt=love.keyboard.isDown("lalt","ralt")
+  if key=="escape" and not editingSymbolId and mode=="studio" and selectedCount()>0 then
+    selectedInstance=nil
+    selectedInstances={}
+    propertyEditor=nil
+    msg="Selecao limpa"
+    return
+  end
   if mode=="studio" and not editingSymbolId and selectedCount()>1 then
     if key=="leftbracket" or key=="rightbracket" then
       applyGroup(ctrl and "scale" or "rotate",
