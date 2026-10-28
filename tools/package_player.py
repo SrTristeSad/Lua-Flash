@@ -25,12 +25,13 @@ REQUIRED = {
     "src/audio_mixer.lua", "src/media_runtime.lua", "src/file_import.lua",
     "src/native_dialog.lua", "src/window_icon.lua", "src/responsive.lua",
     "src/focus_nav.lua", "src/editor_nav.lua", "src/visual_settings.lua",
+    "src/text_scale.lua",
     "src/session.lua", "src/collision.lua", "src/pixel_mask.lua",
     "src/game_example.lua", "src/game_example_v2.lua",
     "src/game_example_v3.lua", "src/game_example_v4.lua", "src/game_example_v5.lua", "src/game_example_v6.lua", "src/game_example_v7.lua",
     "src/game_example_v8.lua", "src/game_example_v9.lua",
 }
-VERSION = "0.25"
+VERSION = "0.26"
 
 
 def build(output: Path) -> None:
