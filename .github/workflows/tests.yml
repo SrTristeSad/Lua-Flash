@@ -83,6 +83,8 @@ jobs:
         run: lua tests/interpolation_segments_test.lua
       - name: Player 0.28 crowded 11.5k-shape culling stress and draw-call comparison
         run: lua tests/culling_stress_test.lua
+      - name: Studio to Player native project round-trip
+        run: lua tests/studio_player_roundtrip_test.lua
       - name: Studio 0.2 project and layer lifecycle regression
         run: lua tests/studio_edit_test.lua
       - name: Player and Studio interface smoke tests
