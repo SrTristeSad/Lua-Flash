@@ -159,6 +159,31 @@ jobs:
             throw "Native Windows executable failed to start; exit=$($process.ExitCode)"
           }
           Write-Host "Windows bundled LÖVE native process started and exited correctly."
+      - name: Native Win32 Unicode file read and graphical startup smoke
+        shell: pwsh
+        run: |
+          $exe = Join-Path (Resolve-Path ".cache/win/Lua-Flash-Player-0.22-Windows-x64").Path "Lua-Flash-Player.exe"
+          $folder = Join-Path $env:TEMP "Lua-Flash-Árvore"
+          New-Item -ItemType Directory -Path $folder -Force | Out-Null
+          $game = Join-Path $folder "Exemplo-Áudio.lfgame"
+          Copy-Item "dist/Exemplo-0.22.lfgame" $game
+          $marker = Join-Path $env:TEMP "lua-flash-native-smoke-ok.txt"
+          Remove-Item $marker -ErrorAction SilentlyContinue
+          $env:LUA_FLASH_SMOKE = "1"
+          $env:LUA_FLASH_SMOKE_WIN_NATIVE = "1"
+          $env:LUA_FLASH_SMOKE_WIN_NATIVE_OKFILE = $marker
+          $env:SDL_AUDIODRIVER = "dummy"
+          $p = Start-Process -FilePath $exe -ArgumentList @("`"$game`"") -PassThru
+          if (-not $p.WaitForExit(20000)) {
+            Stop-Process -Id $p.Id -Force
+            throw "Player Windows graphical startup timed out"
+          }
+          if (-not (Test-Path $marker) -or
+              (Get-Content $marker -Raw) -ne "LUAF_WIN_NATIVE_OK") {
+            throw "Win32 UTF-16 file import did not verify in the Player"
+          }
+          if ($p.ExitCode -ne 0) { throw "Windows Player closed with error $($p.ExitCode)" }
+          Write-Host "Windows native Unicode filename imported into the fused Player."
       - name: Upload portable Windows 64-bit build
         uses: actions/upload-artifact@v4
         with:
