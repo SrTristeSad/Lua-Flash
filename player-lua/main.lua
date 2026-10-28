@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.24. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.25. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -23,6 +23,8 @@ local NativeDialog=require("src.native_dialog")
 local WindowIcon=require("src.window_icon")
 local Responsive=require("src.responsive")
 local FocusNav=require("src.focus_nav")
+local EditorNav=require("src.editor_nav")
+local VisualSettings=require("src.visual_settings")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -48,12 +50,10 @@ local selectedAudioChannel="effects"
 local pathPrompt={open=false,value="",message=""}
 local editor={open=false,track=1,segment=1,scroll=0,drag=nil}
 local focused=FocusNav.new()
+local editorFocused=EditorNav.new()
 local showHelp=false
-local C={
-  bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
-  text={.90,.94,1},muted={.62,.69,.77},accent={.25,.70,.99},
-  highlight={.19,.36,.52},line={.23,.28,.35},green={.35,.86,.65}
-}
+local highContrast=false
+local C=VisualSettings.palette(false)
 local MAX_FILE=25*1024*1024
 -- CI-only graphical smoke mode; runs regular LÖVE graphics before exiting.
 local ciSmoke=(os.getenv("LUA_FLASH_SMOKE")=="1")
@@ -113,6 +113,7 @@ local function install(doc,name,isDemo)
   recoveryStore=nil
   editor={open=false,track=1,segment=1,scroll=0,drag=nil}
   focused:clear()
+  editorFocused:clear()
   document=doc
   lastRuntimeError=nil
   transport=Transport.new(document)
@@ -638,6 +639,42 @@ local function editorDrawOutline()
   lg.pop()
 end
 
+local function editorActivate(id)
+  if not editor.open or not id then return false end
+  local track=editorTrack()
+  if not track then return false end
+  local row=tonumber(id:match("^key(%d)$"))
+  if row then
+    local selected=editor.scroll+row
+    if track.keys[selected] then
+      editor.segment=selected
+      transport.playing=false
+      transport:seek(track.keys[selected].frame)
+      notice="Quadro-chave "..track.keys[selected].frame.." selecionado."
+    end
+  elseif id=="track_prev" then editorNavigateTracks(-1)
+  elseif id=="track_next" then editorNavigateTracks(1)
+  elseif id=="insert" then editorInsertKey()
+  elseif id=="delete" then editorDeleteKey()
+  elseif id=="frame_prev" then editorMoveFrame(-1)
+  elseif id=="frame_next" then editorMoveFrame(1)
+  elseif id=="x_prev" then editorNudge(-5,0)
+  elseif id=="x_next" then editorNudge(5,0)
+  elseif id=="y_prev" then editorNudge(0,-5)
+  elseif id=="y_next" then editorNudge(0,5)
+  elseif id=="angle_prev" then editorAdjustPose("ANGLE",-5)
+  elseif id=="angle_next" then editorAdjustPose("ANGLE",5)
+  elseif id=="scale_x_prev" then editorAdjustPose("X",-10)
+  elseif id=="scale_x_next" then editorAdjustPose("X",10)
+  elseif id=="scale_y_prev" then editorAdjustPose("Y",-10)
+  elseif id=="scale_y_next" then editorAdjustPose("Y",10)
+  elseif id=="undo" then editorUndo(false)
+  elseif id=="curve" then editorCycleCurve()
+  elseif id=="save" then saveCopy()
+  else return false end
+  return true
+end
+
 local function editorBounds()
   local viewport=sceneViewport()
   return viewport.x+viewport.w-314,viewport.y+10,302,412
@@ -649,7 +686,7 @@ local function drawCurveEditor()
   local x,y,w,h=editorBounds()
   local lg=love.graphics
   lg.push("all")
-  lg.setColor(.065,.085,.115,.96)
+  lg.setColor(C.panel)
   lg.rectangle("fill",x,y,w,h,9,9)
   lg.setColor(C.accent)
   lg.rectangle("line",x+.5,y+.5,w-1,h-1,9,9)
@@ -701,12 +738,20 @@ local function drawCurveEditor()
   button("DESFAZER",x+156,y+337,132,27,false)
   button("CURVA: "..mode,x+12,y+h-39,170,29,true)
   button("SALVAR",x+w-105,y+h-39,93,29,false)
+  local focusX,focusY,focusW,focusH=editorFocused:rect(
+    x,y,w,h,#track.keys-editor.scroll)
+  if focusX then
+    lg.setColor(C.focus)
+    lg.setLineWidth(3)
+    lg.rectangle("line",focusX-2,focusY-2,focusW+4,focusH+4,5,5)
+  end
   lg.pop()
 end
 local function editorClick(x,y)
   if not editor.open then return false end
   local bx,by,bw,bh=editorBounds()
   if not inside(x,y,bx,by,bw,bh) then return false end
+  editorFocused:clear()
   local track=editorTrack()
   if not track then return true end
   if inside(x,y,bx+12,by+36,35,30) then editorNavigateTracks(-1)
@@ -749,7 +794,9 @@ local function toggleSmooth()
 end
 
 function love.load(arguments)
-  love.window.setTitle("Lua-Flash Player 0.24")
+  highContrast=VisualSettings.load(love.filesystem)
+  C=VisualSettings.palette(highContrast)
+  love.window.setTitle("Lua-Flash Player 0.25")
   love.window.setMode(1040,690,{resizable=true,minwidth=600,minheight=380,highdpi=true})
   if os.getenv("LUA_FLASH_SMOKE_COMPACT")=="1" then
     love.window.setMode(640,400,{resizable=true,minwidth=600,minheight=380,highdpi=true})
@@ -850,7 +897,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.24  |  Navegacao por teclado e acessibilidade",21,60,C.muted,fonts.small)
+  label("PLAYER 0.25  |  Editor por teclado e alto contraste",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -971,13 +1018,13 @@ function love.draw()
     lg.push("all")
     lg.setColor(0,0,0,.58)
     lg.rectangle("fill",0,0,w,h)
-    lg.setColor(.085,.115,.15,1)
+    lg.setColor(C.top)
     lg.rectangle("fill",x,y,pw,ph,10,10)
     lg.setColor(C.accent)
     lg.rectangle("line",x+.5,y+.5,pw-1,ph-1,10,10)
     label("ABRIR ARQUIVO NATIVO [Ctrl+O]",x+16,y+15,C.text,fonts.heading)
     label("Arraste o arquivo para a janela ou cole o caminho completo:",x+16,y+52,C.muted,fonts.small)
-    lg.setColor(.15,.18,.24,1)
+    lg.setColor(C.highlight)
     lg.rectangle("fill",x+16,y+75,pw-32,37,5,5)
     scissor(x+20,y+77,pw-40,34)
     label(pathPrompt.value~="" and pathPrompt.value or "C:\\pasta\\meu-jogo.lfgame",
@@ -992,7 +1039,7 @@ function love.draw()
   local focusBox=focused:rect(w,h,top,stageHeight)
   if focusBox and not pathPrompt.open and not editor.open and not showHelp then
     lg.push("all")
-    lg.setColor(.98,.85,.32,1)
+    lg.setColor(C.focus)
     lg.setLineWidth(3)
     lg.rectangle("line",focusBox[1]-3,focusBox[2]-3,
       focusBox[3]+6,focusBox[4]+6,6,6)
@@ -1003,15 +1050,15 @@ function love.draw()
     lg.setColor(0,0,0,.74)
     lg.rectangle("fill",0,0,w,h)
     local pw=math.min(w-100,690)
-    local x,y=(w-pw)/2,math.max(90,(h-460)/2)
-    lg.setColor(.09,.13,.19,1)
-    lg.rectangle("fill",x,y,pw,460,12,12)
+    local x,y=(w-pw)/2,math.max(90,(h-490)/2)
+    lg.setColor(C.top)
+    lg.rectangle("fill",x,y,pw,490,12,12)
     lg.setColor(C.accent)
     lg.setLineWidth(2)
-    lg.rectangle("line",x+1,y+1,pw-2,458,12,12)
-    label("AJUDA E ATALHOS — PLAYER 0.24",x+20,y+16,C.text,fonts.heading)
+    lg.rectangle("line",x+1,y+1,pw-2,488,12,12)
+    label("AJUDA E ATALHOS — PLAYER 0.25",x+20,y+16,C.text,fonts.heading)
     local keys={
-      "TAB / Shift+TAB  : alternar entre botoes visiveis",
+      "TAB / Shift+TAB  : botoes e controles do editor",
       "ENTER           : ativar botao selecionado",
       "ESC             : fechar ajuda ou limpar selecao",
       "Ctrl+O          : abrir arquivo / janela nativa Windows",
@@ -1021,6 +1068,7 @@ function love.draw()
       "Espaco          : pausar / reproduzir",
       "Setas esquerda/direita : navegar por quadros",
       "E               : editor de animacoes",
+      "F2              : alto contraste (salvo no dispositivo)",
       "F3              : diagnostico de desempenho",
       "F5–F10         : canais de audio e volume",
       "F11             : tela cheia",
@@ -1034,7 +1082,7 @@ function love.draw()
   if showDiagnostics then
     local report=diagnostics:snapshot(packageDefinition,media,session)
     lg.push("all")
-    lg.setColor(.025,.035,.055,.93)
+    lg.setColor(C.panel)
     lg.rectangle("fill",w-281,93,269,175,7,7)
     label("DIAGNOSTICO [F3]",w-270,100,C.green,fonts.small)
     label(string.format("FPS medio: %.1f | Pior dt: %.1f ms",
@@ -1194,6 +1242,14 @@ end
 function love.keypressed(key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if pathPrompt.open then editPathKey(key,ctrl);return end
+  if key=="f2" then
+    highContrast=not highContrast
+    C=VisualSettings.palette(highContrast)
+    local wrote=VisualSettings.save(love.filesystem,highContrast)
+    notice=(highContrast and "Alto contraste ativado." or "Alto contraste desativado.")..
+      (wrote and " Preferencia salva." or " Nao foi possivel salvar preferencia.")
+    return
+  end
   if key=="f1" then showHelp=not showHelp;return end
   if showHelp then
     if key=="escape" or key=="return" or key=="kpenter" then
@@ -1234,12 +1290,28 @@ function love.keypressed(key)
       packageDefinition.tweens and #packageDefinition.tweens>0 then
     editor.open=not editor.open
     if editor.open then transport.playing=false;editor.drag=nil end
+    focused:clear()
+    editorFocused:clear()
     notice=editor.open and "Editor de curvas aberto. Clique em um trecho." or
       "Editor de curvas fechado."
     return
   end
   if editor.open then
-    if key=="escape" then editor.open=false;notice="Editor fechado.";return
+    if key=="tab" then
+      local track=editorTrack()
+      if track then
+        local action=editorFocused:next(
+          love.keyboard.isDown("lshift","rshift"),#track.keys-editor.scroll)
+        notice="Editor: "..tostring(action).." (Enter: executar)."
+      end
+      return
+    end
+    if not ctrl and (key=="return" or key=="kpenter") and
+        editorFocused:selected() then
+      editorActivate(editorFocused:selected())
+      return
+    end
+    if key=="escape" then editorFocused:clear();editor.open=false;notice="Editor fechado.";return
     elseif key=="c" then editorCycleCurve();return
     elseif key=="up" then editorNavigateSegments(-1);return
     elseif key=="down" then editorNavigateSegments(1);return
