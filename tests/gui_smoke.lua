@@ -21,6 +21,8 @@ _G.love={
   },
   filesystem={
     write=function(name, data) saved[name]=data;return true end,
+    createDirectory=function() return true end,
+    remove=function(name) if saved[name] then saved[name]=nil;return true end;return false end,
     newFileData=function(data,name) return {data=data,name=name} end,
     read=function(name) return saved[name],saved[name] and nil or "not found" end,
     getSaveDirectory=function() return "/test/lua-flash" end,
@@ -127,10 +129,22 @@ ctrl=false
 love.draw()
 -- A separate recovery copy is written after unsaved changes settle.
 love.update(12.1)
-assert(saved["player_recovery.lfgame"])
-local Recovery=require("src.package_v9")
-local recovered=assert(Recovery.decode(saved["player_recovery.lfgame"]))
-assert(recovered.version==9 and recovered.tweens[1].keys[2].angle==95)
+local Recovery=require("src.recovery")
+local Package=require("src.package_v9")
+local key=Recovery.identity("Exemplo externo .lfgame",require("src.game_example_v9").bytes())
+local autosave=Recovery.new(love.filesystem,Package,key)
+local copy=assert(autosave:read())
+local recovered=copy.game
+assert(copy.sequence==1 and recovered.version==9)
+assert(recovered.tweens[1].keys[2].angle==95)
+-- Loading another demo with unsaved edits must be blocked.
+love.keypressed("d")
+love.keypressed("f3")
+love.draw()
+-- Ctrl+R while unsaved is deliberately refused.
+ctrl=true
+love.keypressed("r")
+ctrl=false
 love.keypressed("e")
 love.keypressed("z")
 love.keypressed("f8")
@@ -143,6 +157,7 @@ ctrl=true
 love.keypressed("s")
 ctrl=false
 assert(saved["player_game.lfgame"])
+assert(not autosave:read(),"successful manual save clears stale recovery slots")
 local GamePackage=require("src.package_v9")
 local savedGame=assert(GamePackage.decode(saved["player_game.lfgame"]))
 assert(savedGame.version==9)
