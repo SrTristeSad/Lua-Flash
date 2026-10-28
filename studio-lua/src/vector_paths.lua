@@ -1,5 +1,5 @@
 -- Studio-only cubic Bezier paths, separate from LUAFLASH 1 shared core.
--- Authoring storage: LFVECTOR 1 auxiliary project file.
+-- LFVECTOR 1 (scene only) and LFVECTOR 2 (scene + symbol scopes).
 local M={}
 local function finite(n)
   return type(n)=="number" and n==n and n~=math.huge and n~=-math.huge
@@ -27,7 +27,36 @@ local function rgba(c)
     and c[3]>=0 and c[3]<=1
     and (not c[4] or finite(c[4]) and c[4]>=0 and c[4]<=1)
 end
-function M.new() return {nextId=1,tracks={}} end
+function M.new() return {nextId=1,tracks={},symbols={}} end
+-- Scoped symbol vector definitions have their own path-ID sequence and timeline.
+function M.scope(v,symbolId,create)
+  if not symbolId then return v end
+  if not int(symbolId,1,100000000) then return nil end
+  v.symbols=v.symbols or {}
+  if create and not v.symbols[symbolId] then v.symbols[symbolId]=M.new() end
+  return v.symbols[symbolId]
+end
+-- Copy geometry from the source frame into a symbol's local coordinate space.
+-- No reference to the original path is retained.
+function M.capture(v,symbolId,paths,originX,originY,frame)
+  local scoped=M.scope(v,symbolId,true)
+  if not scoped or type(paths)~="table" or not validPos(originX)
+      or not validPos(originY) then return nil,"invalid vector capture" end
+  frame=frame or 1
+  if not int(frame,1,10000) then return nil,"invalid capture frame" end
+  local destination={}
+  for _,path in ipairs(paths) do
+    if not int(scoped.nextId,1,10000000) then return nil,"symbol vector ID limit" end
+    local clone=copy(path)
+    clone.id=scoped.nextId
+    scoped.nextId=scoped.nextId+1
+    if not M.move(clone,-originX,-originY) then return nil,"invalid vector bounds" end
+    destination[#destination+1]=clone
+  end
+  scoped.tracks[1]=scoped.tracks[1] or {}
+  scoped.tracks[1][frame]=destination
+  return scoped
+end
 function M.at(v,layer,frame)
   local t=v.tracks[layer]
   if not t then return {} end
@@ -283,12 +312,11 @@ function M.svg(v,doc,frame)
   return table.concat(result," ")
 end
 
-function M.encode(v)
-  local out={"LFVECTOR 1"}
-  for _,layer in ipairs(sorted(v.tracks)) do
-    for _,frame in ipairs(sorted(v.tracks[layer])) do
+local function encodeTracks(out,scoped)
+  for _,layer in ipairs(sorted(scoped.tracks)) do
+    for _,frame in ipairs(sorted(scoped.tracks[layer])) do
       out[#out+1]=table.concat({"K",layer,frame},"\t")
-      for _,path in ipairs(v.tracks[layer][frame]) do
+      for _,path in ipairs(scoped.tracks[layer][frame]) do
         out[#out+1]=table.concat({"P",path.id,path.closed and 1 or 0,
           fmt(path.width),colorFields(path.stroke),colorFields(path.fill)},"\t")
         for _,n in ipairs(path.nodes) do
@@ -299,6 +327,16 @@ function M.encode(v)
       end
       out[#out+1]="EK"
     end
+  end
+end
+function M.encode(v)
+  local ids=sorted(v.symbols or {})
+  local out={#ids>0 and "LFVECTOR 2" or "LFVECTOR 1"}
+  encodeTracks(out,v)
+  for _,id in ipairs(ids) do
+    out[#out+1]="S\t"..id
+    encodeTracks(out,v.symbols[id])
+    out[#out+1]="ES"
   end
   out[#out+1]="END"
   return table.concat(out,"\n").."\n"
@@ -311,44 +349,67 @@ end
 function M.decode(data)
   if type(data)~="string" or #data>8*1024*1024 then return nil,"invalid vector size" end
   local lines={}
-  for s in (data.."\n"):gmatch("(.-)\n") do
-    if s~="" then lines[#lines+1]=s:gsub("\r$","") end
+  for line in (data.."\n"):gmatch("(.-)\n") do
+    if line~="" then lines[#lines+1]=line:gsub("\r$","") end
   end
-  if lines[1]~="LFVECTOR 1" then return nil,"unknown vector format" end
+  local version=lines[1]
+  if version~="LFVECTOR 1" and version~="LFVECTOR 2" then
+    return nil,"unknown vector format"
+  end
   local v=M.new()
+  local scope=v
+  local activeSymbol=nil
   local layer,frame,path,ended,count=nil,nil,nil,false,0
+  local seenIds={} -- per-scope IDs cannot be reused by different paths
   for i=2,#lines do
     local f=fields(lines[i])
     if ended then return nil,"trailing vector data" end
-    if f[1]=="K" then
+    if f[1]=="S" then
+      local id=tonumber(f[2])
+      if version~="LFVECTOR 2" or activeSymbol or layer or path
+          or not int(id,1,100000000) or v.symbols[id] then
+        return nil,"invalid symbol scope"
+      end
+      activeSymbol=id
+      scope=M.scope(v,id,true)
+      seenIds={}
+    elseif f[1]=="ES" then
+      if not activeSymbol or layer or path then return nil,"invalid symbol scope ending" end
+      activeSymbol=nil
+      scope=v
+      seenIds={}
+    elseif f[1]=="K" then
       local li,fr=tonumber(f[2]),tonumber(f[3])
       if layer or path or not int(li,1,128) or not int(fr,1,10000)
-          or v.tracks[li] and v.tracks[li][fr] then
+          or (scope.tracks[li] and scope.tracks[li][fr]) then
         return nil,"invalid vector key"
       end
-      v.tracks[li]=v.tracks[li] or {}
-      v.tracks[li][fr]={}
+      scope.tracks[li]=scope.tracks[li] or {}
+      scope.tracks[li][fr]={}
       layer,frame=li,fr
     elseif f[1]=="P" then
       local id,closed,width=tonumber(f[2]),f[3]=="1",tonumber(f[4])
       local stroke,e1=parseColor(f[5])
       local fill,e2=parseColor(f[6])
       if not layer or path or not int(id,1,10000000) or not finite(width)
-          or width<.1 or width>200 or not stroke or e1 or e2
+          or width<.1 or width>200 or not stroke or e1 or e2 or seenIds[id]
           or (f[3]~="0" and f[3]~="1")
-          or #v.tracks[layer][frame]>=500 then return nil,"invalid vector path" end
+          or #scope.tracks[layer][frame]>=500 then
+        return nil,"invalid vector path"
+      end
       path={id=id,closed=closed,width=width,stroke=stroke,fill=fill,nodes={}}
-      v.tracks[layer][frame][#v.tracks[layer][frame]+1]=path
-      v.nextId=math.max(v.nextId,id+1)
+      scope.tracks[layer][frame][#scope.tracks[layer][frame]+1]=path
+      scope.nextId=math.max(scope.nextId,id+1)
+      seenIds[id]=true
       count=count+1
       if count>50000 then return nil,"too many vector paths" end
     elseif f[1]=="N" then
       if not path or #path.nodes>=256 then return nil,"invalid vector node" end
       local coords={}
       for j=2,7 do
-        local value=tonumber(f[j])
-        if not validPos(value) then return nil,"invalid coordinate" end
-        coords[j-1]=value
+        local number=tonumber(f[j])
+        if not validPos(number) then return nil,"invalid coordinate" end
+        coords[j-1]=number
       end
       path.nodes[#path.nodes+1]={
         x=coords[1],y=coords[2],ix=coords[3],iy=coords[4],
@@ -363,7 +424,7 @@ function M.decode(data)
       if not layer or path then return nil,"invalid key termination" end
       layer,frame=nil,nil
     elseif f[1]=="END" then
-      if layer or path then return nil,"unfinished vector data" end
+      if layer or path or activeSymbol then return nil,"unfinished vector data" end
       ended=true
     else return nil,"unknown vector record" end
   end
