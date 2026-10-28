@@ -11,6 +11,7 @@ local Group = require("src.instance_group")
 local Marquee = require("src.marquee_selection")
 local Vector = require("src.vector_paths")
 local VectorEdit = require("src.vector_edit")
+local VectorBoolean = require("src.vector_boolean")
 local VectorRenderer = require("src.vector_renderer")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
@@ -35,6 +36,7 @@ local selectedInstances={}
 local groupDragStarted=false
 local marquee=nil
 local selectedVector=nil
+local selectedVectorOther=nil
 local selectedVectorNode=nil
 local penPath=nil
 local vectorDrag=nil
@@ -103,6 +105,7 @@ local function install(newdoc)
   groupDragStarted=false
   marquee=nil
   selectedVector=nil
+  selectedVectorOther=nil
   selectedVectorNode=nil
   penPath=nil
   vectorDrag=nil
@@ -352,6 +355,28 @@ local function editVectorFrame()
   return true
 end
 
+local function applyBoolean(operation)
+  local source=vectorOnFrame(selectedVector)
+  local other=vectorOnFrame(selectedVectorOther)
+  if not source or not other then
+    msg="Use A para escolher a primeira forma e Shift+clique para escolher a segunda"
+    return false
+  end
+  if not active() or active().locked then msg="Camada bloqueada";return false end
+  local plan,err=VectorBoolean.plan(vectorScope(),doc.currentLayer,doc.currentFrame,
+    selectedVector,selectedVectorOther,operation)
+  if not plan then msg="Operacao booleana recusada: "..tostring(err);return false end
+  snapshot()
+  Model.ensureKey(active(),doc.currentFrame)
+  plan.apply()
+  selectedVector=plan.ids[1]
+  selectedVectorOther=nil
+  selectedVectorNode=nil
+  penPath=nil
+  msg="Booleano "..operation..": "..plan.resultCount.." contorno(s)"
+  return true
+end
+
 local function currentShapes(create)
   local layer=active()
   if not layer or layer.locked then return nil end
@@ -448,6 +473,10 @@ local function ui()
     label("Espessura: "..thickness.."  (- / +)",12,477)
     if selectedVector then
       label("VETOR #"..selectedVector.." | F preench.",12,488,{.45,.82,1})
+      if selectedVectorOther then
+        label("BOOLEAN: "..selectedVector.." + "..selectedVectorOther,12,624,{.98,.73,.33})
+        label("Ctrl+Shift+U/I/D",12,646,{.95,.85,.55})
+      end
       if selectedVectorNode then label("No "..selectedVectorNode.." | K: dividir",12,604,{.45,.82,1}) end
     end
     local chosenInstance=activeInstance()
@@ -492,6 +521,15 @@ local function ui()
     SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view,symbolMotion,vectors)
   end
   VectorRenderer.draw(vectorScope(),doc,doc.currentFrame,view,selectedVector)
+  if mode=="studio" and tool=="node" and selectedVector and selectedVectorOther then
+    local px,py=view.x+view.w-319,65
+    lg.setColor(.10,.13,.18,.96)
+    lg.rectangle("fill",px,py,309,74,5,5)
+    label("OPERACOES ENTRE FORMAS",px+8,py+6,{.98,.76,.40})
+    button("UNIAO",px+8,py+31,92,32,false)
+    button("INTERSEC.",px+106,py+31,96,32,false)
+    button("SUBTRAIR",px+208,py+31,93,32,false)
+  end
   if mode=="studio" and marquee then
     local x1,y1,x2,y2=Marquee.bounds(marquee.ax,marquee.ay,marquee.bx,marquee.by)
     if x1 then
@@ -659,6 +697,15 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   if inBox(mx,my,160,8,95,34) then mode="studio";runtime.playing=false;return end
   if inBox(mx,my,263,8,95,34) then mode="player";runtime.playing=true;return end
   if inBox(mx,my,366,8,91,34) then runtime.playing=not runtime.playing;return end
+  if mode=="studio" and tool=="node" and selectedVector and selectedVectorOther then
+    local px,py=view.x+view.w-319,65
+    if inBox(mx,my,px,py,309,74) then
+      if inBox(mx,my,px+8,py+31,92,32) then applyBoolean("union")
+      elseif inBox(mx,my,px+106,py+31,96,32) then applyBoolean("intersection")
+      elseif inBox(mx,my,px+208,py+31,93,32) then applyBoolean("difference") end
+      return
+    end
+  end
   if mode=="studio" and inBox(mx,my,816,8,36,34) then
     tool="pen";penPath=nil;msg="Caneta Bezier: clique cria ponto, arraste cria curva; Enter termina";return
   end
@@ -907,6 +954,14 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     if love.keyboard.isDown("lshift","rshift") and selectedVector then
       local second=Vector.pick(paths,x,y,tol)
       if second and second.id~=selectedVector then
+        local first=vectorOnFrame(selectedVector)
+        if first and first.closed and second.closed then
+          selectedVectorOther=second.id
+          selectedVectorNode=nil
+          vectorDrag=nil
+          msg="Duas formas selecionadas | Ctrl+Shift+U unir, I intersecar, D subtrair"
+          return
+        end
         if layer.locked then msg="Camada bloqueada";return end
         local plan,err=VectorEdit.planJoin(vectorScope(),doc.currentLayer,
           doc.currentFrame,selectedVector,second.id,12/view.scale)
@@ -938,12 +993,14 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     local found,node=Vector.pickNode(paths,x,y,tol)
     if found then
       selectedVector=found.id
+      selectedVectorOther=nil
       selectedVectorNode=node
       vectorDrag={kind="node",id=found.id,node=node,dirty=false}
       return
     end
     found=Vector.pick(paths,x,y,tol)
     selectedVector=found and found.id or nil
+    selectedVectorOther=nil
     selectedVectorNode=nil
     if found then vectorDrag={kind="path",id=found.id,x=x,y=y,dirty=false} end
     msg=found and ("Vetor #"..found.id.." selecionado") or "Sem vetor nessa posicao"
@@ -1251,6 +1308,12 @@ end
 
 function love.keypressed(key)
   if mode=="studio" and not naming and not propertyEditor then
+    if tool=="node" and love.keyboard.isDown("lctrl","rctrl")
+        and love.keyboard.isDown("lshift","rshift") then
+      if key=="u" then applyBoolean("union");return end
+      if key=="i" then applyBoolean("intersection");return end
+      if key=="d" then applyBoolean("difference");return end
+    end
     if key=="return" and tool=="pen" and penPath and not love.keyboard.isDown("lctrl","rctrl") then
       penPath=nil;vectorDrag=nil;msg="Caminho aberto finalizado";return
     end
