@@ -122,7 +122,7 @@ function M.place(lib,layer,frame,symbolId,x,y)
   end
   local items=M.ensureKey(lib,layer,frame)
   if #items>=10000 or lib.nextInstanceId>100000000 then return nil,"instance limit" end
-  local item={uid=lib.nextInstanceId,symbolId=symbolId,x=x,y=y,sx=1,sy=1}
+  local item={uid=lib.nextInstanceId,symbolId=symbolId,x=x,y=y,sx=1,sy=1,angle=0}
   lib.nextInstanceId=lib.nextInstanceId+1
   items[#items+1]=item
   return item
@@ -137,7 +137,8 @@ function M.encode(lib)
       out[#out+1]=table.concat({"K",layer,frame},"\t")
       for _,v in ipairs(lib.tracks[layer][frame]) do
         out[#out+1]=table.concat({"I",v.uid,v.symbolId,string.format("%.6f",v.x),
-          string.format("%.6f",v.y),string.format("%.6f",v.sx),string.format("%.6f",v.sy)},"\t")
+          string.format("%.6f",v.y),string.format("%.6f",v.sx),string.format("%.6f",v.sy),
+          string.format("%.6f",v.angle or 0)},"\t")
       end
     end
   end
@@ -183,12 +184,14 @@ function M.decode(data)
     elseif op=="I" then
       local uid,symbolId=tonumber(f[2]),tonumber(f[3])
       local x,y,sx,sy=tonumber(f[4]),tonumber(f[5]),tonumber(f[6]),tonumber(f[7])
+      local angle=tonumber(f[8] or "0") -- Older LUALIB 1 instances have no rotation field.
       if not integer(uid,1,100000000) or not integer(symbolId,1,100000000)
           or not finite(x) or not finite(y) or not finite(sx) or not finite(sy)
+          or not finite(angle) or math.abs(angle)>360000
           or math.abs(x)>100000 or math.abs(y)>100000 or sx==0 or sy==0
           or math.abs(sx)>100 or math.abs(sy)>100 or not current or not lib.symbols[symbolId]
           or instances>=100000 then return nil,"invalid instance record" end
-      current[#current+1]={uid=uid,symbolId=symbolId,x=x,y=y,sx=sx,sy=sy}
+      current[#current+1]={uid=uid,symbolId=symbolId,x=x,y=y,sx=sx,sy=sy,angle=angle}
       lib.nextInstanceId=math.max(lib.nextInstanceId,uid+1)
       instances=instances+1
     elseif op=="END" then
