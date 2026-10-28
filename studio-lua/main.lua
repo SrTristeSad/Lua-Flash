@@ -14,6 +14,7 @@ local view={x=180,y=58,w=800,h=480,ox=0,oy=0,scale=1}
 local tools={{"select","V Selecionar"},{"brush","B Pincel"},{"line","L Linha"},{"rect","R Retangulo"},{"ellipse","O Elipse"},{"erase","E Borracha"}}
 local font
 local frameClipboard=nil
+local timelineDrag=nil
 local function clone(value)
   if type(value)~="table" then return value end
   local out={}
@@ -286,9 +287,15 @@ function love.mousepressed(mx,my,mousebutton)
       doc.currentLayer=i;selected=nil;return
     end
   end
-  if my>=track+38 and my<=track+79 and mx>=250 then
+  if my>=track+38 and my<=track+79 and mx>=250 and mx<w-18 then
     local n=offset+math.floor((mx-250)/19)
-    if n>=1 and n<=doc.totalFrames then setFrame(n) end
+    if n>=1 and n<=doc.totalFrames then
+      runtime.playing=false
+      setFrame(n)
+      if Model.isKey(active(),n) and not active().locked then
+        timelineDrag={source=n,target=n,duplicate=love.keyboard.isDown("lctrl","rctrl")}
+      end
+    end
     return
   end
   if not insideStage(mx,my) then return end
@@ -323,6 +330,14 @@ function love.mousepressed(mx,my,mousebutton)
 end
 
 function love.mousemoved(mx,my,dx,dy)
+  if timelineDrag then
+    local w,h,track=dimensions()
+    if mx>=250 and mx<w-18 and my>=track+38 and my<=track+79 then
+      local frame=offset+math.floor((mx-250)/19)
+      if frame>=1 and frame<=doc.totalFrames then timelineDrag.target=frame end
+    end
+    return
+  end
   if not dragged or mode~="studio" then return end
   local x,y=xy(mx,my)
   x,y=math.max(0,math.min(doc.width,x)),math.max(0,math.min(doc.height,y))
@@ -342,7 +357,23 @@ function love.mousemoved(mx,my,dx,dy)
 end
 
 function love.mousereleased(_,_,button)
-  if button==1 then dragged=nil end
+  if button~=1 then return end
+  if timelineDrag then
+    local op=timelineDrag
+    timelineDrag=nil
+    local layer=active()
+    if layer and not layer.locked and op.source~=op.target
+        and layer.keys[op.source] and not layer.keys[op.target] then
+      snapshot()
+      layer.keys[op.target]=clone(layer.keys[op.source])
+      if not op.duplicate then layer.keys[op.source]=nil end
+      setFrame(op.target)
+      msg=op.duplicate and "Quadro-chave duplicado" or "Quadro-chave movido"
+    elseif op.source~=op.target then
+      msg="Destino ocupado ou camada bloqueada; nenhuma alteracao realizada"
+    end
+  end
+  dragged=nil
 end
 
 function love.wheelmoved(_,dy)
