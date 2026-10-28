@@ -49,6 +49,32 @@ function M.create(lib,kind,name,shapes)
   lib.nextSymbolId=id+1
   return symbol
 end
+-- Capture an additional editable symbol pose from the current stage.
+-- Poses use their own top-left origin until symbol-space tools are added.
+-- Button frame mapping is Up / Over / Down / Hit (max four states).
+function M.appendPose(lib,id,shapes)
+  local symbol=lib.symbols[id]
+  if not symbol then return nil,"unknown symbol" end
+  if type(shapes)~="table" or #shapes>1000 then return nil,"invalid pose" end
+  local definition=symbol.definition
+  local frame=definition.totalFrames+1
+  if frame>10000 or (symbol.kind=="button" and frame>4) then
+    return nil,"symbol frame limit reached"
+  end
+  local pose=Model.copy(shapes)
+  local minx,miny
+  for _,shape in ipairs(pose) do
+    local x,y=Model.bounds(shape)
+    minx=minx and math.min(minx,x) or x
+    miny=miny and math.min(miny,y) or y
+  end
+  for _,shape in ipairs(pose) do
+    Model.move(shape,-(minx or 0),-(miny or 0))
+  end
+  definition.layers[1].keys[frame]=pose
+  definition.totalFrames=frame
+  return frame
+end
 function M.count(lib)
   local n=0
   for _ in pairs(lib.symbols) do n=n+1 end
