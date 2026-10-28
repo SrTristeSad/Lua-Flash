@@ -89,6 +89,8 @@ jobs:
         run: lua tests/studio_edit_test.lua
       - name: Studio Flash exposure spans and blank frame compatibility
         run: lua tests/studio_spans_test.lua
+      - name: Studio Flash symbols and instance sidecar regression
+        run: lua tests/studio_symbols_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
