@@ -138,6 +138,16 @@ do
   local expected=2*r*r*math.acos(d/(2*r))-.5*d*math.sqrt(4*r*r-d*d)
   assert(math.abs(observed-expected)<60,
     "cubic intersection approximation too coarse: got "..observed.." expected "..expected)
+  local nodes=result[1].nodes
+  local curved=false
+  for _,node in ipairs(nodes) do
+    if (node.ox-node.x)^2+(node.oy-node.y)^2>1e-4
+        or (node.ix-node.x)^2+(node.iy-node.y)^2>1e-4 then
+      curved=true
+    end
+  end
+  assert(curved,"clipped circle arcs must retain cubic handles, not become polygons")
+  assert(#nodes<25,"clipped curved lens should not create excessive polygon anchors")
   assert(V.encode(assert(V.decode(V.encode(v))))==V.encode(v))
-  print("OK: curved/curved crossing maintains bounded intersection area error")
+  print("OK: clipped circle/circle intersection retains cubic arcs and bounded area")
 end
