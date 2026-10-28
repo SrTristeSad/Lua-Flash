@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.17. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.19. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -39,6 +39,7 @@ local diagnostics=Diagnostics.new()
 local errors=ErrorReport.new(love.filesystem)
 local lastRuntimeError=nil
 local showDiagnostics=false
+local selectedAudioChannel="effects"
 local editor={open=false,track=1,segment=1,scroll=0,drag=nil}
 local C={
   bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
@@ -80,6 +81,7 @@ end
 local function install(doc,name,isDemo)
   if media then media:release() end
   media=nil
+  selectedAudioChannel="effects"
   history=nil
   recoveryClock=0
   recoveryStore=nil
@@ -626,7 +628,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.18")
+  love.window.setTitle("Lua-Flash Player 0.19")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -686,7 +688,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.18  |  Estabilidade e testes de estresse",21,60,C.muted,fonts.small)
+  label("PLAYER 0.19  |  Audio polifonico e canais",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -802,7 +804,7 @@ function love.draw()
     local report=diagnostics:snapshot(packageDefinition,media,session)
     lg.push("all")
     lg.setColor(.025,.035,.055,.93)
-    lg.rectangle("fill",w-281,93,269,146,7,7)
+    lg.rectangle("fill",w-281,93,269,175,7,7)
     label("DIAGNOSTICO [F3]",w-270,100,C.green,fonts.small)
     label(string.format("FPS medio: %.1f | Pior dt: %.1f ms",
       report.fps,report.worstMs),w-270,123,C.text,fonts.small)
@@ -814,6 +816,16 @@ function love.draw()
     label(string.format("Mascaras: %d | Pares: %d",
       report.maskBuilds,report.collisionPairs),
       w-270,192,C.text,fonts.small)
+    if media then
+      local audio=media:audioStats()
+      label(string.format("Vozes: %d/%d | Ativas: %d | Reuso: %d",
+        audio.voices,audio.maxVoices,audio.active,audio.steals),
+        w-270,215,C.green,fonts.small)
+      label(string.format("Efeito: %d%% | Timeline: %d%%",
+        math.floor(media.mixer.gains.effects*100+.5),
+        math.floor(media.mixer.gains.timeline*100+.5)),
+        w-270,237,C.muted,fonts.small)
+    end
     lg.pop()
   end
 end
@@ -938,6 +950,18 @@ function love.keypressed(key)
     elseif key=="pageup" then editorNavigateTracks(-1);return
     elseif key=="pagedown" then editorNavigateTracks(1);return
     end
+  end
+  if key=="f5" and media then
+    selectedAudioChannel=selectedAudioChannel=="effects" and "timeline" or "effects"
+    notice="Canal selecionado: "..selectedAudioChannel.." (F6/F7 ajustam volume)."
+    return
+  end
+  if (key=="f6" or key=="f7") and media then
+    local value=media.mixer.gains[selectedAudioChannel]+
+      (key=="f6" and -.1 or .1)
+    local gain=media:setChannelVolume(selectedAudioChannel,value)
+    notice="Canal "..selectedAudioChannel..": "..math.floor(gain*100+.5).."%"
+    return
   end
   if key=="f8" and media then
     notice="Volume: "..math.floor(media:setVolume(media.volume-.1)*100+.5).."%"
