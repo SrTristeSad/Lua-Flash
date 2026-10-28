@@ -43,10 +43,16 @@ function I:sample(position)
   }
   for i,layer in ipairs(doc.layers) do
     local indices=self.keys[i]
-    local previous,nextKey
-    for _,frame in ipairs(indices) do
-      if frame<=position then previous=frame else nextKey=frame;break end
+    -- Find adjacent keys in O(log K) rather than scanning every key on
+    -- each of many temporal collision samples.
+    local lo,hi=1,#indices
+    while lo<=hi do
+      local middle=math.floor((lo+hi)/2)
+      if indices[middle]<=position then lo=middle+1
+      else hi=middle-1 end
     end
+    local previous=hi>=1 and indices[hi] or nil
+    local nextKey=lo<=#indices and indices[lo] or nil
     local shapes=previous and layer.keys[previous] or {}
     local output=shapes
     if previous and nextKey and position>previous then
