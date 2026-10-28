@@ -1,6 +1,7 @@
 -- Coordinate geometry for Studio symbol instances, independent of LÖVE.
 -- The instance origin is the symbol's (0,0); angle is stored in degrees.
 local Model=require("src.model")
+local Vector=require("src.vector_paths")
 local M={}
 local function numeric(n) return type(n)=="number" and n==n and math.abs(n)<math.huge end
 function M.valid(instance)
@@ -21,7 +22,7 @@ function M.toLocal(instance,x,y)
   local dx,dy=x-instance.x,y-instance.y
   return (dx*c+dy*s)/instance.sx,(-dx*s+dy*c)/instance.sy
 end
-function M.symbolBounds(symbol,frame)
+function M.symbolBounds(symbol,frame,vectorScope)
   if not symbol or not symbol.definition then return nil end
   local x1,y1,x2,y2
   for _,layer in ipairs(symbol.definition.layers) do
@@ -37,12 +38,27 @@ function M.symbolBounds(symbol,frame)
       end
     end
   end
+  if vectorScope then
+    for layerIndex,layer in ipairs(symbol.definition.layers) do
+      if layer.visible then
+        for _,path in ipairs(Vector.at(vectorScope,layerIndex,frame or 1)) do
+          local a,b,c,d=Vector.bounds(path)
+          if a then
+            x1=x1 and math.min(x1,a) or a
+            y1=y1 and math.min(y1,b) or b
+            x2=x2 and math.max(x2,c) or c
+            y2=y2 and math.max(y2,d) or d
+          end
+        end
+      end
+    end
+  end
   if not x1 then return nil end
   return x1,y1,x2,y2
 end
-function M.box(instance,symbol,frame)
+function M.box(instance,symbol,frame,vectorScope)
   if not M.valid(instance) then return nil end
-  local x1,y1,x2,y2=M.symbolBounds(symbol,frame)
+  local x1,y1,x2,y2=M.symbolBounds(symbol,frame,vectorScope)
   if not x1 then return nil end
   local left,top,right,bottom
   for _,point in ipairs({{x1,y1},{x2,y1},{x2,y2},{x1,y2}}) do
@@ -54,7 +70,7 @@ function M.box(instance,symbol,frame)
   end
   return left,top,right,bottom
 end
-function M.hit(instance,symbol,frame,x,y)
+function M.hit(instance,symbol,frame,x,y,vectorScope)
   if not M.valid(instance) then return false end
   local x1,y1,x2,y2=M.symbolBounds(symbol,frame)
   if not x1 then return false end
