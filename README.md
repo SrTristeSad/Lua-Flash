@@ -1,43 +1,46 @@
 # Lua-Flash
 
-**O Flash renasce em Lua** — Player independente para animações e jogos em formatos próprios. Não reproduz SWF/FLA/ActionScript antigos.
+**O Flash renasce em Lua** — Player de jogos e animações com formatos próprios, sem execução de SWF/FLA/ActionScript antigos.
 
 ## Projetos independentes
 
 | Aplicativo | Pasta | Estado |
 |---|---|---|
-| [Player Lua](player-lua/) | `player-lua/` | **0.26 experimental** |
+| [Player Lua](player-lua/) | `player-lua/` | **0.27 experimental** |
 | [Studio Lua](studio-lua/) | `studio-lua/` | 0.1 experimental, preservado |
 
-## Player 0.26 — textos ajustáveis e testes de resistência
+## Player 0.27 — renderização indexada e monitoramento de CPU
 
-A versão 0.26 acrescenta **três opções de tamanho de texto** (normal, grande e extra) para os controles e a interface do Player. Use **Ctrl + +** para aumentar, **Ctrl + -** para diminuir ou **Ctrl + 0** para restaurar o tamanho normal. As fontes são recriadas somente quando a opção muda, e a preferência é salva em `player-font-size.txt` na pasta de dados do LÖVE.
+A versão 0.27 acelera a reprodução **vetorial por quadros exatos**. As chaves de cada camada são indexadas na abertura do projeto, permitindo encontrar o quadro ativo por **busca binária** em vez de percorrer todas as chaves a cada desenho. O resultado da busca de um quadro é reutilizado enquanto ele permanece na tela.
 
-O texto dos botões, o painel de quadros-chave, mensagens e ajuda possuem ajustes de largura para reduzir sobreposições em janelas pequenas. Em casos extremos, rótulos compridos podem ser abreviados com reticências para manter a interface navegável. **F2** continua alternando o tema de alto contraste, de maneira independente da escolha da fonte.
+A cena cacheada referencia as formas originais e **não altera os dados do projeto**. Abrir outro arquivo cria um índice novo. A interpolação suave já possuía busca binária própria e permanece com seu renderizador; colisões, áudio e edição conservam a lógica anterior.
 
-Incluí uma **simulação determinística de 20 minutos de reprodução** com 72.000 atualizações a 60 Hz. O teste verifica loops, amostragem/interpolação, cache, crescimento de memória Lua e integridade do arquivo original. Essa simulação executa os quadros rapidamente na CI e **não é um benchmark de FPS/GPU real** nem substitui testes prolongados em computadores físicos.
+O painel **F3** agora mostra quantas cenas vetoriais foram montadas/reutilizadas e amostras de **tempo de CPU para desenho e atualização**. As médias e picos recentes ficam num histórico circular limitado a 120 amostras por categoria. São métricas do lado Lua, **não tempos exclusivos de GPU**.
 
-Os formatos LUAFGAME 1–9 e animações `.lflash` continuam compatíveis. **O Studio não foi alterado**, e os arquivos de jogos importados não executam código Lua.
+Adicionamos um teste de correção com **18 camadas, 32 chaves por camada e 20 formas por chave (11.520 formas)**; ele compara a seleção do índice com `Model.frame`, verifica reutilização, invalidação e desenho LÖVE simulado. Há também um teste de 40.000 amostras de CPU para confirmar que os diagnósticos não acumulam memória indefinidamente.
 
-## Download e execução
+Formatos **LUAFGAME 1–9** e animações `.lflash` continuam compatíveis. **O Studio não foi modificado**.
 
-Na [última execução aprovada do GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions), existem dois artefatos:
+## Downloads
 
-- **`lua-flash-player-0.26-windows-x64-portable`**: Windows x64, `Lua-Flash-Player.exe` com LÖVE 11.5 e DLLs; extrair o ZIP todo e executar o EXE. Não é necessário instalar LÖVE separadamente.
-- **`lua-flash-player-0.26-love-and-game`**: arquivo `.love` e exemplos para sistemas com [LÖVE](https://love2d.org/) instalado.
+A execução verde no [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions) oferece:
 
-O executável Windows continua experimental e **não possui assinatura digital**, portanto o SmartScreen pode exibir um aviso. A identificação nativa do EXE é **0.26.0.0**.
+- **`lua-flash-player-0.27-windows-x64-portable`**: ZIP portátil do Windows com o `Lua-Flash-Player.exe` e as DLLs do LÖVE 11.5 incluídas, sem instalação separada do LÖVE;
+- **`lua-flash-player-0.27-love-and-game`**: pacote `.love` e exemplos para computadores com [LÖVE](https://love2d.org/) instalado.
 
-## Testar localmente
+O executável Windows não é assinado digitalmente e pode gerar aviso SmartScreen. O recurso de versão Windows é **0.27.0.0**. Antes de declarar a versão 1.0 estável, serão necessários testes em hardware físico e medições reais de GPU.
+
+## Testar
 
 ```bash
 love player-lua
-lua tests/text_scale_test.lua
+lua tests/render_cache_test.lua
+lua tests/perf_monitor_test.lua
+lua tests/stress_player_test.lua
 lua tests/endurance_player_test.lua
-lua tests/gui_smoke.lua
 python3 tools/package_player.py
 ```
 
 [Manual do Player](player-lua/README.md) · [Roadmap](docs/ROADMAP.md) · [Formato LUAFGAME 9](docs/FORMAT_LUAFGAME9.md)
 
-Projeto independente, sem vínculo com a Adobe.
+Projeto independente da Adobe.

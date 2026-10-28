@@ -1,43 +1,42 @@
-# Lua-Flash Player 0.26 — tamanho do texto e resistência
+# Lua-Flash Player 0.27 — cache vetorial e CPU
 
-Player experimental de animações `.lflash` e jogos LUAFGAME 1–9 (`.lfgame`) em Lua/LÖVE. O Studio permanece separado e não foi modificado.
+Player experimental de jogos declarativos LUAFGAME 1–9 (`.lfgame`) e animações `.lflash` em Lua/LÖVE. O Studio é independente e não recebe modificações do Player.
 
-## Ajustar o texto
+## Cache de renderização por quadro
 
-| Atalho | Ação |
-|---|---|
-| **Ctrl + +** (em muitos teclados: Ctrl + =) | Aumentar tamanho do texto |
-| **Ctrl + -** | Diminuir tamanho do texto |
-| **Ctrl + 0** | Restaurar tamanho normal |
-| **F2** | Alternar alto contraste |
-| **F1** | Mostrar ajuda de atalhos |
+`src/render_cache.lua` indexa os números de quadros-chave de cada camada em ordem crescente. Para uma posição inteira, a busca binária escolhe a última chave cuja posição seja menor ou igual à posição desejada, preservando exatamente o comportamento de `Model.frame`.
 
-Há três níveis, limitados para evitar fontes grandes demais: **normal** (13 px para texto comum, 12 px para texto pequeno), **grande** (15/14 px) e **extra** (17/16 px). Os títulos acompanham essas mudanças. Os ajustes ocorrem imediatamente, inclusive com o editor de quadros-chave aberto.
+Quando o mesmo quadro é desenhado novamente, uma pequena cena vetorial indexada é reutilizada. Cada quadro ativo referencia a lista de formas original; não é feita cópia do projeto nem criado um cache ilimitado para todos os quadros. O cache mantém somente a última cena, e a troca de arquivo reinicializa o índice.
 
-Os botões mantêm sua área de clique; o texto é dimensionado para caber no botão. Para rótulos muito longos, há truncamento em limite de largura, preservando a estrutura dos caracteres UTF-8. A interface continua sendo escalonada para janelas pequenas, e textos enormes podem ficar abreviados em vez de deslocar os controles.
+Isso otimiza o modo **sem interpolação**, no qual antes o renderizador original percorria as chaves de todas as camadas. O modo interpolado mantém a implementação já existente, com busca binária por chave. O código compartilhado com o Studio não foi modificado.
 
-A escolha é gravada no arquivo `player-font-size.txt`, dentro da pasta de dados do LÖVE, como `font=normal`, `font=large` ou `font=extra`. Arquivos inválidos são ignorados e o tamanho normal é aplicado. Nenhum texto dessa preferência é interpretado como código. A configuração de alto contraste fica em arquivo separado e continua funcionando.
+Em um documento com K chaves por camada, a localização de uma chave muda de O(K) para O(log K) na primeira exibição do quadro, enquanto quadros repetidos reutilizam a cena. O trabalho de desenhar as formas continua proporcional à quantidade visível. Nenhum ganho de FPS específico é prometido.
 
-## Teste prolongado automatizado
+O teste `tests/render_cache_test.lua` usa 18 camadas e 11.520 formas vetoriais; compara o resultado com `Model.frame`, verifica camadas invisíveis, quadros intermediários, reuso da mesma cena, reconstrução manual quando chaves são alteradas e passagem pelo renderizador LÖVE.
 
-O teste `tests/endurance_player_test.lua` simula **72.000 atualizações**, correspondentes a **20 minutos de relógio da timeline a 60 atualizações por segundo**, sem aguardar o tempo real. Verifica loops fracionários, interpolação e cache, metadados, memória Lua retida e que a reprodução não modifica o jogo importado. Também verifica o comportamento ao alcançar o final sem repetição.
+## Diagnóstico de CPU no F3
 
-É um **teste de lógica e retenção de memória Lua**, não um teste de 20 minutos em GPU ou driver físico. Não valida a temperatura do hardware, latência de áudio real ou VRAM. Esses testes ainda precisam acontecer em Windows/Linux reais para a versão 1.0.
+O módulo `src/perf_monitor.lua` armazena até **120 durações por tipo de callback** (`update` e `draw`). O painel **F3** mostra:
 
-## Funções existentes
+- Tempo médio e máximo recente, em milissegundos, gasto na atualização e desenho do lado do Lua;
+- Quantidade de reconstruções e reutilizações de cenas vetoriais;
+- FPS, memória Lua, recursos, máscaras e canais de áudio já disponíveis.
 
-Ctrl+O abre o seletor de arquivos; Ctrl+Shift+O abre o campo manual; E abre o editor de poses; Tab e Shift+Tab percorrem controles; Ctrl+S salva; Ctrl+Z/Y desfaz/refaz; F3 mostra diagnósticos; F5–F10 controlam áudio; F11 alterna tela cheia.
+O cronômetro usa `love.timer.getTime()` quando há LÖVE real, com fallback `os.clock()` em simulações. Não representa tempo de apresentação da GPU nem mede VRAM, driver ou processamento assíncrono da placa de vídeo. Os registros são limitados para não crescerem indefinidamente.
 
-O pacote Windows x64 incorpora o LÖVE 11.5 oficial, seu ícone próprio, VERSIONINFO **0.26.0.0** e as DLLs, mas não é assinado digitalmente. O formato de jogo continua **LUAFGAME 9** sem alterações.
-
-## Desenvolvimento e validação
+## Testes e execução
 
 ```bash
-lua tests/text_scale_test.lua
+lua tests/render_cache_test.lua
+lua tests/perf_monitor_test.lua
+lua tests/stress_player_test.lua
 lua tests/endurance_player_test.lua
 lua tests/gui_smoke.lua
-python3 tests/windows_resource_test.py
 python3 tools/package_player.py
 ```
 
-A CI também executa o LÖVE real com display virtual e compila o ZIP Windows portátil. Os testes de usabilidade, desempenho e acessibilidade em hardware real continuam pendentes.
+A CI executa regressões LUAFGAME, o Player no LÖVE gráfico com display virtual e a build Windows x64. O executável portátil contém o LÖVE oficial 11.5, ícone próprio e metadados **0.27.0.0**. Não exige instalar LÖVE no PC, mas ainda não possui assinatura digital.
+
+**Limitações:** benchmark e perfil de CPU/GPU/VRAM em computadores Windows físicos continuam pendentes. O cache exato pode ser reconstruído quando um documento for alterado, usando seu método `reindex`; o editor do Player atual altera trilhas de sprites, não chaves vetoriais da cena.
+
+Os atalhos anteriores continuam: F1 ajuda, F2 alto contraste, F3 diagnóstico, E editor, Tab navegação, Ctrl+S salvar, Ctrl+Z/Y desfazer/refazer e Ctrl+mais/menos/zero alterar fonte.
