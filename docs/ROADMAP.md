@@ -1,38 +1,37 @@
-# Lua-Flash — roteiro do Player
+# Lua-Flash — desenvolvimento do Player
 
 ## Direção
 
-Motor próprio de animações e jogos em Lua/LÖVE, com formatos declarativos LUAFGAME 1–9 e `.lflash`; não executa SWF/FLA/ActionScript antigos. Player em `player-lua/`, Studio preservado em `studio-lua/`.
+Runtime próprio para jogos e animações em Lua e formatos declarativos, sem compatibilidade com SWF/FLA/ActionScript antigos. Player em `player-lua/`; Studio em `studio-lua/`, preservado.
 
-## Entregas 0.1–0.19
+## Base — 0.1 a 0.20
 
-- [x] Timeline, formas vetoriais, keyframes, easing e edição.
-- [x] Recursos PNG/WAV, sprites, transformações, eventos e regras.
-- [x] Colisões temporalmente amostradas e click por máscara alfa.
-- [x] Undo/redo, backup verificado por projeto, diagnósticos e logging de falhas.
-- [x] Áudio WAV polifônico com duas categorias e orçamento de vozes.
-- [x] Testes Lua/LÖVE, cenários grandes e pacote `.love`.
+- [x] Timeline, formas, quadros-chave, easing e editor de transformações.
+- [x] LUAFGAME 1–9: PNG, WAV, sprites animados, regras de jogo e colisões.
+- [x] Undo/redo, recuperação por projeto, diagnóstico de desempenho e logs.
+- [x] Áudio polifônico limitado e com canais independentes.
+- [x] Player `.love` e Windows x64 portátil com LÖVE 11.5 incorporado.
+- [x] Testes Lua, estresse sintético, LÖVE virtual e construção Windows.
 
-## Player 0.20 — Windows portátil sem instalar LÖVE
+## Player 0.21 — abertura e experiência do usuário
 
-- [x] Ferramenta de fusão `love.exe + Lua-Flash-Player-0.20.love`.
-- [x] Dependências Windows x64 do pacote oficial LÖVE 11.5 preservadas.
-- [x] Download do runtime oficial validado por SHA-256 fixo.
-- [x] ZIP portátil e instruções, textos de licença originais incluídos.
-- [x] Teste offline da ferramenta de empacotamento, incluindo adulteração e travessia de caminhos.
-- [x] Build separada em runner Windows x64 com inspeção PE, DLLs e jogo embutido.
-- [x] Smoke de inicialização do binário nativo (modo `--version`).
-- [x] Distinctos artefatos `.love` e Windows portátil.
-- [x] Sem alterações no Studio nem no formato LUAFGAME.
-- [ ] Testes completos de GUI/mídia nativa em PCs Windows com diferentes GPUs e drivers.
-- [ ] Assinatura de código, ícone próprio, versão de arquivo, instalador e atualizações.
+- [x] Importador centralizado com validação de arquivo e limites de leitura.
+- [x] Ctrl+O e botão ABRIR ARQUIVO para digitar/colar caminhos.
+- [x] Suporte a abertura de `.lflash`/`.lfgame` como argumento de inicialização do Player.
+- [x] Script `ABRIR-JOGO.cmd` para abrir arquivos arrastados, sem Registro.
+- [x] Compatibilidade com drag/drop, validação de mudanças não salvas e relatórios de erros.
+- [x] Testes de leitura, argumentos, extensões, tamanhos e GUI.
+- [x] Teste com LÖVE real carregando jogo da linha de comando e build Windows portátil.
+- [ ] Seletor nativo de arquivos Windows e acesso Unicode integral em todos os sistemas.
+- [ ] Teste manual completo de GUI no Windows, com GPUs e drivers diferentes.
 
 ## Prioridades rumo ao Player 1.0
 
-- [ ] Testes de UX e desempenho em Windows com cenas e mídias reais.
-- [ ] Melhorar menus, erros, arrastar/soltar e apresentação de arquivos.
-- [ ] Reduzir latência/uso de memória em projetos grandes, otimizar colisões.
-- [ ] Distribuição assinada, configuração de versão e eventual instalador.
-- [ ] Testes multiplataforma e fluxo de publicação de versões estáveis.
+- [ ] Ícone e identidade visual originais para executável Windows.
+- [ ] Um seletor de arquivos real, sem depender de colagem de caminhos.
+- [ ] Testes de estabilidade prolongados com jogos e áudio em PC real.
+- [ ] Benchmarks de CPU/GPU/VRAM e otimização para projetos grandes.
+- [ ] Publicação assinada digitalmente e instalador opcional.
+- [ ] Melhorias de ergonomia, acessibilidade e localização.
 
-O Player é experimental; a presença de um executável portátil não significa que a versão 1.0 esteja pronta.
+O Player permanece experimental, e o Studio não foi alterado.
