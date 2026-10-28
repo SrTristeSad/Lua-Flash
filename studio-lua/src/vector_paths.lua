@@ -182,6 +182,107 @@ local function parseColor(s)
   if #parts~=4 or not rgba(parts) then return nil,"invalid color" end
   return parts
 end
+-- Build a change-set first; the editor records one undo snapshot and commits
+-- vectors together with native artwork and symbol instances.
+function M.planTransfer(v,layer,sources,delta,duplicate,totalFrames)
+  if not int(layer,1,128) or not int(delta,-10000,10000) or delta==0
+      or type(sources)~="table" or #sources==0 then return nil,"invalid transfer" end
+  local from={}, selected={}, outputs={}
+  local track=v.tracks[layer] or {}
+  for _,n in ipairs(sources) do
+    if not int(n,1,totalFrames) then return nil,"invalid source" end
+    selected[n]=true
+    from[#from+1]=n
+  end
+  local nextId=v.nextId
+  local idMap={}
+  for _,n in ipairs(from) do
+    local target=n+delta
+    if target<1 or target>totalFrames or
+        track[target] and (duplicate or not selected[target]) then
+      return nil,"vector destination occupied"
+    end
+    local visible=M.at(v,layer,n)
+    if #visible>0 or track[n] then
+      local paths=copy(visible)
+      if duplicate then
+        for _,p in ipairs(paths) do
+          if not idMap[p.id] then
+            if not int(nextId,1,10000000) then return nil,"vector ID limit" end
+            idMap[p.id]=nextId
+            nextId=nextId+1
+          end
+          p.id=idMap[p.id]
+        end
+      end
+      outputs[target]=paths
+    end
+  end
+  return {apply=function()
+    if not duplicate then
+      for _,n in ipairs(from) do track[n]=nil end
+    end
+    if next(outputs) then
+      v.tracks[layer]=track
+      for n,paths in pairs(outputs) do track[n]=paths end
+    end
+    v.nextId=nextId
+  end}
+end
+function M.planPaste(v,layer,frame,paths)
+  if not int(layer,1,128) or not int(frame,1,10000) or
+      type(paths)~="table" or #paths>500 then return nil,"invalid clipboard" end
+  local newPaths=copy(paths)
+  local nextId=v.nextId
+  local idMap={}
+  for _,path in ipairs(newPaths) do
+    if type(path)~="table" or not int(path.id,1,10000000)
+        or type(path.nodes)~="table" or #path.nodes==0 then return nil,"invalid vector" end
+    if not idMap[path.id] then
+      if not int(nextId,1,10000000) then return nil,"vector ID limit" end
+      idMap[path.id]=nextId
+      nextId=nextId+1
+    end
+    path.id=idMap[path.id]
+  end
+  return {apply=function()
+    v.tracks[layer]=v.tracks[layer] or {}
+    v.tracks[layer][frame]=newPaths
+    v.nextId=nextId
+  end}
+end
+local function svgNum(n) return string.format("%.4f",n) end
+local function svgColor(c)
+  if not c then return "none" end
+  return string.format("#%02X%02X%02X",
+    math.floor(c[1]*255+.5),math.floor(c[2]*255+.5),math.floor(c[3]*255+.5))
+end
+function M.svg(v,doc,frame)
+  local result={}
+  for li,layer in ipairs(doc.layers) do
+    if layer.visible then
+      for _,path in ipairs(M.at(v,li,frame)) do
+        local n=path.nodes
+        local commands={"M",svgNum(n[1].x),svgNum(n[1].y)}
+        local count=path.closed and #n or #n-1
+        for j=1,count do
+          local a,b=n[j],n[j%#n+1]
+          commands[#commands+1]="C"
+          for _,coordinate in ipairs({a.ox,a.oy,b.ix,b.iy,b.x,b.y}) do
+            commands[#commands+1]=svgNum(coordinate)
+          end
+        end
+        if path.closed then commands[#commands+1]="Z" end
+        result[#result+1]=string.format(
+          '<path d="%s" fill="%s" stroke="%s" stroke-width="%s" stroke-linejoin="round"/>',
+          table.concat(commands," "),svgColor(path.closed and path.fill),
+          svgColor(path.stroke),svgNum(path.width))
+      end
+    end
+  end
+  return table.concat(result,"\\n")
+end
+
 function M.encode(v)
   local out={"LFVECTOR 1"}
   for _,layer in ipairs(sorted(v.tracks)) do
