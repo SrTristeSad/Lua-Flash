@@ -386,6 +386,7 @@ function M.decode(data)
       end
       scope.tracks[li]=scope.tracks[li] or {}
       scope.tracks[li][fr]={}
+      seenIds={} -- a path identity may persist across successive keyframes
       layer,frame=li,fr
     elseif f[1]=="P" then
       local id,closed,width=tonumber(f[2]),f[3]=="1",tonumber(f[4])
