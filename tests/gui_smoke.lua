@@ -248,6 +248,39 @@ saved["projeto.lflash"]=source
 love.keypressed("o")
 love.draw()
 
+-- v0.23: compact letterboxed layout must keep buttons and scissor inside
+-- a 640x400 window, while matching pointer hit tests after scaling.
+local originalDimensions=love.graphics.getDimensions
+local originalScissor=love.graphics.setScissor
+local originalScale=love.graphics.scale
+local usedScale=false
+love.graphics.getDimensions=function() return 640,400 end
+love.graphics.setScissor=function(x,y,w,h)
+  if x then
+    assert(x>=0 and y>=0 and x+w<=641 and y+h<=401,
+      "compact stage scissor escaped physical window")
+  end
+end
+love.graphics.scale=function(x,y)
+  if x<1 and y<1 then usedScale=true end
+end
+love.draw()
+assert(usedScale,"compact UI must be scaled to fit the available window")
+local Responsive=require("src.responsive")
+local view=Responsive.layout(640,400)
+local bx,by=Responsive.screen(view,500,42)
+love.mousepressed(bx,by,1,false) -- PACOTE button in logical layout
+love.draw()
+ctrl=true;love.keypressed("s");ctrl=false
+assert(saved["player_game.lfgame"] and
+  require("src.package_v9").decode(saved["player_game.lfgame"]),
+  "compact UI click failed to open the packaged example")
+love.mousepressed(1,20,1,false) -- letterbox must not activate controls
+love.draw()
+love.graphics.getDimensions=originalDimensions
+love.graphics.setScissor=originalScissor
+love.graphics.scale=originalScale
+
 -- Studio has its own entry point, with independent window callbacks.
 package.loaded["src.model"]=nil
 package.loaded["src.runtime"]=nil
