@@ -22,15 +22,46 @@ local function mixShape(a,b,t)
   }
 end
 
+-- Segment compatibility is immutable for a loaded document. Evaluate once
+-- per key pair rather than comparing every vector on every sampled frame.
+local function compatible(a,b)
+  if #a~=#b then return false end
+  for i,shape in ipairs(a) do
+    local nextShape=b[i]
+    if shape.kind~=nextShape.kind or #shape.points~=#nextShape.points then
+      return false
+    end
+  end
+  return true
+end
+
 function I.new(doc)
-  local keys={}
-  for i,layer in ipairs(doc.layers) do
+  local self=setmetatable({
+    doc=doc,keys={},segments={},cachePosition=nil,cacheScene=nil,
+    computations=0,compatibilityChecks=0,blended=0
+  },I)
+  self:reindex()
+  return self
+end
+
+function I:reindex()
+  self.keys={}
+  self.segments={}
+  for i,layer in ipairs(self.doc.layers) do
     local indices={}
     for frame in pairs(layer.keys) do indices[#indices+1]=frame end
     table.sort(indices)
-    keys[i]=indices
+    self.keys[i]=indices
+    local segment={}
+    for index=1,#indices-1 do
+      local from,to=indices[index],indices[index+1]
+      segment[from]=compatible(layer.keys[from],layer.keys[to])
+      self.compatibilityChecks=self.compatibilityChecks+1
+    end
+    self.segments[i]=segment
   end
-  return setmetatable({doc=doc,keys=keys,cachePosition=nil,cacheScene=nil,computations=0},I)
+  self.cachePosition=nil
+  self.cacheScene=nil
 end
 
 function I:sample(position)
@@ -57,22 +88,14 @@ function I:sample(position)
     local output=shapes
     if previous and nextKey and position>previous then
       local dest=layer.keys[nextKey]
-      -- Blend only an entire compatible shape list to avoid accidental morphs
-      -- when objects appear, disappear or change type.
-      local compatible=#shapes==#dest
-      if compatible then
-        for j,a in ipairs(shapes) do
-          if a.kind~=dest[j].kind or #a.points~=#dest[j].points then
-            compatible=false
-            break
-          end
-        end
-      end
-      if compatible then
+      -- Compatibility was checked once when building the segment index.
+      -- A mismatched shape list still holds the preceding key unchanged.
+      if self.segments[i][previous] then
         local t=(position-previous)/(nextKey-previous)
         output={}
         for j,s in ipairs(shapes) do
           output[j]=mixShape(s,dest[j],t)
+          self.blended=self.blended+1
         end
       end
     end
