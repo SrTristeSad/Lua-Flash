@@ -1,51 +1,59 @@
-# Lua-Flash Player 0.16 — desfazer, rotação e escala
+# Lua-Flash Player 0.17 — recuperação rotativa e diagnósticos
 
-Runtime experimental para jogos `.lfgame` LUAFGAME 1–9 e animações `.lflash`, escrito em Lua/LÖVE. O Studio permanece um aplicativo independente.
+Player experimental de animações `.lflash` e jogos declarativos `.lfgame` (LUAFGAME 1–9), em Lua com LÖVE 11.5. O Studio é independente e não foi alterado nesta versão.
 
-## Editor visual de quadros-chave
+## Recuperação segura por jogo
 
-Abra um jogo com trilha de transformação (v8/v9), pressione **E** e selecione uma chave. Além de inserir/excluir, deslocar um quadro, ajustar X/Y e arrastar o sprite, a versão 0.16 possui:
+Na versão anterior existia apenas `player_recovery.lfgame`, que podia ser substituído durante a edição de outro jogo. A 0.17 substitui essa estratégia por um **identificador por arquivo original** e duas cópias alternadas:
 
-| Controle | Ação |
-|---|---|
-| **G - / G +** | Reduz/aumenta em 5° a rotação da chave. |
-| **SX - / SX +** | Diminui/aumenta a escala horizontal em 10%. |
-| **SY - / SY +** | Diminui/aumenta a escala vertical em 10%. |
-| **R / T** | Aumenta/diminui a rotação em 5°. |
-| **X / V** | Aumenta/diminui a escala horizontal em 10%. |
-| **B / N** | Aumenta/diminui a escala vertical em 10%. |
-| **DESFAZER / Ctrl+Z** | Reverte a operação editável mais recente. |
-| **Ctrl+Y ou Ctrl+Shift+Z** | Refaz a operação desfeita. |
-| **Ctrl+S** | Salva `player_game.lfgame` na pasta de dados do Player. |
-| **Ctrl+R** | Abre `player_recovery.lfgame`, desde que o jogo aberto não tenha mudanças pendentes. |
+```text
+recovery/<id-do-projeto>-a.rec
+recovery/<id-do-projeto>-b.rec
+```
 
-O histórico guarda as últimas **32 operações concluídas**; um arrasto inteiro conta como uma única operação. Um novo ajuste depois de desfazer descarta a sequência de refazer. Os dados originais de PNG/WAV não são duplicados dentro de cada snapshot.
+O identificador é um hash não criptográfico calculado a partir do nome e dos bytes do jogo original. É usado para **separação operacional**, não como autenticação ou proteção contra alterações maliciosas. Arquivos com nomes diferentes têm identidades diferentes; renomear, alterar ou substituir o original pode impedir a localização automática das cópias anteriores.
 
-As mudanças de ângulo respeitam -360° a +360° e as escalas permanecem entre 10% e 400%. Alterações inválidas são rejeitadas sem modificar a pose existente.
+Cada `.rec` guarda o pacote `.lfgame` completo, o número da sequência, o tamanho e uma soma de verificação. Ao recuperar, o Player valida o envelope, o checksum e o formato do jogo. Se o último slot estiver corrompido, tenta o outro.
 
-## Recuperação automática de edições
+**Uso:**
 
-Quando há modificações não salvas, a cada **12 segundos** o Player tenta validar e gravar o jogo atual em `player_recovery.lfgame`. É uma cópia separada: **não substitui o arquivo aberto nem o arquivo salvo por Ctrl+S**. O diretório de dados pode ser consultado pela mensagem após salvar o projeto.
+1. Abra o jogo original usando **PACOTE** ou arraste seu `.lfgame`.
+2. Edite no painel **E**. Após cerca de 12 segundos com alterações não salvas, o Player tenta salvar uma cópia.
+3. Após reiniciar, abra novamente **o mesmo arquivo original**. Pressione **Ctrl+R** para restaurar o slot válido mais recente.
+4. Verifique o resultado e use **Ctrl+S** para salvar `player_game.lfgame`; as duas cópias automáticas daquele projeto são apagadas depois de um salvamento bem-sucedido.
 
-Se uma sessão anterior foi interrompida, abra o Player, pressione **Ctrl+R** e, após revisar a recuperação, use **Ctrl+S** para guardar uma cópia. Para evitar perda das edições já abertas, o Player recusa carregar essa recuperação enquanto a sessão atual estiver modificada e não salva.
+O Player não substitui automaticamente projetos abertos: se houver edições pendentes, recusa carregar um jogo diferente ou recuperar outro estado. Primeiro salve com Ctrl+S.
 
-**Limitações:** a recuperação automática não é uma garantia contra falhas de disco, falta de energia, bloqueio do sistema ou uma gravação incompleta. Existe um único nome de cópia automática, portanto editar outro jogo pode substituir uma recuperação anterior; exporte cópias manuais importantes. O histórico de 32 passos é temporário e não é salvo no `.lfgame`.
+**Limitações reais:** a alternância entre dois slots mantém uma cópia anterior durante uma nova gravação, mas a escrita de cada slot não é atômica nem uma garantia contra falha de disco, sistema, permissão ou energia. O primeiro salvamento de recuperação tem apenas um slot. Recuperações geradas pela 0.16 no nome global `player_recovery.lfgame` não são importadas automaticamente, para evitar misturar dados de jogos diferentes. Copie manualmente seus arquivos importantes antes de atualizar.
 
-## Sem mudança de formato
+## Diagnóstico de desempenho — F3
 
-O formato permanece **LUAFGAME 9**. O Player continua executando animação de sprites, easing, eventos de áudio WAV, clique por alfa, colisões e timeline. Projetos antigos continuam válidos.
+Pressione **F3** para mostrar/ocultar um painel que apresenta FPS médio da amostragem recente, pior duração de atualização desde a abertura, memória Lua aproximada em MB, número de trilhas/chaves/recursos, máscaras alfa geradas e pares de colisões. É útil para comparar cenas e identificar crescimento de memória durante testes.
 
-O editor ainda é inicial: não tem seleção múltipla nem manipuladores de giro/escala diretamente no palco; rotação/escala são ajustadas por botões e atalhos. O Studio não foi alterado.
+As estatísticas são aproximadas: `collectgarbage("count")` mede memória gerenciada por Lua e **não** toda a memória de GPU, texturas e decodificadores do LÖVE. F3 não executa benchmarks nem mede latência de renderização por GPU.
+
+## Ferramentas preservadas
+
+- **E**: editor visual de quadros-chave, incluindo posição, rotação e escala.
+- **Ctrl+Z / Ctrl+Y**: histórico de até 32 alterações.
+- **Ctrl+S**: salvar jogo válido.
+- **Ctrl+R**: recuperação do jogo aberto.
+- **F8/F9/F10**: volume e silêncio de efeitos WAV.
+- **F11**: tela cheia.
+
+O formato de jogo continua **LUAFGAME 9**; jogos antigos permanecem aceitos. Nenhum arquivo importado executa scripts Lua arbitrários.
 
 ## Testes
 
 ```bash
+lua tests/recovery_test.lua
 lua tests/edit_history_test.lua
-lua tests/keyframe_editor_test.lua
 lua tests/gui_smoke.lua
 lua tests/package_v9_test.lua
 python3 tools/sync_core.py --check
 python3 tools/package_player.py
 ```
 
-A CI verifica histórico, integridade de formato, alterações de poses e recuperação, além de iniciar o Player no LÖVE real com uma tela virtual. O pacote `.love` ainda precisa de LÖVE instalado.
+A CI também executa o Player em LÖVE real com display virtual e publica `Lua-Flash-Player-0.17.love`.
+
+A homologação em equipamentos Windows reais e a distribuição sem a instalação separada do LÖVE continuam pendentes.

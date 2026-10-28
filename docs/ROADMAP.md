@@ -1,38 +1,38 @@
-# Lua-Flash — roteiro do Player
+# Lua-Flash — roadmap do Player
 
 ## Meta
 
-Entregar um runtime próprio de animações/jogos em Lua para PC, independente de arquivos SWF/FLA/ActionScript históricos. O Player fica em `player-lua/` e o Studio em `studio-lua/`; as alterações atuais são exclusivas do Player.
+Runtime independente de animações/jogos em Lua/LÖVE para PC, sem dependência de SWF, FLA ou ActionScript antigos. O Player (`player-lua/`) permanece separado do Studio (`studio-lua/`).
 
-## Base concluída — 0.1 a 0.15
+## Base implementada até 0.16
 
-- [x] Renderização vetorial, timeline, quadros-chave e interpolação.
-- [x] Entrada mouse/toque/teclado, eventos, regras e estados.
-- [x] LUAFGAME 1–9, com recursos PNG/WAV embutidos, sprites e transformações.
-- [x] Detecção de alfa, colisões amostradas no tempo e cache de recursos.
-- [x] Editor inicial de chave: adicionar, excluir, mover e arrastar sprites.
-- [x] Testes Lua, gráfico LÖVE em display virtual e build `.love`.
+- [x] Reprodução vetorial, timeline, interpolação e velocidades.
+- [x] Jogos declarativos LUAFGAME 1–9, mídias PNG/WAV e sprites animados.
+- [x] Mouse, teclado, toque, máscaras alfa e colisão temporal.
+- [x] Editor visual de quadros-chave, rotação, escala e easing.
+- [x] Undo/redo de 32 alterações e recuperação básica.
+- [x] Testes em Lua e LÖVE, empacotamento `.love`.
 
-## Player 0.16 — segurança para edições
+## Player 0.17 — recuperação e diagnóstico
 
-- [x] Histórico limitado a 32 alterações com Undo/Redo.
-- [x] Arrasto do sprite agrupado numa única operação.
-- [x] Ajuste de rotação e escalas X/Y no editor visual, com validação de limites.
-- [x] Snapshot leve com só poses/curvas, sem duplicar grandes recursos binários.
-- [x] Verificação da integridade do pacote antes de salvar.
-- [x] Cópia automática de recuperação para edições pendentes.
-- [x] Testes de desfazer/refazer, mudanças inválidas e recuperação pela interface.
-- [x] Formato LUAFGAME 9, sem modificar o Studio.
-- [ ] Backup rotativo/atômico por projeto e restauração de histórico entre sessões.
-- [ ] Testes de desempenho e UX em computadores reais.
+- [x] Cópias de recuperação isoladas por jogo original, sem utilizar um nome global compartilhado.
+- [x] Rotação de dois slots com sequência e verificação de integridade.
+- [x] Rejeição de recuperação corrompida ou pertencente a outro jogo.
+- [x] Recuperação apenas quando não há edições pendentes no projeto atual.
+- [x] Proteção contra abertura acidental de outro projeto com alterações não salvas.
+- [x] F3 com FPS, duração de atualização, memória Lua e contagem de elementos.
+- [x] Testes de corrupção, falha de escrita, isolamento, reset e indicadores.
+- [x] Compatibilidade com LUAFGAME 1–9, sem alterar Studio.
+- [ ] Gravação atômica no nível do sistema operacional e histórico persistente.
+- [ ] Perfil de GPU/CPU e testes reais com projetos grandes.
 
-## Foco futuro rumo ao Player 1.0 para PC
+## Prioridades até a versão 1.0 de PC
 
-- [ ] Melhorar histórico persistente e recuperação de projetos.
-- [ ] Manuseio de erros e logs, memória e CPU em jogos grandes.
-- [ ] Áudio mais robusto com canais e polifonia.
-- [ ] Editor visual de múltiplos objetos com ferramentas de rotação/escala.
-- [ ] Build nativo Windows, com LÖVE incorporado e teste de instalação.
-- [ ] Homologação manual em hardware Windows/Linux.
+- [ ] Robustez de carga, logs de erro e relatórios de crash.
+- [ ] Testes de estresse em cenas reais maiores e melhorias de memória/CPU.
+- [ ] Áudio polifônico e canais independentes.
+- [ ] Melhorias ergonômicas no editor e importação de mídia.
+- [ ] Windows standalone com LÖVE incorporado, além de empacotamentos Linux/macOS.
+- [ ] Validação de instalação, experiência de uso e estabilidade em máquinas reais.
 
-Não há execução arbitrária de scripts enviados nos jogos. Android/Web ficam fora do escopo imediato do 1.0 para PC.
+O Studio ainda não foi modificado e os jogos importados não executam código Lua fornecido por terceiros.
