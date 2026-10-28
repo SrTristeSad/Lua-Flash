@@ -281,6 +281,21 @@ love.graphics.getDimensions=originalDimensions
 love.graphics.setScissor=originalScissor
 love.graphics.scale=originalScale
 
+-- v0.24: F1 keyboard help; Tab selects a visible button, Enter activates it.
+love.keypressed("f1")
+love.draw()
+love.keypressed("escape")
+love.keypressed("tab")
+love.draw()
+love.keypressed("return")
+love.draw()
+ctrl=true;love.keypressed("s");ctrl=false
+assert(saved["player_game.lfgame"] and
+  require("src.package_v9").decode(saved["player_game.lfgame"]),
+  "keyboard focused PACOTE button failed")
+love.keypressed("escape")  -- clear focus, not quit
+love.draw()
+
 -- Studio has its own entry point, with independent window callbacks.
 package.loaded["src.model"]=nil
 package.loaded["src.runtime"]=nil
