@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.23. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.24. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -22,6 +22,7 @@ local FileImport=require("src.file_import")
 local NativeDialog=require("src.native_dialog")
 local WindowIcon=require("src.window_icon")
 local Responsive=require("src.responsive")
+local FocusNav=require("src.focus_nav")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -46,6 +47,8 @@ local showDiagnostics=false
 local selectedAudioChannel="effects"
 local pathPrompt={open=false,value="",message=""}
 local editor={open=false,track=1,segment=1,scroll=0,drag=nil}
+local focused=FocusNav.new()
+local showHelp=false
 local C={
   bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
   text={.90,.94,1},muted={.62,.69,.77},accent={.25,.70,.99},
@@ -109,6 +112,7 @@ local function install(doc,name,isDemo)
   recoveryClock=0
   recoveryStore=nil
   editor={open=false,track=1,segment=1,scroll=0,drag=nil}
+  focused:clear()
   document=doc
   lastRuntimeError=nil
   transport=Transport.new(document)
@@ -745,7 +749,7 @@ local function toggleSmooth()
 end
 
 function love.load(arguments)
-  love.window.setTitle("Lua-Flash Player 0.23")
+  love.window.setTitle("Lua-Flash Player 0.24")
   love.window.setMode(1040,690,{resizable=true,minwidth=600,minheight=380,highdpi=true})
   if os.getenv("LUA_FLASH_SMOKE_COMPACT")=="1" then
     love.window.setMode(640,400,{resizable=true,minwidth=600,minheight=380,highdpi=true})
@@ -846,7 +850,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.23  |  Interface adaptavel e icone Windows",21,60,C.muted,fonts.small)
+  label("PLAYER 0.24  |  Navegacao por teclado e acessibilidade",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -985,6 +989,48 @@ function love.draw()
     end
     lg.pop()
   end
+  local focusBox=focused:rect(w,h,top,stageHeight)
+  if focusBox and not pathPrompt.open and not editor.open and not showHelp then
+    lg.push("all")
+    lg.setColor(.98,.85,.32,1)
+    lg.setLineWidth(3)
+    lg.rectangle("line",focusBox[1]-3,focusBox[2]-3,
+      focusBox[3]+6,focusBox[4]+6,6,6)
+    lg.pop()
+  end
+  if showHelp then
+    lg.push("all")
+    lg.setColor(0,0,0,.74)
+    lg.rectangle("fill",0,0,w,h)
+    local pw=math.min(w-100,690)
+    local x,y=(w-pw)/2,math.max(90,(h-460)/2)
+    lg.setColor(.09,.13,.19,1)
+    lg.rectangle("fill",x,y,pw,460,12,12)
+    lg.setColor(C.accent)
+    lg.setLineWidth(2)
+    lg.rectangle("line",x+1,y+1,pw-2,458,12,12)
+    label("AJUDA E ATALHOS — PLAYER 0.24",x+20,y+16,C.text,fonts.heading)
+    local keys={
+      "TAB / Shift+TAB  : alternar entre botoes visiveis",
+      "ENTER           : ativar botao selecionado",
+      "ESC             : fechar ajuda ou limpar selecao",
+      "Ctrl+O          : abrir arquivo / janela nativa Windows",
+      "Ctrl+Shift+O    : abrir campo de caminho manual",
+      "Ctrl+S          : salvar alteracoes",
+      "Ctrl+Z / Ctrl+Y: desfazer / refazer",
+      "Espaco          : pausar / reproduzir",
+      "Setas esquerda/direita : navegar por quadros",
+      "E               : editor de animacoes",
+      "F3              : diagnostico de desempenho",
+      "F5–F10         : canais de audio e volume",
+      "F11             : tela cheia",
+      "F1              : abrir ou fechar esta ajuda",
+    }
+    for i,key in ipairs(keys) do
+      label(key,x+23,y+67+(i-1)*25,C.text,fonts.small)
+    end
+    lg.pop()
+  end
   if showDiagnostics then
     local report=diagnostics:snapshot(packageDefinition,media,session)
     lg.push("all")
@@ -1018,6 +1064,8 @@ end
 
 function love.mousepressed(x,y,key,istouch)
   if istouch or key~=1 then return end
+  focused:clear()
+  if showHelp then showHelp=false;return end
   x,y=logicalPointer(x,y)
   if not x then return end
   if pathPrompt.open then return end
@@ -1123,9 +1171,50 @@ function love.focus(focused)
   if not focused then input:reset() end
 end
 
+local function keyboardActivate()
+  local action=focused:selected()
+  if not action then return false end
+  if action=="package" then openGameExample()
+  elseif action=="game" then startGame()
+  elseif action=="demo" then
+    if canReplace() then install(Demo.create(),"Demonstracao interna",true) end
+  elseif action=="open" then openFilePicker()
+  elseif action=="loop" then transport.loop=not transport.loop
+  elseif action=="prev" then transport:step(-1)
+  elseif action=="play" then transport:toggle()
+  elseif action=="next" then transport:step(1)
+  elseif action=="slow" then transport:cycleSpeed(-1)
+  elseif action=="speed" then transport:cycleSpeed(1)
+  elseif action=="fast" then transport:cycleSpeed(1)
+  elseif action=="smooth" then toggleSmooth()
+  end
+  return true
+end
+
 function love.keypressed(key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if pathPrompt.open then editPathKey(key,ctrl);return end
+  if key=="f1" then showHelp=not showHelp;return end
+  if showHelp then
+    if key=="escape" or key=="return" or key=="kpenter" then
+      showHelp=false
+    end
+    return
+  end
+  if key=="tab" and not editor.open then
+    local reverse=love.keyboard.isDown("lshift","rshift")
+    notice="Controle selecionado: "..focused:next(reverse).." (Enter: executar)."
+    return
+  end
+  if focused:selected() and (key=="return" or key=="kpenter") and
+      not editor.open and not ctrl then
+    keyboardActivate();return
+  end
+  if key=="escape" and focused:selected() then
+    focused:clear()
+    notice="Navegacao por teclado encerrada."
+    return
+  end
   if ctrl and key=="o" then
     if love.keyboard.isDown("lshift","rshift") then openPathPrompt()
     else openFilePicker() end
