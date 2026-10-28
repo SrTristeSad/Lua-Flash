@@ -13,6 +13,14 @@ local colorIndex,thickness=1,4
 local view={x=180,y=58,w=800,h=480,ox=0,oy=0,scale=1}
 local tools={{"select","V Selecionar"},{"brush","B Pincel"},{"line","L Linha"},{"rect","R Retangulo"},{"ellipse","O Elipse"},{"erase","E Borracha"}}
 local font
+local projectName="projeto"
+local naming=false
+local nameDraft=""
+local function cleanName(name)
+  name=(name or ""):gsub("^%s+",""):gsub("%s+$","")
+  if #name<1 or #name>64 or name:find("[^%w_%-]") then return nil end
+  return name
+end
 
 local function dimensions()
   local w,h=love.graphics.getDimensions()
@@ -45,8 +53,15 @@ local function history(reverse)
 end
 
 local function save()
-  local ok,err=love.filesystem.write("projeto.lflash",Model.encode(doc))
-  msg=ok and ("Projeto salvo: "..love.filesystem.getSaveDirectory().."/projeto.lflash") or ("Erro ao salvar: "..tostring(err))
+  local filename=projectName..".lflash"
+  local bytes=Model.encode(doc)
+  local ok,err=love.filesystem.write(filename,bytes)
+  msg=ok and ("Projeto salvo: "..love.filesystem.getSaveDirectory().."/"..filename) or ("Erro ao salvar: "..tostring(err))
+end
+local function beginSaveAs()
+  naming=true
+  nameDraft=projectName=="projeto" and "" or projectName
+  msg="Salvar como: digite um nome (letras, numeros, _ ou -). Enter confirma; Esc cancela."
 end
 
 local function load(data)
@@ -62,11 +77,13 @@ local function newProject()
   install(Model.new(800,450,24))
   runtime.playing=false
   mode="studio"
+  projectName="projeto"
+  naming=false
   msg="Novo projeto criado (Ctrl+Z para recuperar o anterior)"
 end
 
 local function openLast()
-  local s,err=love.filesystem.read("projeto.lflash")
+  local s,err=love.filesystem.read(projectName..".lflash")
   if s then load(s) else msg="Arquivo nao encontrado: "..tostring(err) end
 end
 
@@ -211,13 +228,14 @@ local function ui()
   end
   lg.setColor(.1,.12,.14)
   lg.rectangle("fill",0,h-24,w,24)
-  label(msg,10,h-20,{.76,.8,.85})
+  label(naming and ("SALVAR COMO > "..nameDraft.."_") or msg,10,h-20,{.76,.8,.85})
 end
 
 function love.draw() ui() end
 
 function love.mousepressed(mx,my,mousebutton)
   if mousebutton~=1 then return end
+  if naming then return end
   local w,h,track=dimensions()
   if inBox(mx,my,160,8,95,34) then mode="studio";runtime.playing=false;return end
   if inBox(mx,my,263,8,95,34) then mode="player";runtime.playing=true;return end
@@ -306,10 +324,34 @@ function love.wheelmoved(_,dy)
   end
 end
 
+function love.textinput(text)
+  if naming and #nameDraft+#text<=64 and not text:find("[^%w_%-]") then
+    nameDraft=nameDraft..text
+  end
+end
+
 function love.keypressed(key)
+  if naming then
+    if key=="escape" then naming=false;msg="Salvar como cancelado";return end
+    if key=="backspace" then nameDraft=nameDraft:sub(1,-2);return end
+    if key=="return" or key=="kpenter" then
+      local safe=cleanName(nameDraft)
+      if not safe then msg="Nome invalido: use letras, numeros, _ ou -";return end
+      local filename=safe..".lflash"
+      if safe~=projectName and love.filesystem.getInfo and love.filesystem.getInfo(filename) then
+        msg="Arquivo existente. Escolha outro nome.";return
+      end
+      projectName=safe
+      naming=false
+      save()
+      return
+    end
+    return
+  end
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   local shift=love.keyboard.isDown("lshift","rshift")
   if ctrl and key=="n" then newProject();return end
+  if ctrl and shift and key=="s" then beginSaveAs();return end
   if ctrl and key=="s" then save();return end
   if ctrl and key=="o" then openLast();return end
   if ctrl and key=="e" then
@@ -363,5 +405,9 @@ function love.filedropped(file)
   if not file:open("r") then msg="Nao foi possivel abrir arquivo";return end
   local content=file:read()
   file:close()
-  if content then load(content) end
+  if content then
+    load(content)
+    projectName="projeto"
+    msg="Projeto importado. Ctrl+Shift+S permite salvar com novo nome."
+  end
 end
