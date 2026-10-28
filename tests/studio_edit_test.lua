@@ -143,7 +143,7 @@ print("OK: Studio drag, duplication, undo and first-frame protection")
 press("n",true)
 press("right")
 press("f6")
-love.mouse={getPosition=function() return 270,780-170+45 end}
+love.mouse={getPosition=function() return 250,780-170+45 end}
 modifiers.lctrl=true
 love.wheelmoved(0,4)
 modifiers.lctrl=false
