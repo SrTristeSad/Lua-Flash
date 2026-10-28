@@ -1093,15 +1093,21 @@ function love.mousereleased(_,_,button)
     if op.source~=op.target then
       local tx,err=TimelineOps.plan(doc,trackLibrary(),doc.currentLayer,
         op.sources,op.target-op.source,op.duplicate)
-      if tx then
+      local vectorTx,vectorErr
+      if tx and not editingSymbolId then
+        vectorTx,vectorErr=Vector.planTransfer(vectors,doc.currentLayer,
+          op.sources,op.target-op.source,op.duplicate,doc.totalFrames)
+      end
+      if tx and (editingSymbolId or vectorTx) then
         snapshot()
         tx.apply()
+        if vectorTx then vectorTx.apply() end
         selectedKeys={}
         for _,frame in ipairs(tx.destinations) do selectedKeys[frame]=true end
         setFrame(op.target)
         msg=op.duplicate and "Quadros e instancias duplicados" or "Quadros e instancias movidos"
       else
-        msg="Operacao cancelada: "..tostring(err)
+        msg="Operacao cancelada: "..tostring(err or vectorErr)
       end
     end
   end
@@ -1323,7 +1329,8 @@ function love.keypressed(key)
   if ctrl and key=="c" and mode=="studio" then
     frameClipboard={
       shapes=clone(Model.frame(active(),doc.currentFrame)),
-      instances=clone(Library.at(trackLibrary(),doc.currentLayer,doc.currentFrame))
+      instances=clone(Library.at(trackLibrary(),doc.currentLayer,doc.currentFrame)),
+      vectors=not editingSymbolId and clone(Vector.at(vectors,doc.currentLayer,doc.currentFrame)) or {}
     }
     msg="Quadro e instancias copiados"
     return
@@ -1333,8 +1340,15 @@ function love.keypressed(key)
     local tx,err=TimelineOps.planPaste(doc,trackLibrary(),doc.currentLayer,
       doc.currentFrame,frameClipboard)
     if not tx then msg="Nao foi possivel colar: "..tostring(err);return end
+    local vectorTx,vectorErr
+    if not editingSymbolId then
+      vectorTx,vectorErr=Vector.planPaste(vectors,doc.currentLayer,
+        doc.currentFrame,frameClipboard.vectors or {})
+      if not vectorTx then msg="Nao foi possivel colar vetor: "..tostring(vectorErr);return end
+    end
     snapshot()
     tx.apply()
+    if vectorTx then vectorTx.apply() end
     selected=nil
     msg="Quadro e instancias colados"
     return
@@ -1351,7 +1365,11 @@ function love.keypressed(key)
   if ctrl and key=="s" then save();return end
   if ctrl and key=="o" then openLast();return end
   if ctrl and key=="e" then
-    local ok,err=love.filesystem.write("quadro.svg",Model.svg(doc,doc.currentFrame))
+    local svg=Model.svg(doc,doc.currentFrame)
+    if not editingSymbolId then
+      svg=svg:gsub("</svg>",Vector.svg(vectors,doc,doc.currentFrame).."</svg>")
+    end
+    local ok,err=love.filesystem.write("quadro.svg",svg)
     msg=ok and "SVG exportado para pasta de dados do Lua-Flash" or tostring(err)
     return
   end
