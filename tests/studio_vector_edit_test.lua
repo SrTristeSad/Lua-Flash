@@ -106,3 +106,23 @@ do
   assert(V.encode(assert(V.decode(V.encode(v))))==V.encode(v))
   print("OK: bucket fill/erase for previously unfilled closed Bézier areas")
 end
+
+
+do
+  local v=V.new()
+  local p=path(v,{{0,0},{100,0}})
+  local before=V.encode(v)
+  local tx=assert(Ops.planBend(v,1,1,p.id,1,.5,0,20))
+  assert(V.encode(v)==before,"planning curve deformation must be pure")
+  tx.apply()
+  local changed=V.at(v,1,1)[1]
+  assert(changed.nodes[1].x==0 and changed.nodes[1].y==0)
+  assert(changed.nodes[2].x==100 and changed.nodes[2].y==0)
+  local middleY=.375*changed.nodes[1].oy+.375*changed.nodes[2].iy
+  assert(approx(middleY,20,1e-6),
+    "the segment must pass through pointer delta at dragged parameter")
+  assert(not Ops.bendSegment(changed,1,.01,0,20))
+  assert(not Ops.bendSegment(changed,1,.5,1e8,0))
+  assert(V.encode(assert(V.decode(before)))==before)
+  print("OK: curve segment drag reshapes controls while endpoints remain fixed")
+end
