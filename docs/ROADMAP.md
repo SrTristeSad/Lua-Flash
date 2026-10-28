@@ -37,3 +37,31 @@ Player independente de animações e jogos em Lua/LÖVE, com formatos declarativ
 - [ ] Homologação prolongada com Windows e Linux reais.
 
 O Player continua experimental.
+
+
+## Direção de desenvolvimento após 0.28
+
+**Prioridade: 80% Studio / 20% Player.** O Studio será a ferramenta principal de autoria; o Player continuará um programa gráfico independente, sem regressão para terminal obrigatório. Comandos de terminal serão opcionais para automação, CI, empacotamento e diagnóstico. Ambos compartilham o formato `.lflash`, não uma interface monolítica.
+
+### Studio (prioridade imediata)
+
+- [x] Base de desenho, timeline, camadas e prévia integrada.
+- [x] Projeto novo, mostrar/ocultar e bloquear/desbloquear camada por teclado.
+- [x] Pacote independente `.love` e teste de regressão da edição.
+- [ ] Fluxo de projetos com nomes, Salvar como, confirmação de substituição e arquivos recentes.
+- [ ] Gerenciamento visual de camadas (visibilidade, bloqueio, ordem e renomeação).
+- [ ] Timeline com zoom, rolagem, seleção múltipla e operações entre quadros.
+- [ ] Importar mídias e editar objetos, sprites, áudio e eventos com prévia no Player.
+- [ ] Exportação de jogo pelo Studio com validação LUAFGAME e testes de ida e volta.
+- [ ] Testes visuais e de usabilidade, inclusive janelas menores e projetos grandes.
+- [ ] Builds Windows independentes e homologação antes de qualquer rótulo 1.0.
+
+### Player (manutenção e CLI opcional)
+
+- [x] Interface gráfica, reprodução vetorial, mídia e LUAFGAME 1–9.
+- [x] Opção de abrir arquivo como argumento de linha de comando.
+- [ ] Preservar a GUI como fluxo padrão e documentar interface CLI sem duplicar o runtime.
+- [ ] Corrigir regressões achadas pelo Studio e priorizar estabilidade, não novas features.
+- [ ] Medição em hardware físico e testes prolongados para homologação.
+
+**Critério de 1.0:** criar e salvar projeto no Studio, abrir e reproduzir no Player, exportar, reabrir sem perder dados e executar builds Windows estáveis com testes de regressão. A CI automatizada não substitui testes físicos.
