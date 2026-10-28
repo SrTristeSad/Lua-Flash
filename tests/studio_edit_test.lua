@@ -522,6 +522,23 @@ local rotated=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
 for _,item in ipairs(rotated.tracks[1][1]) do
   assert(item.angle==5,"group rotation must affect every selected instance")
 end
+-- Dragging an already selected member moves the entire group with one undo.
+love.mousepressed(330,265,1)
+love.mousemoved(349,278,19,13)
+love.mousereleased(349,278,1)
+project()
+local draggedGroup=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+for i,item in ipairs(draggedGroup.tracks[1][1]) do
+  assert(item.x>rotated.tracks[1][1][i].x+5,
+    "dragging group member must move every selected instance")
+end
+press("z",true)
+project()
+local dragUndone=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+for i,item in ipairs(dragUndone.tracks[1][1]) do
+  assert(math.abs(item.x-rotated.tracks[1][1][i].x)<.001,
+    "one undo must revert the entire group drag")
+end
 press("z",true)
 project()
 local rotationUndo=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
