@@ -57,6 +57,14 @@ local function load(data)
   msg="Projeto Lua-Flash aberto"
 end
 
+local function newProject()
+  snapshot()
+  install(Model.new(800,450,24))
+  runtime.playing=false
+  mode="studio"
+  msg="Novo projeto criado (Ctrl+Z para recuperar o anterior)"
+end
+
 local function openLast()
   local s,err=love.filesystem.read("projeto.lflash")
   if s then load(s) else msg="Arquivo nao encontrado: "..tostring(err) end
@@ -104,7 +112,7 @@ local function button(s,x,y,w,h,activeButton)
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Studio 0.1 (com pre-visualizacao)")
+  love.window.setTitle("Lua-Flash Studio 0.2 (com pre-visualizacao)")
   love.window.setMode(1200,780,{resizable=true,minwidth=850,minheight=590})
   love.graphics.setDefaultFilter("linear","linear")
   font=love.graphics.newFont(13)
@@ -160,7 +168,7 @@ local function ui()
     end
     label("Palco "..doc.width.." x "..doc.height,w-185,track-92)
     label("FPS: "..doc.fps,w-185,track-72)
-    label("Camada "..doc.currentLayer,w-185,track-52)
+    label("Camada "..doc.currentLayer.." | F7 vis. F8 trava",w-185,track-52)
   end
 
   runtime.draw(doc,doc.currentFrame,view.x,view.y,view.w,view.h)
@@ -301,6 +309,7 @@ end
 function love.keypressed(key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   local shift=love.keyboard.isDown("lshift","rshift")
+  if ctrl and key=="n" then newProject();return end
   if ctrl and key=="s" then save();return end
   if ctrl and key=="o" then openLast();return end
   if ctrl and key=="e" then
@@ -314,8 +323,22 @@ function love.keypressed(key)
   if key=="space" then runtime.playing=not runtime.playing;return end
   if key=="left" then runtime.playing=false;setFrame(doc.currentFrame-1);return end
   if key=="right" then runtime.playing=false;setFrame(doc.currentFrame+1);return end
-  if key=="f1" then msg="TAB Player/Studio | V B L R O E ferramentas | F6 key | Ctrl+S salvar | Ctrl+O abrir";return end
+  if key=="f1" then msg="TAB Studio/Player | F6 chave | F7 visibilidade | F8 trava | Ctrl+N novo | Ctrl+S salva";return end
   if mode~="studio" then return end
+  if key=="f7" then
+    if not active() then return end
+    snapshot()
+    active().visible=not active().visible
+    msg=active().visible and "Camada visivel" or "Camada oculta"
+    return
+  end
+  if key=="f8" then
+    if not active() then return end
+    snapshot()
+    active().locked=not active().locked
+    msg=active().locked and "Camada bloqueada" or "Camada desbloqueada"
+    return
+  end
   if key=="f6" then
     if active().locked then msg="Camada bloqueada";return end
     snapshot()
