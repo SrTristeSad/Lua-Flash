@@ -178,13 +178,11 @@ end
 -- Recovery is an additional copy, never written over the imported game.
 -- Writes happen only after edits have settled for 12 seconds, not per drag.
 local function autosaveRecovery(dt)
-  if not history or not history:isDirty() then
-    recoveryClock=0
-    return
-  end
+  if not history then return end
   recoveryClock=recoveryClock+dt
   if recoveryClock<12 then return end
   recoveryClock=0
+  if not history:isDirty() then return end
   local ok,content=pcall(GamePackage.encode,packageDefinition)
   if not ok or not content then return end
   local wrote=love.filesystem.write("player_recovery.lfgame",content)
@@ -285,6 +283,7 @@ local function editorNavigateSegments(delta)
   if editor.segment>editor.scroll+4 then editor.scroll=editor.segment-4 end
   notice="Trecho selecionado: "..track.keys[editor.segment].frame
 end
+local editBegin,editCommit,editorUndo,editorAdjustPose
 local function editorCycleCurve()
   local track,key,mode=editorSelection()
   if not track or editor.segment==#track.keys then
@@ -320,16 +319,16 @@ local function editorRefresh()
   if media then media.tween=SpriteTween.new(packageDefinition) end
   notice="Quadros-chave atualizados. Ctrl+S para salvar."
 end
-local function editBegin()
+editBegin=function()
   return history and history:begin(editor.track,editor.segment) or nil
 end
-local function editCommit(before)
+editCommit=function(before)
   if history and history:record(before) then
     recoveryClock=0
     editorRefresh()
   end
 end
-local function editorUndo(redo)
+editorUndo=function(redo)
   if not history then return end
   if editor.drag then editor.drag=nil end
   local track,selected,err
@@ -352,7 +351,7 @@ local function editorUndo(redo)
   if media then media.tween=SpriteTween.new(packageDefinition) end
   notice=redo and "Refazer aplicado." or "Desfazer aplicado."
 end
-local function editorAdjustPose(which,delta)
+editorAdjustPose=function(which,delta)
   local track,key=editorSelection()
   if not key then return end
   local before=editBegin()
@@ -848,10 +847,11 @@ function love.keypressed(key)
   input:key("down",key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if ctrl and key=="s" then saveCopy();return end
-  if ctrl and key=="z" then editorUndo(false);return end
-  if ctrl and (key=="y" or (key=="z" and love.keyboard.isDown("lshift","rshift"))) then
+  if ctrl and (key=="y" or
+      (key=="z" and love.keyboard.isDown("lshift","rshift"))) then
     editorUndo(true);return
   end
+  if ctrl and key=="z" then editorUndo(false);return end
   if ctrl and key=="r" then openRecovery();return end
   if key=="e" and packageDefinition and packageDefinition.version>=8 and
       packageDefinition.tweens and #packageDefinition.tweens>0 then
