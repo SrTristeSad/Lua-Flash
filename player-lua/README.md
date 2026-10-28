@@ -1,42 +1,50 @@
-# Lua-Flash Player 0.27 — cache vetorial e CPU
+# Lua-Flash Player 0.28 — culling vetorial e interpolação otimizada
 
-Player experimental de jogos declarativos LUAFGAME 1–9 (`.lfgame`) e animações `.lflash` em Lua/LÖVE. O Studio é independente e não recebe modificações do Player.
+Player experimental em Lua/LÖVE para animações `.lflash` e jogos `.lfgame` LUAFGAME 1–9. O Studio permanece separado e não foi modificado.
 
-## Cache de renderização por quadro
+## Ignorar formas totalmente fora da tela
 
-`src/render_cache.lua` indexa os números de quadros-chave de cada camada em ordem crescente. Para uma posição inteira, a busca binária escolhe a última chave cuja posição seja menor ou igual à posição desejada, preservando exatamente o comportamento de `Model.frame`.
+O novo módulo `src/viewport_renderer.lua` é um renderizador exclusivo do Player. Antes de enviar as formas vetoriais ao LÖVE, ele calcula seus limites geométricos em **coordenadas do documento** e não desenha formas completamente fora de `[0, doc.width] × [0, doc.height]`.
 
-Quando o mesmo quadro é desenhado novamente, uma pequena cena vetorial indexada é reutilizada. Cada quadro ativo referencia a lista de formas original; não é feita cópia do projeto nem criado um cache ilimitado para todos os quadros. O cache mantém somente a última cena, e a troca de arquivo reinicializa o índice.
+Por segurança, pinceladas e linhas incluem a metade da espessura do traço mais uma pequena margem. Isso evita descartar uma linha cujo centro está fora do palco, mas cujo traço alcança a borda. Retângulos, elipses, linhas e pincéis continuam usando as mesmas primitivas gráficas do renderizador anterior; a ordem de desenho e a visibilidade das camadas são preservadas.
 
-Isso otimiza o modo **sem interpolação**, no qual antes o renderizador original percorria as chaves de todas as camadas. O modo interpolado mantém a implementação já existente, com busca binária por chave. O código compartilhado com o Studio não foi modificado.
+As dimensões do palco não mudam. O recorte gráfico usa coordenadas da janela convertidas para a escala responsiva, evitando recortes desalinhados em janelas compactas como 640 × 400.
 
-Em um documento com K chaves por camada, a localização de uma chave muda de O(K) para O(log K) na primeira exibição do quadro, enquanto quadros repetidos reutilizam a cena. O trabalho de desenhar as formas continua proporcional à quantidade visível. Nenhum ganho de FPS específico é prometido.
+Um cache de limites com chaves fracas reutiliza cálculos para formas originais sem segurar na memória todas as formas interpoladas descartadas. Esse cache pressupõe uma cena autoral estável; ao modificar formas vetoriais em memória, é necessário chamar `renderer:invalidate()`. Abrir outro projeto no Player cria um novo renderizador e limpa esses dados automaticamente.
 
-O teste `tests/render_cache_test.lua` usa 18 camadas e 11.520 formas vetoriais; compara o resultado com `Model.frame`, verifica camadas invisíveis, quadros intermediários, reuso da mesma cena, reconstrução manual quando chaves são alteradas e passagem pelo renderizador LÖVE.
+**Limitações:** as formas são examinadas individualmente; descartar uma forma evita sua chamada de desenho, mas o algoritmo ainda tem custo linear pelo número de formas visíveis ou potencialmente externas. Não é um *spatial index* e não realiza culling de sprites PNG neste estágio. Também não promete aumento de FPS em todos os jogos.
 
-## Diagnóstico de CPU no F3
+## Compatibilidade de quadros-chave calculada uma vez
 
-O módulo `src/perf_monitor.lua` armazena até **120 durações por tipo de callback** (`update` e `draw`). O painel **F3** mostra:
+O `src/interpolation.lua` agora calcula no `I.new` a compatibilidade de cada par de chaves adjacentes, com `reindex()` explícito para mudanças no documento. Durante a reprodução, a busca binária identifica o segmento e consulta o resultado da compatibilidade já calculada.
 
-- Tempo médio e máximo recente, em milissegundos, gasto na atualização e desenho do lado do Lua;
-- Quantidade de reconstruções e reutilizações de cenas vetoriais;
-- FPS, memória Lua, recursos, máscaras e canais de áudio já disponíveis.
+Formas com mesmo tipo e mesmo número de pontos continuam sendo interpoladas. Listas ou formas incompatíveis **seguram a forma do quadro anterior**, exatamente como antes. Quadros exatos continuam referenciando as formas autorais, sem cópias desnecessárias.
 
-O cronômetro usa `love.timer.getTime()` quando há LÖVE real, com fallback `os.clock()` em simulações. Não representa tempo de apresentação da GPU nem mede VRAM, driver ou processamento assíncrono da placa de vídeo. Os registros são limitados para não crescerem indefinidamente.
+## F3 e testes
 
-## Testes e execução
+O painel F3 apresenta quantas formas foram desenhadas e quantas foram ignoradas por estarem fora da tela no quadro atual. Mantém também CPU média/máxima de desenho e atualização, memória Lua, diagnóstico de recursos e áudio.
+
+Testes adicionados:
+- `tests/viewport_renderer_test.lua` — bordas, pinceladas, linhas grossas, retângulos, elipses, cache e janela 640 × 400.
+- `tests/interpolation_segments_test.lua` — compatibilidade pré-calculada, formas incompatíveis e invalidação da lista de segmentos.
+- `tests/culling_stress_test.lua` — 18 camadas, 32 chaves por camada e 20 formas por chave (**11.520 formas**). Compara o número de primitivas desenhadas pelo renderizador antigo e pelo novo e verifica amostras interpoladas.
+
+Esses testes não equivalem a medições físicas de GPU/VRAM. Ainda é necessário comparar desempenho e qualidade visual em PCs Windows reais e jogos com mídias PNG grandes.
+
+## Distribuição
+
+O ZIP Windows x64 inclui o motor LÖVE 11.5 oficial, seu ícone original, DLLs e metadados de arquivo **0.28.0.0**. Não exige instalar LÖVE, mas continua sem assinatura digital. O pacote `.love` permanece disponível para outros sistemas.
+
+Os comandos anteriores continuam: F1 ajuda; F2 alto contraste; F3 diagnósticos; Ctrl+O abrir; Ctrl+S salvar; Ctrl+Z/Y desfazer/refazer; E editor; Ctrl+mais/menos/zero alterar tamanho de fonte.
+
+## Executar verificações
 
 ```bash
-lua tests/render_cache_test.lua
-lua tests/perf_monitor_test.lua
-lua tests/stress_player_test.lua
-lua tests/endurance_player_test.lua
+lua tests/viewport_renderer_test.lua
+lua tests/interpolation_segments_test.lua
+lua tests/culling_stress_test.lua
 lua tests/gui_smoke.lua
 python3 tools/package_player.py
 ```
 
-A CI executa regressões LUAFGAME, o Player no LÖVE gráfico com display virtual e a build Windows x64. O executável portátil contém o LÖVE oficial 11.5, ícone próprio e metadados **0.27.0.0**. Não exige instalar LÖVE no PC, mas ainda não possui assinatura digital.
-
-**Limitações:** benchmark e perfil de CPU/GPU/VRAM em computadores Windows físicos continuam pendentes. O cache exato pode ser reconstruído quando um documento for alterado, usando seu método `reindex`; o editor do Player atual altera trilhas de sprites, não chaves vetoriais da cena.
-
-Os atalhos anteriores continuam: F1 ajuda, F2 alto contraste, F3 diagnóstico, E editor, Tab navegação, Ctrl+S salvar, Ctrl+Z/Y desfazer/refazer e Ctrl+mais/menos/zero alterar fonte.
+O Studio não foi alterado, e o formato LUAFGAME 9 continua compatível.

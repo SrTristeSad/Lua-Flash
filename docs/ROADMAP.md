@@ -1,37 +1,39 @@
-# Lua-Flash — roteiro de desenvolvimento do Player
+# Lua-Flash — roteiro do Player
 
 ## Objetivo
 
-Motor de animação/jogos Lua/LÖVE, com formatos próprios LUAFGAME 1–9 e `.lflash`, sem compatibilidade com SWF/FLA/ActionScript. O Player fica em `player-lua/`, enquanto o Studio permanece em `studio-lua/` sem alterações nas etapas do Player.
+Player independente de animações e jogos em Lua/LÖVE, com formatos declarativos LUAFGAME 1–9 e `.lflash`; não executa Adobe SWF/FLA/ActionScript. O Studio fica em `studio-lua/` e não recebe modificações nas etapas do Player.
 
-## Entregas até 0.26
+## Entregas até 0.27
 
-- [x] Timeline, keyframes, interpolação, easing e sprites com transformação.
-- [x] PNG/WAV, áudio polifônico, regras de jogo, colisões e controles.
-- [x] Editor, undo/redo, recuperação de projeto, diagnóstico e logs.
-- [x] Windows x64 portátil com runtime LÖVE, seletor Unicode, ícone e VERSIONINFO.
-- [x] Interface adaptável, navegação por teclado, alto contraste e tamanho de fonte.
-- [x] Testes de compatibilidade, cenário com 11.520 formas e simulação virtual de longa duração.
+- [x] Timeline, quadros-chave, easing, sprites e renderização vetorial.
+- [x] Jogos com PNG/WAV, áudio polifônico, regras, colisões e eventos.
+- [x] Editor, Undo/Redo, backups verificados, logs e diagnósticos F3.
+- [x] Windows x64 portátil com runtime oficial LÖVE, ícone e versão nativa.
+- [x] Interface adaptável, teclado, alto contraste e tamanho de fonte.
+- [x] Cache vetorial indexado e medição limitada de CPU no Player.
+- [x] Testes Lua/LÖVE/Windows, estresse sintético e simulação de 20 minutos.
 
-## Player 0.27 — gargalos e medição
+## Player 0.28 — culling e interpolação
 
-- [x] Índice por camada com busca binária para reprodução vetorial exata.
-- [x] Reutilização limitada a uma cena por documento/quadro.
-- [x] Sem mutação de dados ou alterações no renderizador compartilhado com Studio.
-- [x] Contadores de cache no F3.
-- [x] Monitoramento de CPU de `update`/`draw` com histórico circular de 120 amostras.
-- [x] Teste de regressão do cache com 18 camadas e 11.520 formas.
-- [x] Teste de 40.000 amostras de medição sem crescimento indefinido.
-- [x] Versão Windows 0.27.0.0 e compatibilidade LUAFGAME preservada.
-- [ ] Medir ganho real de FPS/CPU com GPU e hardware físico.
-- [ ] Perfil de renderização interpolada, sprites/mídias e colisões em jogos grandes reais.
+- [x] Renderizador exclusivo do Player que ignora formas fora do palco.
+- [x] Margens conservadoras de traço para preservar formas nas bordas.
+- [x] Cache fraco de limites de formas com invalidação explícita.
+- [x] Recorte do palco coerente com escala responsiva 640 × 400.
+- [x] Compatibilidade de segmentos de interpolação pré-calculada e reindexável.
+- [x] Contadores F3 de formas desenhadas e descartadas.
+- [x] Testes de geometria, bordas, interpolação e cenário com 11.520 formas.
+- [x] Pacotes LÖVE e Windows 0.28.0.0; Studio preservado.
+- [ ] Comparações de FPS, CPU e GPU em máquinas físicas.
+- [ ] Culling/otimização específica de sprites PNG e máscaras.
 
-## Até o Player 1.0 para PC
+## Prioridades para o Player 1.0 de PC
 
-- [ ] Otimização de interpolação e recorte de formas fora da tela.
-- [ ] Benchmarks Windows/Linux com diferentes GPUs, CPUs e DPI.
-- [ ] Testes prolongados em hardware físico, incluindo áudio.
-- [ ] Resolver bugs críticos e expandir navegação/acessibilidade.
-- [ ] Assinatura digital e instalador opcional.
+- [ ] Testes de stress com sprites/mídia e jogos de verdade, não apenas formas vetoriais sintéticas.
+- [ ] Melhorias de uso de GPU, CPU, memória e latência em hardware real.
+- [ ] Otimizações de máscaras e desenho de sprites.
+- [ ] Resolver falhas críticas, aperfeiçoar acessibilidade e documentação.
+- [ ] Assinatura digital e distribuição opcional com instalador.
+- [ ] Homologação prolongada com Windows e Linux reais.
 
-O Player permanece experimental até a homologação de estabilidade.
+O Player continua experimental.
