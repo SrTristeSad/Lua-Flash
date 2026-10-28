@@ -755,3 +755,71 @@ project()
 local nestedReopened=assert(Paths.decode(files["projeto.lflash.lfvec"]))
 assert(#Paths.at(assert(Paths.scope(nestedReopened,1)),1,2)==1)
 print("OK: Studio vector-only symbols, internal Bézier timeline and nested undo/save/reopen")
+
+
+-- Bézier exact segment insertion, bucket fill and open-path break/join in UI.
+press("n",true)
+press("p")
+for _,pt in ipairs({{320,260},{375,260},{375,310}}) do
+  love.mousepressed(pt[1],pt[2],1)
+  love.mousereleased(pt[1],pt[2],1)
+end
+love.mousepressed(320,260,1)
+love.mousereleased(320,260,1)
+press("a")
+modifiers.lalt=true
+love.mousepressed(345,260,1)
+love.mousereleased(345,260,1)
+modifiers.lalt=false
+project()
+local subdivided=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(subdivided,1,1)[1].nodes==4,
+  "Alt+click on a segment must add one Bezier anchor")
+press("g")
+love.mousepressed(351,278,1)
+love.mousereleased(351,278,1)
+project()
+local bucket=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(Paths.at(bucket,1,1)[1].fill,
+  "bucket must fill interior of an initially unfilled closed path")
+modifiers.lshift=true
+love.mousepressed(351,278,1)
+love.mousereleased(351,278,1)
+modifiers.lshift=false
+project()
+local emptied=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(not Paths.at(emptied,1,1)[1].fill,
+  "Shift-click bucket must erase the existing fill")
+press("z",true)
+project()
+local bucketUndone=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(Paths.at(bucketUndone,1,1)[1].fill,
+  "bucket fill removal must be undoable")
+press("p")
+for _,pt in ipairs({{450,320},{510,320},{560,350}}) do
+  love.mousepressed(pt[1],pt[2],1)
+  love.mousereleased(pt[1],pt[2],1)
+end
+love.keypressed("return")
+press("a")
+love.mousepressed(510,320,1)
+love.mousereleased(510,320,1)
+love.keypressed("k")
+project()
+local brokenPaths=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(brokenPaths,1,1)==3,
+  "K on an interior anchor must split one open path into two")
+modifiers.lshift=true
+love.mousepressed(560,350,1)
+love.mousereleased(560,350,1)
+modifiers.lshift=false
+project()
+local joinedPaths=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(joinedPaths,1,1)==2,
+  "Shift+click on second open path should join matching endpoints")
+press("z",true)
+project()
+local joinedUndo=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(joinedUndo,1,1)==3,
+  "one undo must restore both open paths")
+print("OK: UI segment Alt-split, G bucket, K break and Shift-join with undo")
