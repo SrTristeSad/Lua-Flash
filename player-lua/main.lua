@@ -748,6 +748,13 @@ function love.load(arguments)
     assert(binary and #binary>0,readError)
     assert(packageDefinition and packageDefinition.version==9,
       "native Unicode path file could not be imported")
+    -- CI sentinel is emitted only after a successful Win32 Unicode read.
+    local marker=os.getenv("LUA_FLASH_SMOKE_WIN_NATIVE_OKFILE")
+    if marker and marker~="" then
+      local output=assert(io.open(marker,"wb"))
+      assert(output:write("LUAF_WIN_NATIVE_OK"))
+      assert(output:close())
+    end
   end
   if os.getenv("LUA_FLASH_SMOKE_CLI")=="1" then
     assert(launchPath and packageDefinition and packageDefinition.version==9,
