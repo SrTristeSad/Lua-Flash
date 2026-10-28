@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.26. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.27. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -26,11 +26,13 @@ local FocusNav=require("src.focus_nav")
 local EditorNav=require("src.editor_nav")
 local VisualSettings=require("src.visual_settings")
 local TextScale=require("src.text_scale")
+local RenderCache=require("src.render_cache")
 
 local document=Demo.create()
 local transport=Transport.new(document)
 transport.playing=true
 local sampler=Interpolation.new(document)
+local renderCache=RenderCache.new(document)
 local smooth=true -- demo uses keyframed animation; imported projects start in exact mode.
 local source="Demonstracao interna"
 local notice="Solte um projeto .lflash na janela ou use o exemplo incluido."
@@ -133,6 +135,7 @@ local function install(doc,name,isDemo)
   transport=Transport.new(document)
   transport.playing=true
   sampler=Interpolation.new(document)
+  renderCache=RenderCache.new(document)
   input:reset()
   game=nil
   session=nil
@@ -835,7 +838,7 @@ end
 function love.load(arguments)
   highContrast=VisualSettings.load(love.filesystem)
   C=VisualSettings.palette(highContrast)
-  love.window.setTitle("Lua-Flash Player 0.26")
+  love.window.setTitle("Lua-Flash Player 0.27")
   love.window.setMode(1040,690,{resizable=true,minwidth=600,minheight=380,highdpi=true})
   if os.getenv("LUA_FLASH_SMOKE_COMPACT")=="1" then
     love.window.setMode(640,400,{resizable=true,minwidth=600,minheight=380,highdpi=true})
@@ -917,7 +920,7 @@ local function renderScene(x,y,w,h)
   if smooth then
     sampler:draw(transport.position,x,y,w,h)
   else
-    Runtime.draw(document,transport:frame(),x,y,w,h)
+    renderCache:draw(transport:frame(),x,y,w,h)
   end
   if media then media:draw(document,x,y,w,h,transport.position,smooth and sampler or nil) end
 end
@@ -934,7 +937,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.26  |  Fontes maiores e reproducao estavel",21,60,C.muted,fonts.small,w-620)
+  label("PLAYER 0.27  |  Renderizacao indexada e diagnosticos",21,60,C.muted,fonts.small,w-620)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -1121,7 +1124,7 @@ function love.draw()
     local report=diagnostics:snapshot(packageDefinition,media,session)
     lg.push("all")
     lg.setColor(C.panel)
-    lg.rectangle("fill",w-281,93,269,175,7,7)
+    lg.rectangle("fill",w-281,93,269,192,7,7)
     label("DIAGNOSTICO [F3]",w-270,100,C.green,fonts.small)
     label(string.format("FPS medio: %.1f | Pior dt: %.1f ms",
       report.fps,report.worstMs),w-270,123,C.text,fonts.small)
@@ -1143,6 +1146,9 @@ function love.draw()
         math.floor(media.mixer.gains.timeline*100+.5)),
         w-270,237,C.muted,fonts.small)
     end
+    local cache=renderCache:stats()
+    label(string.format("Vetores: %d quadros | %d reutilizacoes",
+      cache.rebuilds,cache.reused),w-270,257,C.green,fonts.small)
     lg.pop()
   end
   lg.pop()
