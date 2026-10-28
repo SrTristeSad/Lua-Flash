@@ -98,7 +98,7 @@ function M.close(path)
   path.closed=true
   return true
 end
-local function cubic(a,b,t)
+local function cubic(a,t)
   local q=1-t
   return q*q*q*a[1]+3*q*q*t*a[2]+3*q*t*t*a[3]+t*t*t*a[4]
 end
