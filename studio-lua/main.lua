@@ -237,7 +237,6 @@ local groupActions={
   {label="BASE",op="bottom",col=2,row=1},
   {label="DIST X",op="distributeX",col=0,row=2},
   {label="DIST Y",op="distributeY",col=1,row=2},
-  {label="1:1",op="scale",value=1,col=2,row=2},
   {label="MENOS",op="scale",value=.9,col=0,row=3},
   {label="MAIS",op="scale",value=1.1,col=1,row=3},
   {label="-5 G",op="rotate",value=-5,col=2,row=3},
