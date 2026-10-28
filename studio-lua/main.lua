@@ -10,6 +10,7 @@ local Properties = require("src.instance_properties")
 local Group = require("src.instance_group")
 local Marquee = require("src.marquee_selection")
 local Vector = require("src.vector_paths")
+local VectorEdit = require("src.vector_edit")
 local VectorRenderer = require("src.vector_renderer")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
@@ -34,6 +35,7 @@ local selectedInstances={}
 local groupDragStarted=false
 local marquee=nil
 local selectedVector=nil
+local selectedVectorNode=nil
 local penPath=nil
 local vectorDrag=nil
 local instanceDragStarted=false
@@ -101,6 +103,7 @@ local function install(newdoc)
   groupDragStarted=false
   marquee=nil
   selectedVector=nil
+  selectedVectorNode=nil
   penPath=nil
   vectorDrag=nil
   instanceDragStarted=false
@@ -233,6 +236,7 @@ local function setFrame(n)
   penPath=nil
   vectorDrag=nil
   selectedVector=nil
+  selectedVectorNode=nil
   handleDrag=nil
   propertyEditor=nil
 end
@@ -419,7 +423,8 @@ local function ui()
     end
     button("P",816,8,36,34,tool=="pen")
     button("A",856,8,36,34,tool=="node")
-    if w>1180 then label("Vetor Studio | sem SWF/FLA",900,17,{.67,.72,.8}) end
+    button("G",896,8,36,34,tool=="fill")
+    if w>1300 then label("Vetor Studio | sem SWF/FLA",940,17,{.67,.72,.8}) end
   else
     label("Previa de publicacao Lua-Flash | ESPACO inicia/pausa",475,17,{.67,.72,.8})
   end
@@ -441,7 +446,10 @@ local function ui()
       end
     end
     label("Espessura: "..thickness.."  (- / +)",12,477)
-    if selectedVector then label("VETOR #"..selectedVector.." | F preench.",12,488,{.45,.82,1}) end
+    if selectedVector then
+      label("VETOR #"..selectedVector.." | F preench.",12,488,{.45,.82,1})
+      if selectedVectorNode then label("No "..selectedVectorNode.." | K: dividir",12,604,{.45,.82,1}) end
+    end
     local chosenInstance=activeInstance()
     if chosenInstance then
       if selectedCount()>1 then
@@ -657,6 +665,9 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   if mode=="studio" and inBox(mx,my,856,8,36,34) then
     tool="node";penPath=nil;msg="Editar nos: arraste os pontos e as alcas de controle";return
   end
+  if mode=="studio" and inBox(mx,my,896,8,36,34) then
+    tool="fill";penPath=nil;msg="Balde vetorial: clique para preencher, Shift+clique para limpar";return
+  end
   if mode=="studio" and inBox(mx,my,672,8,138,34) then
     if editingSymbolId then exitSymbol() elseif selectedSymbol then editSymbol(selectedSymbol) end
     return
@@ -842,9 +853,61 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
       if presses and presses>=2 then penPath=nil;vectorDrag=nil end
     end
     return
+  elseif tool=="fill" then
+    local paths=Vector.at(vectorScope(),doc.currentLayer,doc.currentFrame)
+    local hit=VectorEdit.pickFill(paths,x,y)
+    if not hit then msg="Clique dentro de um caminho fechado";return end
+    if layer.locked then msg="Camada bloqueada";return end
+    local cleared=love.keyboard.isDown("lshift","rshift")
+    local fill=cleared and nil or palette[colorIndex]
+    local plan,err=VectorEdit.planFill(vectorScope(),doc.currentLayer,
+      doc.currentFrame,hit.id,fill)
+    if not plan then msg=tostring(err);return end
+    snapshot()
+    Model.ensureKey(layer,doc.currentFrame)
+    plan.apply()
+    selectedVector=hit.id
+    selectedVectorNode=nil
+    msg=cleared and "Preenchimento apagado" or "Preenchimento aplicado"
+    return
   elseif tool=="node" then
     local paths=Vector.at(vectorScope(),doc.currentLayer,doc.currentFrame)
     local tol=8/view.scale
+    if love.keyboard.isDown("lalt","ralt") then
+      if layer.locked then msg="Camada bloqueada";return end
+      local target,segment,t=VectorEdit.pickSegment(paths,x,y,tol)
+      if target then
+        local plan,err=VectorEdit.planInsert(vectorScope(),doc.currentLayer,
+          doc.currentFrame,target.id,segment,t)
+        if plan then
+          snapshot()
+          Model.ensureKey(layer,doc.currentFrame)
+          plan.apply()
+          selectedVector=target.id
+          selectedVectorNode=plan.index
+          vectorDrag=nil
+          msg="Segmento Bézier dividido sem alterar sua curva"
+        else msg=tostring(err) end
+      else msg="Alt+clique no meio de um segmento Bézier" end
+      return
+    end
+    if love.keyboard.isDown("lshift","rshift") and selectedVector then
+      local second=Vector.pick(paths,x,y,tol)
+      if second and second.id~=selectedVector then
+        if layer.locked then msg="Camada bloqueada";return end
+        local plan,err=VectorEdit.planJoin(vectorScope(),doc.currentLayer,
+          doc.currentFrame,selectedVector,second.id,12/view.scale)
+        if plan then
+          snapshot()
+          Model.ensureKey(layer,doc.currentFrame)
+          plan.apply()
+          selectedVectorNode=nil
+          vectorDrag=nil
+          msg="Dois caminhos unidos em um único traçado"
+        else msg="Nao foi possivel unir: "..tostring(err) end
+        return
+      end
+    end
     local chosen=vectorOnFrame(selectedVector)
     if chosen then
       for ni,node in ipairs(chosen.nodes) do
@@ -862,11 +925,13 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     local found,node=Vector.pickNode(paths,x,y,tol)
     if found then
       selectedVector=found.id
+      selectedVectorNode=node
       vectorDrag={kind="node",id=found.id,node=node,dirty=false}
       return
     end
     found=Vector.pick(paths,x,y,tol)
     selectedVector=found and found.id or nil
+    selectedVectorNode=nil
     if found then vectorDrag={kind="path",id=found.id,x=x,y=y,dirty=false} end
     msg=found and ("Vetor #"..found.id.." selecionado") or "Sem vetor nessa posicao"
     return
@@ -1177,6 +1242,26 @@ function love.keypressed(key)
     end
     if key=="p" then tool="pen";penPath=nil;msg="Caneta Bezier ativada";return end
     if key=="a" then tool="node";penPath=nil;msg="Edicao de pontos ativada";return end
+    if key=="g" then
+      tool="fill";penPath=nil
+      msg="Balde de preenchimento ativo: Shift+clique remove a cor"
+      return
+    end
+    if key=="k" and tool=="node" and selectedVector and selectedVectorNode
+        and not love.keyboard.isDown("lctrl","rctrl") then
+      local plan,err=VectorEdit.planBreak(vectorScope(),doc.currentLayer,
+        doc.currentFrame,selectedVector,selectedVectorNode)
+      if plan and not active().locked then
+        snapshot()
+        Model.ensureKey(active(),doc.currentFrame)
+        plan.apply()
+        selectedVectorNode=nil
+        msg="Caminho aberto separado em dois no ponto escolhido"
+      else
+        msg="Nao foi possivel separar caminho: "..tostring(err or "camada bloqueada")
+      end
+      return
+    end
     if key=="f" and selectedVector then
       local path=vectorOnFrame(selectedVector)
       if path and path.closed and editVectorFrame() then
