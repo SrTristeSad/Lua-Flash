@@ -103,6 +103,8 @@ jobs:
         run: lua tests/studio_instance_group_test.lua
       - name: Studio marquee selection and group property validation
         run: lua tests/studio_marquee_test.lua
+      - name: Studio Bezier vector paths and authoring persistence
+        run: lua tests/studio_vector_paths_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
