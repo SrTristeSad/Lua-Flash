@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.19. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.21. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -18,6 +18,7 @@ local SpriteTransform=require("src.sprite_transform")
 local MediaRuntime=require("src.media_runtime")
 local Session=require("src.session")
 local GameExample=require("src.game_example_v9")
+local FileImport=require("src.file_import")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -40,6 +41,7 @@ local errors=ErrorReport.new(love.filesystem)
 local lastRuntimeError=nil
 local showDiagnostics=false
 local selectedAudioChannel="effects"
+local pathPrompt={open=false,value="",message=""}
 local editor={open=false,track=1,segment=1,scroll=0,drag=nil}
 local C={
   bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
@@ -158,6 +160,67 @@ local function openGameBytes(content,name,originalKey)
     notice="Copia de recuperacao disponivel neste jogo: Ctrl+R."
   end
   return true
+end
+
+-- Load from an explicit path without handing untrusted content to Lua code.
+-- This is used by drag/drop, Explorer's Open With, and the Ctrl+O path dialog.
+local function openNativePath(path)
+  if not canReplace() then return false end
+  local loaded,err=FileImport.readPath(path)
+  if not loaded then
+    notice=err
+    return false
+  end
+  local success
+  if loaded.kind=="game" then
+    success=openGameBytes(loaded.bytes,loaded.name)
+  else
+    success=openBytes(loaded.bytes,loaded.name)
+  end
+  if success then
+    pathPrompt.open=false
+    pathPrompt.message=""
+  end
+  return success
+end
+local function openPathPrompt()
+  if not canReplace() then return end
+  pathPrompt={open=true,value="",message=""}
+  transport.playing=false
+  notice="Cole o caminho completo do arquivo .lflash ou .lfgame."
+end
+local function closePathPrompt()
+  pathPrompt.open=false
+  pathPrompt.message=""
+end
+local function editPathKey(key,ctrl)
+  if ctrl and key=="v" and love.system and love.system.getClipboardText then
+    local clipboard=love.system.getClipboardText()
+    if type(clipboard)=="string" and not clipboard:find("[%z\r\n]") then
+      local candidate=pathPrompt.value..clipboard
+      if #candidate<=FileImport.MAX_PATH then pathPrompt.value=candidate end
+    end
+    return
+  end
+  if key=="escape" then closePathPrompt();return end
+  if key=="return" or key=="kpenter" then
+    local value=pathPrompt.value
+    -- Windows Explorer "Copy as path" wraps names in double quotes.
+    if value:sub(1,1)=='"' and value:sub(-1)=='"' then
+      value=value:sub(2,-2)
+    end
+    if not openNativePath(value) then
+      pathPrompt.message=notice
+    end
+    return
+  end
+  if key=="backspace" then
+    local value=pathPrompt.value
+    local i=#value
+    -- Remove one UTF-8 codepoint, including non-ASCII Windows paths.
+    while i>1 and value:byte(i)>=128 and value:byte(i)<192 do i=i-1 end
+    pathPrompt.value=value:sub(1,i-1)
+  end
 end
 
 local function openGameExample()
@@ -627,14 +690,16 @@ local function toggleSmooth()
     "Interpolacao visual desativada: quadros exatos do projeto."
 end
 
-function love.load()
-  love.window.setTitle("Lua-Flash Player 0.19")
+function love.load(arguments)
+  love.window.setTitle("Lua-Flash Player 0.21")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
   fonts.heading=love.graphics.newFont(22)
   fonts.small=love.graphics.newFont(12)
   love.graphics.setFont(fonts.regular)
+  local launchPath=FileImport.fromArguments(arguments)
+  if launchPath then openNativePath(launchPath) end
   if os.getenv("LUA_FLASH_SMOKE_MEDIA")=="1" then
     openGameExample()
     if not media then error("media demo failed to load") end
@@ -695,12 +760,12 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.19  |  Audio polifonico e canais",21,60,C.muted,fonts.small)
+  label("PLAYER 0.21  |  Arquivos e Windows portatil",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
   button("DEMO",w-395,24,80,36,false)
-  button("PROJETO SALVO",w-305,24,143,36,false)
+  button("ABRIR ARQUIVO",w-305,24,143,36,pathPrompt.open)
   button(transport.loop and "LOOP: ON" or "LOOP: OFF",w-153,24,132,36,transport.loop)
   renderScene(18,top+10,w-36,stageHeight-15)
 
@@ -807,6 +872,33 @@ function love.draw()
     label(lastRuntimeError:sub(1,112),22,123,C.text,fonts.small)
     lg.pop()
   end
+
+  if pathPrompt.open then
+    local lg=love.graphics
+    local pw=math.min(w-50,800)
+    local ph=206
+    local x,y=(w-pw)/2,math.max(90,(h-ph)/2)
+    lg.push("all")
+    lg.setColor(0,0,0,.58)
+    lg.rectangle("fill",0,0,w,h)
+    lg.setColor(.085,.115,.15,1)
+    lg.rectangle("fill",x,y,pw,ph,10,10)
+    lg.setColor(C.accent)
+    lg.rectangle("line",x+.5,y+.5,pw-1,ph-1,10,10)
+    label("ABRIR ARQUIVO NATIVO [Ctrl+O]",x+16,y+15,C.text,fonts.heading)
+    label("Arraste o arquivo para a janela ou cole o caminho completo:",x+16,y+52,C.muted,fonts.small)
+    lg.setColor(.15,.18,.24,1)
+    lg.rectangle("fill",x+16,y+75,pw-32,37,5,5)
+    lg.setScissor(x+20,y+77,pw-40,34)
+    label(pathPrompt.value~="" and pathPrompt.value or "C:\\pasta\\meu-jogo.lfgame",
+      x+23,y+84,pathPrompt.value~="" and C.text or C.muted,fonts.small)
+    lg.setScissor()
+    label("ENTER: abrir  |  ESC: cancelar  |  Ctrl+V: colar",x+16,y+126,C.muted,fonts.small)
+    if pathPrompt.message~="" then
+      label(pathPrompt.message:sub(1,110),x+16,y+151,{1,.57,.52},fonts.small)
+    end
+    lg.pop()
+  end
   if showDiagnostics then
     local report=diagnostics:snapshot(packageDefinition,media,session)
     lg.push("all")
@@ -839,6 +931,7 @@ end
 
 function love.mousepressed(x,y,key,istouch)
   if istouch or key~=1 then return end
+  if pathPrompt.open then return end
   if editorClick(x,y) then return end
   if editor.open and Input.stagePoint(x,y,document,sceneViewport()) then
     editorBeginDrag(x,y)
@@ -849,7 +942,7 @@ function love.mousepressed(x,y,key,istouch)
   elseif inside(x,y,w-486,24,83,36) then startGame();return
   elseif inside(x,y,w-395,24,80,36) then
     if canReplace() then install(Demo.create(),"Demonstracao interna",true) end;return
-  elseif inside(x,y,w-305,24,143,36) then openSaved();return
+  elseif inside(x,y,w-305,24,143,36) then openPathPrompt();return
   elseif inside(x,y,w-153,24,132,36) then transport.loop=not transport.loop;return
   end
   local topPanel=top+stageHeight+12
@@ -920,8 +1013,10 @@ function love.focus(focused)
 end
 
 function love.keypressed(key)
-  input:key("down",key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
+  if pathPrompt.open then editPathKey(key,ctrl);return end
+  if ctrl and key=="o" then openPathPrompt();return end
+  input:key("down",key)
   if ctrl and key=="s" then saveCopy();return end
   if ctrl and (key=="y" or
       (key=="z" and love.keyboard.isDown("lshift","rshift"))) then
@@ -1038,21 +1133,20 @@ function love.wheelmoved(_,dy)
 end
 
 function love.filedropped(file)
-  local filename=file:getFilename() or ""
-  local isProject=filename:lower():match("%.lflash$")~=nil
-  local isGame=filename:lower():match("%.lfgame$")~=nil
-  if not isProject and not isGame then
-    notice="Arquivo nao suportado: use .lflash ou .lfgame."
-    return
-  end
-  local ok,err=file:open("r")
-  if not ok then notice="Nao foi possivel abrir: "..tostring(err);return end
-  local bytes=file:read(MAX_FILE+1)
-  file:close()
-  if not bytes then notice="Erro ao ler arquivo.";return end
-  local displayName=filename:match("[^/\\]+$") or filename
-  if isGame then openGameBytes(bytes,displayName)
-  else openBytes(bytes,displayName) end
+  if not canReplace() then return end
+  local loaded,err=FileImport.readDropped(file)
+  if not loaded then notice=err;pathPrompt.message=err;return end
+  local ok
+  if loaded.kind=="game" then ok=openGameBytes(loaded.bytes,loaded.name)
+  else ok=openBytes(loaded.bytes,loaded.name) end
+  if ok then closePathPrompt() else pathPrompt.message=notice end
+end
+
+function love.textinput(text)
+  if not pathPrompt.open or type(text)~="string" then return end
+  if text:find("[%z\r\n]") then return end
+  local candidate=pathPrompt.value..text
+  if #candidate<=FileImport.MAX_PATH then pathPrompt.value=candidate end
 end
 
 -- Keep application and user work open if callbacks fail unexpectedly.
@@ -1061,7 +1155,7 @@ end
 local callbacks={
   "load","update","draw","mousepressed","mousereleased","mousemoved",
   "touchpressed","touchmoved","touchreleased","touchcancelled",
-  "keypressed","keyreleased","wheelmoved","filedropped","focus"
+  "keypressed","keyreleased","textinput","wheelmoved","filedropped","focus"
 }
 for _,name in ipairs(callbacks) do
   local original=love[name]
