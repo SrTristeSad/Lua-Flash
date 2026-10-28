@@ -9,12 +9,15 @@ local Handles = require("src.instance_handles")
 local Properties = require("src.instance_properties")
 local Group = require("src.instance_group")
 local Marquee = require("src.marquee_selection")
+local Vector = require("src.vector_paths")
+local VectorRenderer = require("src.vector_renderer")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
 local Runtime = require("src.runtime")
 local doc = Model.new(800,450,24)
 local runtime = Runtime.new(doc)
 local symbolLibrary=Library.new()
+local vectors=Vector.new()
 local symbolMotion=SymbolMotion.new()
 local selectedSymbol=nil
 local rootDoc=doc
@@ -30,6 +33,9 @@ local selectedInstance=nil
 local selectedInstances={}
 local groupDragStarted=false
 local marquee=nil
+local selectedVector=nil
+local penPath=nil
+local vectorDrag=nil
 local instanceDragStarted=false
 local handleDrag=nil
 local propertiesOpen=true
@@ -80,7 +86,7 @@ local function dimensions()
 end
 
 local function snapshot()
-  undo[#undo+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),editingSymbolId=editingSymbolId}
+  undo[#undo+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),vectors=Vector.encode(vectors),editingSymbolId=editingSymbolId}
   if #undo>40 then table.remove(undo,1) end
   redo={}
 end
@@ -94,6 +100,9 @@ local function install(newdoc)
   selectedInstances={}
   groupDragStarted=false
   marquee=nil
+  selectedVector=nil
+  penPath=nil
+  vectorDrag=nil
   instanceDragStarted=false
   handleDrag=nil
   propertyEditor=nil
@@ -105,13 +114,15 @@ end
 local function history(reverse)
   local from,to=reverse and undo or redo,reverse and redo or undo
   if #from==0 then msg="Nada para "..(reverse and "desfazer" or "refazer");return end
-  to[#to+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),editingSymbolId=editingSymbolId}
+  to[#to+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),vectors=Vector.encode(vectors),editingSymbolId=editingSymbolId}
   local contents=table.remove(from)
   local d,err=Model.decode(contents.document)
   local lib,liberr=Library.decode(contents.symbols)
-  if d and lib then
+  local vec,vecerr=Vector.decode(contents.vectors or Vector.encode(Vector.new()))
+  if d and lib and vec then
     rootDoc=d
     symbolLibrary=lib
+    vectors=vec
     editingSymbolId=contents.editingSymbolId
     if editingSymbolId and not Library.find(lib,editingSymbolId) then editingSymbolId=nil end
     symbolTimeline=Library.new()
@@ -119,18 +130,20 @@ local function history(reverse)
     install(focus and focus.definition or rootDoc)
     if selectedSymbol and not Library.find(lib,selectedSymbol) then selectedSymbol=nil end
   else
-    msg="Historico invalido: "..tostring(err or liberr)
+    msg="Historico invalido: "..tostring(err or liberr or vecerr)
   end
 end
 
 local function save()
   local filename=projectName..".lflash"
   local bytes=Model.encode(rootDoc)
-  -- The native project stays LUAFLASH 1. Symbols live in a separate sidecar.
+  -- Native LUAFLASH 1 stays unchanged. Vector geometry is an authoring sidecar.
+  local vecOk,vecErr=love.filesystem.write(filename..".lfvec",Vector.encode(vectors))
+  if not vecOk then msg="Erro ao salvar vetores: "..tostring(vecErr);return end
   local libOk,libErr=love.filesystem.write(filename..".lflib",Library.encode(symbolLibrary))
   if not libOk then msg="Erro ao salvar biblioteca: "..tostring(libErr);return end
   local ok,err=love.filesystem.write(filename,bytes)
-  msg=ok and ("Projeto salvo: "..love.filesystem.getSaveDirectory().."/"..filename.." (+ .lflib)") or ("Erro ao salvar: "..tostring(err))
+  msg=ok and ("Projeto salvo: "..love.filesystem.getSaveDirectory().."/"..filename.." (+ .lflib e .lfvec)") or ("Erro ao salvar: "..tostring(err))
 end
 local function beginSaveAs()
   naming=true
@@ -138,11 +151,14 @@ local function beginSaveAs()
   msg="Salvar como: digite um nome (letras, numeros, _ ou -). Enter confirma; Esc cancela."
 end
 
-local function load(data,libraryData)
+local function load(data,libraryData,vectorData)
   local d,err=Model.decode(data)
   if not d then msg="Nao foi possivel abrir: "..tostring(err);return end
   local lib,liberr=libraryData and Library.decode(libraryData) or Library.new()
   if not lib then msg="Biblioteca invalida: "..tostring(liberr);return end
+  local vec,vecerr=vectorData and Vector.decode(vectorData) or Vector.new()
+  if not vec then msg="Vetores invalidos: "..tostring(vecerr);return end
+  vectors=vec
   rootDoc=d
   editingSymbolId=nil
   symbolTimeline=Library.new()
@@ -160,6 +176,7 @@ local function newProject()
   symbolTimeline=Library.new()
   install(rootDoc)
   symbolLibrary=Library.new()
+  vectors=Vector.new()
   selectedSymbol=nil
   runtime.playing=false
   mode="studio"
@@ -199,7 +216,8 @@ local function openLast()
   local s,err=love.filesystem.read(projectName..".lflash")
   if s then
     local libData=love.filesystem.read(projectName..".lflash.lflib")
-    load(s,libData)
+    local vectorData=love.filesystem.read(projectName..".lflash.lfvec")
+    load(s,libData,vectorData)
   else msg="Arquivo nao encontrado: "..tostring(err) end
 end
 
@@ -212,6 +230,9 @@ local function setFrame(n)
   selectedInstances={}
   groupDragStarted=false
   marquee=nil
+  penPath=nil
+  vectorDrag=nil
+  selectedVector=nil
   handleDrag=nil
   propertyEditor=nil
 end
@@ -308,6 +329,22 @@ local function jumpKey(direction)
   if target then runtime.playing=false;setFrame(target) else msg="Nenhum quadro-chave nessa direcao" end
 end
 
+local function vectorOnFrame(id)
+  if editingSymbolId or not id then return nil end
+  for _,path in ipairs(Vector.at(vectors,doc.currentLayer,doc.currentFrame)) do
+    if path.id==id then return path end
+  end
+  return nil
+end
+local function editVectorFrame()
+  local layer=active()
+  if not layer or layer.locked then return false end
+  snapshot()
+  Model.ensureKey(layer,doc.currentFrame)
+  Vector.ensureKey(vectors,doc.currentLayer,doc.currentFrame)
+  return true
+end
+
 local function currentShapes(create)
   local layer=active()
   if not layer or layer.locked then return nil end
@@ -377,7 +414,11 @@ local function ui()
     if editingSymbolId or selectedSymbol then
       button(editingSymbolId and "VOLTAR PALCO" or "EDIT SIMBOLO",672,8,138,34,editingSymbolId~=nil)
     end
-    label("Formato proprio .lflash | Sem SWF/FLA",w-337,17,{.67,.72,.8})
+    if not editingSymbolId then
+      button("P",816,8,36,34,tool=="pen")
+      button("A",856,8,36,34,tool=="node")
+    end
+    if w>1180 then label("Vetor Studio | sem SWF/FLA",900,17,{.67,.72,.8}) end
   else
     label("Previa de publicacao Lua-Flash | ESPACO inicia/pausa",475,17,{.67,.72,.8})
   end
@@ -399,6 +440,7 @@ local function ui()
       end
     end
     label("Espessura: "..thickness.."  (- / +)",12,477)
+    if selectedVector then label("VETOR #"..selectedVector.." | F preench.",12,488,{.45,.82,1}) end
     local chosenInstance=activeInstance()
     if chosenInstance then
       if selectedCount()>1 then
@@ -439,6 +481,7 @@ local function ui()
   runtime.draw(doc,doc.currentFrame,view.x,view.y,view.w,view.h)
   if not editingSymbolId then
     SymbolPreview.draw(symbolLibrary,doc,doc.currentFrame,view,symbolMotion)
+    VectorRenderer.draw(vectors,doc,doc.currentFrame,view,selectedVector)
   end
   if mode=="studio" and marquee then
     local x1,y1,x2,y2=Marquee.bounds(marquee.ax,marquee.ay,marquee.bx,marquee.by)
@@ -607,6 +650,12 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   if inBox(mx,my,160,8,95,34) then mode="studio";runtime.playing=false;return end
   if inBox(mx,my,263,8,95,34) then mode="player";runtime.playing=true;return end
   if inBox(mx,my,366,8,91,34) then runtime.playing=not runtime.playing;return end
+  if mode=="studio" and not editingSymbolId and inBox(mx,my,816,8,36,34) then
+    tool="pen";penPath=nil;msg="Caneta Bezier: clique cria ponto, arraste cria curva; Enter termina";return
+  end
+  if mode=="studio" and not editingSymbolId and inBox(mx,my,856,8,36,34) then
+    tool="node";penPath=nil;msg="Editar nos: arraste os pontos e as alcas de controle";return
+  end
   if mode=="studio" and inBox(mx,my,672,8,138,34) then
     if editingSymbolId then exitSymbol() elseif selectedSymbol then editSymbol(selectedSymbol) end
     return
@@ -623,7 +672,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     snapshot();Model.addLayer(doc);selected=nil;msg="Camada criada";return
   end
   for i,item in ipairs(tools) do
-    if inBox(mx,my,11,92+(i-1)*39,146,34) then tool=item[1];msg="Ferramenta: "..tool;return end
+    if inBox(mx,my,11,92+(i-1)*39,146,34) then tool=item[1];penPath=nil;msg="Ferramenta: "..tool;return end
   end
   local symbols=Library.list(symbolLibrary)
   local libY,visibleSlots=libraryPanel(track)
@@ -754,7 +803,61 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   if not layer or layer.locked then msg="Camada bloqueada";return end
   local x,y=xy(mx,my)
   local existing=Model.frame(layer,doc.currentFrame)
-  if tool=="symbol" then
+  if tool=="pen" then
+    if editingSymbolId then msg="Vetores internos de simbolos ainda nao suportados";return end
+    local pending=vectorOnFrame(penPath)
+    if not pending then
+      if not editVectorFrame() then msg="Camada bloqueada";return end
+      local path,err=Vector.addPath(vectors,doc.currentLayer,doc.currentFrame,x,y,
+        palette[colorIndex],thickness,nil)
+      if not path then msg=tostring(err);return end
+      selectedVector=path.id
+      penPath=path.id
+      vectorDrag={kind="new",id=path.id,node=1,dirty=true}
+      msg="Caminho iniciado. Clique adiciona nos; arraste cria alcas; Enter finaliza."
+    elseif #pending.nodes>=3
+        and (pending.nodes[1].x-x)^2+(pending.nodes[1].y-y)^2<=(9/view.scale)^2 then
+      Vector.close(pending)
+      penPath=nil
+      vectorDrag=nil
+      msg="Caminho fechado. Pressione F para ativar preenchimento."
+    else
+      local index,err=Vector.addNode(pending,x,y)
+      if not index then msg=tostring(err);return end
+      vectorDrag={kind="new",id=pending.id,node=index,dirty=true}
+      if presses and presses>=2 then penPath=nil;vectorDrag=nil end
+    end
+    return
+  elseif tool=="node" then
+    if editingSymbolId then msg="Vetores internos de simbolos ainda nao suportados";return end
+    local paths=Vector.at(vectors,doc.currentLayer,doc.currentFrame)
+    local tol=8/view.scale
+    local chosen=vectorOnFrame(selectedVector)
+    if chosen then
+      for ni,node in ipairs(chosen.nodes) do
+        for _,which in ipairs({"in","out"}) do
+          local hx,hy=which=="in" and node.ix or node.ox,
+            which=="in" and node.iy or node.oy
+          if (hx-x)^2+(hy-y)^2<=tol*tol
+              and (hx-node.x)^2+(hy-node.y)^2>.01 then
+            vectorDrag={kind=which,id=chosen.id,node=ni,dirty=false}
+            return
+          end
+        end
+      end
+    end
+    local found,node=Vector.pickNode(paths,x,y,tol)
+    if found then
+      selectedVector=found.id
+      vectorDrag={kind="node",id=found.id,node=node,dirty=false}
+      return
+    end
+    found=Vector.pick(paths,x,y,tol)
+    selectedVector=found and found.id or nil
+    if found then vectorDrag={kind="path",id=found.id,x=x,y=y,dirty=false} end
+    msg=found and ("Vetor #"..found.id.." selecionado") or "Sem vetor nessa posicao"
+    return
+  elseif tool=="symbol" then
     if editingSymbolId then
       msg="Instancias aninhadas ainda nao disponiveis";return
     end
@@ -858,6 +961,29 @@ function love.mousemoved(mx,my,dx,dy)
     local x,y=xy(mx,my)
     marquee.bx=math.max(0,math.min(doc.width,x))
     marquee.by=math.max(0,math.min(doc.height,y))
+    return
+  end
+  if vectorDrag then
+    local x,y=xy(mx,my)
+    x,y=math.max(0,math.min(doc.width,x)),math.max(0,math.min(doc.height,y))
+    local p=vectorOnFrame(vectorDrag.id)
+    if not p then vectorDrag=nil;return end
+    if not vectorDrag.dirty and not editVectorFrame() then vectorDrag=nil;return end
+    if not vectorDrag.dirty then vectorDrag.dirty=true;p=vectorOnFrame(vectorDrag.id) end
+    if vectorDrag.kind=="node" then
+      Vector.moveNode(p,vectorDrag.node,x,y)
+    elseif vectorDrag.kind=="in" or vectorDrag.kind=="out" then
+      Vector.handle(p,vectorDrag.node,x,y,vectorDrag.kind)
+    elseif vectorDrag.kind=="new" then
+      local n=p.nodes[vectorDrag.node]
+      if n then
+        Vector.handle(p,vectorDrag.node,x,y,"out")
+        Vector.handle(p,vectorDrag.node,2*n.x-x,2*n.y-y,"in")
+      end
+    elseif vectorDrag.kind=="path" then
+      Vector.move(p,x-vectorDrag.x,y-vectorDrag.y)
+      vectorDrag.x,vectorDrag.y=x,y
+    end
     return
   end
   if timelineDrag then
@@ -980,6 +1106,7 @@ function love.mousereleased(_,_,button)
     end
   end
   dragged=nil
+  vectorDrag=nil
   instanceDragStarted=false
   groupDragStarted=false
   handleDrag=nil
@@ -1022,6 +1149,34 @@ function love.textinput(text)
 end
 
 function love.keypressed(key)
+  if mode=="studio" and not editingSymbolId then
+    if key=="return" and tool=="pen" and penPath and not love.keyboard.isDown("lctrl","rctrl") then
+      penPath=nil;vectorDrag=nil;msg="Caminho aberto finalizado";return
+    end
+    if key=="escape" and tool=="pen" and penPath then
+      penPath=nil;vectorDrag=nil;msg="Edicao de caminho finalizada";return
+    end
+    if key=="p" then tool="pen";penPath=nil;msg="Caneta Bezier ativada";return end
+    if key=="a" then tool="node";penPath=nil;msg="Edicao de pontos ativada";return end
+    if key=="f" and selectedVector then
+      local path=vectorOnFrame(selectedVector)
+      if path and path.closed and editVectorFrame() then
+        path=vectorOnFrame(selectedVector)
+        path.fill=path.fill and nil or clone(palette[colorIndex])
+        msg=path.fill and "Preenchimento ativado" or "Preenchimento removido"
+        return
+      end
+    end
+    if key=="c" and not love.keyboard.isDown("lctrl","rctrl") and selectedVector then
+      local p=vectorOnFrame(selectedVector)
+      if p and #p.nodes>=3 and not p.closed and editVectorFrame() then
+        Vector.close(vectorOnFrame(selectedVector))
+        penPath=nil
+        msg="Caminho fechado"
+        return
+      end
+    end
+  end
   if propertyEditor then
     if key=="escape" then propertyEditor=nil;msg="Edicao de propriedade cancelada";return end
     if key=="backspace" then
@@ -1241,6 +1396,7 @@ function love.keypressed(key)
     if active().locked then msg="Camada bloqueada";return end
     snapshot()
     Exposure.insertBlankKey(active(),doc.currentFrame)
+    if not editingSymbolId then Vector.ensureKey(vectors,doc.currentLayer,doc.currentFrame,true) end
     Library.ensureKey(trackLibrary(),doc.currentLayer,doc.currentFrame,true)
     selected=nil
     msg="Quadro-chave vazio inserido"
@@ -1252,14 +1408,16 @@ function love.keypressed(key)
     if shift then
       Model.removeKey(active(),doc.currentFrame)
       Library.removeKey(trackLibrary(),doc.currentLayer,doc.currentFrame)
+      if not editingSymbolId then Vector.removeKey(vectors,doc.currentLayer,doc.currentFrame) end
     else
       Model.ensureKey(active(),doc.currentFrame)
       Library.ensureKey(trackLibrary(),doc.currentLayer,doc.currentFrame)
+      if not editingSymbolId then Vector.ensureKey(vectors,doc.currentLayer,doc.currentFrame) end
     end
     selected=nil
     return
   end
-  if key=="v" then tool="select"
+  if key=="v" then tool="select";penPath=nil
   elseif key=="b" then tool="brush"
   elseif key=="l" then tool="line"
   elseif key=="r" then tool="rect"
