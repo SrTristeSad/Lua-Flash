@@ -75,8 +75,27 @@ function M.hit(instance,symbol,frame,x,y,vectorScope)
   local x1,y1,x2,y2=M.symbolBounds(symbol,frame,vectorScope)
   if not x1 then return false end
   local lx,ly=M.toLocal(instance,x,y)
-  -- Fallback for zero-width/height strokes.
-  return lx>=x1-3 and lx<=x2+3 and ly>=y1-3 and ly<=y2+3
+  if not (lx>=x1-3 and lx<=x2+3 and ly>=y1-3 and ly<=y2+3) then
+    return false
+  end
+  -- A vector-only symbol needs precise picking: transparent holes should not
+  -- act as solid objects merely because they are inside the bounding box.
+  if vectorScope then
+    local hasLegacy=false
+    local hasVector=false
+    for layerIndex,layer in ipairs(symbol.definition.layers) do
+      if layer.visible then
+        if #Model.frame(layer,frame or 1)>0 then hasLegacy=true end
+        for _,path in ipairs(Vector.at(vectorScope,layerIndex,frame or 1)) do
+          hasVector=true
+          if Vector.hit(path,lx,ly,3) then return true end
+        end
+      end
+    end
+    if hasVector and not hasLegacy then return false end
+  end
+  -- Keep the existing bounding selection for mixed or native symbols.
+  return true
 end
 function M.adjust(instance,dx,dy,scaleFactor,rotation)
   if not M.valid(instance) or not numeric(dx) or not numeric(dy)
