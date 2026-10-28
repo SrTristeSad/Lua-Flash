@@ -28,4 +28,17 @@ for bad in (ico[:20],b"invalid ICO",ico[:4]+b"\x02\x00"+ico[6:],
     try: windows.split_ico(bad)
     except ValueError: pass
     else: raise AssertionError("accepted broken icon")
-print("OK: original PNG ICO and Windows RT_ICON/RT_GROUP_ICON table encoding")
+version=windows.build_version_info()
+assert struct.unpack_from("<H",version,0)[0]==len(version)
+assert "VS_VERSION_INFO".encode("utf-16le") in version
+assert "Lua-Flash Player".encode("utf-16le") in version
+assert "0.24.0.0".encode("utf-16le") in version
+assert "Lua-Flash-Player.exe".encode("utf-16le") in version
+assert struct.pack("<I",0xFEEF04BD) in version
+assert struct.pack("<I",24) in version
+assert windows.RT_VERSION==16
+for major,minor in ((-1,24),(0,65536)):
+    try: windows.build_version_info(major,minor)
+    except ValueError: pass
+    else: raise AssertionError("accepted invalid file version")
+print("OK: original PNG ICO, Windows RT_ICON/RT_GROUP_ICON and 0.24 VERSIONINFO")
