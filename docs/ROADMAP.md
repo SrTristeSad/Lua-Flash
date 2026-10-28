@@ -2,35 +2,36 @@
 
 ## Objetivo
 
-Runtime independente de jogos e animações em Lua/LÖVE com formatos próprios LUAFGAME 1–9 e .lflash. Player e Studio são aplicativos separados. Não executa SWF/FLA/ActionScript históricos.
+Player original de animações/jogos em Lua/LÖVE com formatos declarativos LUAFGAME 1–9 e `.lflash`, não Adobe SWF/FLA/ActionScript. O Studio permanece separado e intocado nas atualizações do Player.
 
-## Entregas até a versão 0.23
+## Entregas 0.1–0.24
 
-- [x] Timeline, formas, sprites PNG/WAV, regras e estados.
-- [x] Editor de quadros-chave, easing, undo/redo e recuperação.
-- [x] Colisões, clique por máscaras, áudio polifônico.
-- [x] Arquivos nativos com seletor Windows Unicode, diagnóstico e logs.
-- [x] Windows portátil com ícone original embutido e interface adaptável.
-- [x] Testes LÖVE, de estresse, integridade e CI Windows.
+- [x] Timeline, keyframes, easing, formas vetoriais e transformações.
+- [x] Sprites PNG, áudio WAV polifônico, eventos, colisões e interação.
+- [x] Editor visual, Undo/Redo, recuperação por projeto e logs.
+- [x] Windows x64 portátil com LÖVE, ícone e VERSIONINFO; importação Unicode.
+- [x] Interface escalável, foco por teclado na barra principal e ajuda F1.
+- [x] Testes Lua, CI Windows e smoke gráfico com LÖVE.
 
-## Player 0.24 — navegação e versão do executável
+## Player 0.25 — acessibilidade incremental
 
-- [x] Tab e Shift+Tab nos doze controles principais.
-- [x] Enter executa controle em foco e Escape limpa a seleção.
-- [x] Contorno de foco visível.
-- [x] Painel F1 com os atalhos mais importantes.
-- [x] Recurso nativo VERSIONINFO com nome Lua-Flash Player e versão 0.24.0.0.
-- [x] Testes de foco, interação GUI e verificação Win32 de versão no EXE.
-- [x] Studio preservado e formatos anteriores compatíveis.
-- [ ] Navegação completa no editor e outras áreas.
-- [ ] Integração com leitores de tela e testes de acessibilidade reais.
+- [x] Tab/Shift+Tab e Enter nas ações do editor de quadros-chave.
+- [x] Foco desenhado sobre o controle selecionado dentro do editor.
+- [x] Recuperação do foco ao desaparecer uma linha de chave.
+- [x] F2 para tema de alto contraste.
+- [x] Preferência salva e restaurada em arquivo de dados estrito.
+- [x] Testes de navegação, configurações, interface e compatibilidade.
+- [x] Metadados Windows atualizados para 0.25.0.0; Studio não alterado.
+- [ ] Integração completa com leitores de tela e tecnologias assistivas.
+- [ ] Layout com listagem completa de chaves e opções de escala da fonte.
+- [ ] Verificação manual de contraste e usabilidade em hardware real.
 
-## Prioridades para 1.0 de PC
+## Rumo ao Player 1.0
 
-- [ ] Navegação integral pelo teclado, tradução e configurações de contraste.
-- [ ] Benchmarks CPU/GPU e memória em jogos maiores no Windows.
-- [ ] Assinatura digital e instalador opcional, sem alterar arquivos do usuário.
-- [ ] Testes de estabilidade prolongada e atualização segura.
-- [ ] Homologação visual e de desempenho em hardware real.
+- [ ] Homologação Windows/Linux, incluindo áudio, GPU, DPI e carga prolongada.
+- [ ] Perfil de CPU/GPU/VRAM em jogos grandes.
+- [ ] Aprimorar acessibilidade, localização e mensagens de erro.
+- [ ] Assinatura de código, instalador opcional e atualizações seguras.
+- [ ] Decidir critérios de release e encerrar bugs críticos antes do 1.0.
 
-O Player continua experimental.
+O Player permanece experimental.

@@ -1,42 +1,42 @@
-# Lua-Flash Player 0.24 — ajuda de teclado e identificação Windows
+# Lua-Flash Player 0.25 — edição sem mouse e contraste
 
-## Acessibilidade inicial
+Player experimental Lua/LÖVE para `.lflash` e `.lfgame` (LUAFGAME 1–9). O Studio é um aplicativo separado e não foi modificado nesta atualização.
 
-- **Tab** seleciona o próximo botão da barra superior ou inferior.
-- **Shift+Tab** retorna ao botão anterior.
-- **Enter** executa a ação selecionada.
-- **Escape** limpa a seleção.
-- **F1** mostra ou oculta a lista visual de atalhos.
+## Editor de quadros-chave: teclado
 
-O foco aparece com um contorno dourado ao redor do botão. Um clique do mouse encerra o foco de teclado. Com o diálogo de caminho ou o editor de keyframes ativo, a navegação global é suspensa para não interferir na edição.
+1. Abra um jogo LUAFGAME 8/9 com trilhas de transformação e pressione **E** para abrir o editor.
+2. Pressione **Tab** para percorrer controles: trocar sprite, escolher uma das quatro chaves visíveis, inserir/excluir, alterar posição ou quadro, ângulo/escala, desfazer, trocar curva e salvar.
+3. Pressione **Shift+Tab** para voltar e **Enter** para executar o controle selecionado.
+4. **Setas cima/baixo** continuam selecionando chaves e **PageUp/PageDown** trocam de sprite. O destaque de teclado é um contorno em torno do controle.
+5. **Escape** fecha o editor; **Ctrl+Z/Ctrl+Y** desfaz/refaz as edições e **Ctrl+S** salva uma cópia validada do jogo.
 
-O suporte cobre os 12 controles principais. Ainda faltam navegação completa no editor, integração com leitores de tela e avaliação formal de acessibilidade.
+O foco ignora linhas de quadros-chave não visíveis. Se uma linha desaparecer após exclusão ou Undo, a navegação retorna a uma ação visível. Mouse e teclado utilizam as mesmas operações do editor, mantendo os limites de tempo/posição, a validação do formato e as proteções existentes.
 
-## Atalhos anteriores preservados
+**Limites atuais:** a lista do editor mostra até quatro chaves simultaneamente. As demais podem ser acessadas pelas setas; Tab percorre apenas as linhas atualmente visíveis. Ainda não há suporte completo a leitores de tela ou a descrição de elementos para tecnologias assistivas.
 
-Ctrl+O abre arquivos; Ctrl+Shift+O mostra um campo manual; Ctrl+S salva; Ctrl+Z/Ctrl+Y desfazem/refazem; E abre o editor; F3 exibe diagnósticos; F5–F10 controlam o áudio; F11 alterna tela cheia.
+## Alto contraste e preferência persistente
 
-## Detalhes do arquivo Windows
+**F2** alterna o tema de alto contraste durante a execução. O modo usa fundos escuros, texto claro, contornos visíveis e cor de foco destacada. A preferência é gravada no arquivo `player-settings.txt` no diretório de dados do aplicativo.
 
-O pacote portátil possui agora os recursos nativos RT_VERSION e VS_VERSION_INFO no executável, além do ícone original. Em **Propriedades → Detalhes**, são esperados:
+O arquivo só aceita exatamente `contrast=high` ou `contrast=normal` conforme o formato da implementação. Ele é lido como **texto**, não como código Lua, e um arquivo inválido não executa comandos. Em caso de impossibilidade de gravação, o Player informa que a preferência não pôde ser salva; a sessão atual ainda muda de tema.
 
-- Produto: Lua-Flash Player
-- Descrição: Lua-Flash Player for Windows
-- Versão de arquivo: 0.24.0.0
-- Arquivo original: Lua-Flash-Player.exe
+O F2 não altera os dados do jogo, seus sprites nem o formato `.lfgame`. O F1 exibe a ajuda dos atalhos.
 
-O GitHub Actions verifica os metadados e o ícone diretamente no arquivo executável. A build Windows continua portátil, com o LÖVE 11.5 incorporado, e não possui assinatura digital.
+O tema melhora o contraste dos controles principais, mas partes das cenas e cores autorais dos jogos permanecem como foram criadas. Isso não constitui certificação WCAG nem garante compatibilidade com leitores de tela.
+
+## Outros recursos
+
+Ctrl+O abre o seletor de arquivos (nativo no Windows); Ctrl+Shift+O abre campo manual; F3 mostra diagnósticos; F5–F10 controlam áudio; F11 alterna tela cheia. O Windows portátil continua incorporando o LÖVE 11.5, ícone original e informações de versão **0.25.0.0**.
 
 ## Testes
 
-Executar a partir da raiz do repositório:
+```bash
+lua tests/editor_nav_test.lua
+lua tests/visual_settings_test.lua
+lua tests/focus_nav_test.lua
+lua tests/gui_smoke.lua
+python3 tests/windows_resource_test.py
+python3 tools/package_player.py
+```
 
-    lua tests/focus_nav_test.lua
-    lua tests/gui_smoke.lua
-    python3 tests/windows_resource_test.py
-    python3 tests/windows_package_test.py
-    python3 tools/package_player.py
-
-O CI também verifica a renderização real do LÖVE em display virtual, abertura de jogos, compactação do executável e leitura Unicode no Windows. Ainda são necessários testes físicos com teclados e computadores variados.
-
-O Studio não foi alterado. O formato LUAFGAME 9 continua compatível com versões anteriores.
+A CI verifica esses testes e compila a distribuição Windows. Ainda são necessários testes físicos e homologação de acessibilidade antes de declarar uma versão estável.
