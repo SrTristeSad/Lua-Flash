@@ -383,3 +383,49 @@ love.keypressed("escape")
 assert(Model.encode(project())==Model.encode(buttonRoot),
   "button editing must not affect the root document")
 print("OK: library double-click and four-state Button editor limit")
+
+
+-- Stage instance selection, keyboard transformations and drag with undo.
+press("n",true)
+press("b")
+love.mousepressed(300,250,1)
+love.mousemoved(340,270,40,20)
+love.mousereleased(340,270,1)
+press("f8",true)
+love.mousepressed(325,260,1)
+love.mousereleased(325,260,1)
+press("v")
+love.mousepressed(335,267,1)
+love.mousereleased(335,267,1)
+project()
+local placedInstance=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"])).tracks[1][1][1]
+modifiers.lalt=true
+love.keypressed("right")
+modifiers.lshift=true
+love.keypressed("down")
+modifiers.lshift=false
+modifiers.lalt=false
+love.keypressed("rightbracket")
+press("rightbracket",true)
+project()
+local transformed=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"])).tracks[1][1][1]
+assert(math.abs(transformed.x-placedInstance.x-1)<.0001)
+assert(math.abs(transformed.y-placedInstance.y-10)<.0001)
+assert(transformed.angle==5 and math.abs(transformed.sx-1.1)<.0001)
+press("z",true)
+project()
+local scaleUndo=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"])).tracks[1][1][1]
+assert(scaleUndo.angle==5 and scaleUndo.sx==1)
+-- Re-select after undo, drag, then undo the gesture atomically.
+love.mousepressed(338,276,1)
+love.mousemoved(354,288,16,12)
+love.mousereleased(354,288,1)
+project()
+local movedInstance=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"])).tracks[1][1][1]
+assert(movedInstance.x>scaleUndo.x and movedInstance.y>scaleUndo.y)
+press("z",true)
+project()
+local dragUndo=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"])).tracks[1][1][1]
+assert(math.abs(dragUndo.x-scaleUndo.x)<.0001)
+assert(math.abs(dragUndo.y-scaleUndo.y)<.0001)
+print("OK: symbol instance selection, keyboard transforms, drag and undo")
