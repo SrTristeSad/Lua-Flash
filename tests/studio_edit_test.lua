@@ -975,3 +975,35 @@ project()
 local hollowReopened=assert(Paths.decode(files["projeto.lflash.lfvec"]))
 assert(#Paths.at(hollowReopened,1,1)[1].holes==1)
 print("OK: UI donut subtraction, LFVECTOR 3, SVG, undo and reopen")
+
+
+-- After reopening a hollow shape, the user can subtract a second separate area.
+drawFilledRect(395,335,410,350)
+project()
+local compoundBeforeSecond=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(compoundBeforeSecond,1,1)==2)
+press("a")
+love.mousepressed(320,270,1)
+love.mousereleased(320,270,1)
+modifiers.lshift=true
+love.mousepressed(410,342,1)
+love.mousereleased(410,342,1)
+modifiers.lshift=false
+modifiers.lctrl=true
+modifiers.lshift=true
+love.keypressed("d")
+modifiers.lshift=false
+modifiers.lctrl=false
+project()
+local doubleCut=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local doubleCutShape=assert(Paths.at(doubleCut,1,1)[1])
+assert(#Paths.at(doubleCut,1,1)==1 and doubleCutShape.holes and
+  #doubleCutShape.holes==2,"two successive cuts must create two separate holes")
+press("z",true)
+project()
+assert(#Paths.at(assert(Paths.decode(files["projeto.lflash.lfvec"])),1,1)==2,
+  "one undo restores the two operands of the second subtraction")
+press("y",true)
+project()
+assert(#Paths.at(assert(Paths.decode(files["projeto.lflash.lfvec"])),1,1)[1].holes==2)
+print("OK: Studio UI repeated compound Boolean subtraction and atomic undo")
