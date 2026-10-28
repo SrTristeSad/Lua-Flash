@@ -137,3 +137,22 @@ love.mousereleased(250+19*4+8,track+45,1)
 local protected=project()
 assert(Model.isKey(protected.layers[1],2) and Model.isKey(protected.layers[1],5))
 print("OK: Studio drag, duplication, undo and first-frame protection")
+
+
+-- Zoomed timeline drag must use resized cells for the destination.
+press("n",true)
+press("right")
+press("f6")
+love.mouse={getPosition=function() return 270,780-170+45 end}
+modifiers.lctrl=true
+love.wheelmoved(0,4)
+modifiers.lctrl=false
+-- At 27 px per cell, dragging frame 2 to frame 4 must not use 19 px.
+local cell=27
+love.mousepressed(250+cell+8,780-170+45,1)
+love.mousemoved(250+cell*3+8,780-170+45,cell*2,0)
+love.mousereleased(250+cell*3+8,780-170+45,1)
+local zoomed=project()
+assert(Model.isKey(zoomed.layers[1],4),"zoomed drag did not hit frame 4")
+assert(not Model.isKey(zoomed.layers[1],2),"zoomed drag kept source key")
+print("OK: Studio zoom-aware timeline mouse dragging")
