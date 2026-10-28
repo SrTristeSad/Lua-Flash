@@ -114,4 +114,30 @@ function Edit.setPosition(g,index,selected,x,y)
   t.keys[selected].x=x;t.keys[selected].y=y
   return selected
 end
+local function keyAt(g,index,selected)
+  local track=findTrack(g,index)
+  if not track then return nil,"sprite track not found" end
+  if not integer(selected,1,#track.keys) then return nil,"invalid key selection" end
+  return track.keys[selected]
+end
+function Edit.rotate(g,index,selected,delta)
+  local key,err=keyAt(g,index,selected)
+  if not key then return nil,err end
+  if not integer(delta,-720,720) then return nil,"invalid angle change" end
+  local value=key.angle+delta
+  if not integer(value,-360,360) then return nil,"angle outside limits" end
+  key.angle=value
+  return selected
+end
+function Edit.scale(g,index,selected,axis,delta)
+  local key,err=keyAt(g,index,selected)
+  if not key then return nil,err end
+  if axis~="X" and axis~="Y" then return nil,"unknown scale axis" end
+  if not integer(delta,-400,400) then return nil,"invalid scale change" end
+  local field=axis=="X" and "scaleX" or "scaleY"
+  local value=key[field]+delta
+  if not integer(value,10,400) then return nil,"scale outside limits" end
+  key[field]=value
+  return selected
+end
 return Edit
