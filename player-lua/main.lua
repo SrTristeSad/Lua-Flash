@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.21. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.22. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -19,6 +19,8 @@ local MediaRuntime=require("src.media_runtime")
 local Session=require("src.session")
 local GameExample=require("src.game_example_v9")
 local FileImport=require("src.file_import")
+local NativeDialog=require("src.native_dialog")
+local WindowIcon=require("src.window_icon")
 
 local document=Demo.create()
 local transport=Transport.new(document)
@@ -166,7 +168,17 @@ end
 -- This is used by drag/drop, Explorer's Open With, and the Ctrl+O path dialog.
 local function openNativePath(path)
   if not canReplace() then return false end
-  local loaded,err=FileImport.readPath(path)
+  local loaded,err
+  if NativeDialog.available() then
+    -- UTF-16 Windows file APIs support accented and non-ASCII paths.
+    local kind,name=FileImport.classify(path)
+    if not kind then notice=name;return false end
+    local bytes
+    bytes,err=NativeDialog.readPath(path,FileImport.MAX_BYTES)
+    if bytes then loaded={kind=kind,name=name,bytes=bytes,path=path} end
+  else
+    loaded,err=FileImport.readPath(path)
+  end
   if not loaded then
     notice=err
     return false
@@ -183,7 +195,30 @@ local function openNativePath(path)
   end
   return success
 end
-local function openPathPrompt()
+local openPathPrompt
+local function openFilePicker()
+  if not canReplace() then return end
+  if not NativeDialog.available() then
+    return openPathPrompt()
+  end
+  transport.playing=false
+  local record,err=NativeDialog.choose(FileImport.MAX_BYTES)
+  if not record then
+    if err~="cancelled" then notice=err end
+    return
+  end
+  local kind,name=FileImport.classify(record.path)
+  if not kind then notice=name;return end
+  local loaded
+  if kind=="game" then loaded=openGameBytes(record.bytes,name)
+  else loaded=openBytes(record.bytes,name) end
+  if loaded then
+    pathPrompt.open=false
+    pathPrompt.message=""
+  end
+end
+
+openPathPrompt=function()
   if not canReplace() then return end
   pathPrompt={open=true,value="",message=""}
   transport.playing=false
@@ -691,15 +726,29 @@ local function toggleSmooth()
 end
 
 function love.load(arguments)
-  love.window.setTitle("Lua-Flash Player 0.21")
+  love.window.setTitle("Lua-Flash Player 0.22")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
+  if love.image and love.image.newImageData and
+      love.window and love.window.setIcon then
+    pcall(function()
+      local icon=WindowIcon.create(love.image.newImageData)
+      love.window.setIcon(icon)
+    end)
+  end
   fonts.regular=love.graphics.newFont(13)
   fonts.heading=love.graphics.newFont(22)
   fonts.small=love.graphics.newFont(12)
   love.graphics.setFont(fonts.regular)
   local launchPath=FileImport.fromArguments(arguments)
   if launchPath then openNativePath(launchPath) end
+  if os.getenv("LUA_FLASH_SMOKE_WIN_NATIVE")=="1" and launchPath then
+    assert(NativeDialog.available(),"Windows native file API unavailable")
+    local binary,readError=NativeDialog.readPath(launchPath,FileImport.MAX_BYTES)
+    assert(binary and #binary>0,readError)
+    assert(packageDefinition and packageDefinition.version==9,
+      "native Unicode path file could not be imported")
+  end
   if os.getenv("LUA_FLASH_SMOKE_CLI")=="1" then
     assert(launchPath and packageDefinition and packageDefinition.version==9,
       "command-line native game import failed")
@@ -764,7 +813,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.21  |  Arquivos e Windows portatil",21,60,C.muted,fonts.small)
+  label("PLAYER 0.22  |  Seletor nativo e identidade visual",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -946,7 +995,7 @@ function love.mousepressed(x,y,key,istouch)
   elseif inside(x,y,w-486,24,83,36) then startGame();return
   elseif inside(x,y,w-395,24,80,36) then
     if canReplace() then install(Demo.create(),"Demonstracao interna",true) end;return
-  elseif inside(x,y,w-305,24,143,36) then openPathPrompt();return
+  elseif inside(x,y,w-305,24,143,36) then openFilePicker();return
   elseif inside(x,y,w-153,24,132,36) then transport.loop=not transport.loop;return
   end
   local topPanel=top+stageHeight+12
@@ -1019,7 +1068,11 @@ end
 function love.keypressed(key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   if pathPrompt.open then editPathKey(key,ctrl);return end
-  if ctrl and key=="o" then openPathPrompt();return end
+  if ctrl and key=="o" then
+    if love.keyboard.isDown("lshift","rshift") then openPathPrompt()
+    else openFilePicker() end
+    return
+  end
   input:key("down",key)
   if ctrl and key=="s" then saveCopy();return end
   if ctrl and (key=="y" or
