@@ -67,9 +67,14 @@ do
   local i=assert(Boolean.plan(v,1,1,a.id,b.id,"intersection"))
   assert(i.resultCount==1)
   local result,err=Boolean.plan(v,1,1,a.id,b.id,"difference")
-  assert(not result and err:find("hole"),"hole-producing difference must be rejected")
-  assert(#Vector.at(v,1,1)==2,"failed operation must be atomic")
-  print("OK: nested shape containment and unsupported hole rejection")
+  assert(result,err)
+  assert(Vector.encode(v):find("LFVECTOR 1",1,true),
+    "planning hole output must not alter storage format")
+  result.apply()
+  assert(#Vector.at(v,1,1)==1 and #Vector.at(v,1,1)[1].holes==1,
+    "nested subtraction must preserve its interior cutout")
+  assert(Vector.encode(v):find("LFVECTOR 3",1,true))
+  print("OK: nested Boolean subtraction produces a compound hole")
 end
 do
   local v=Vector.new()
