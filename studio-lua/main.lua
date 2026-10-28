@@ -28,6 +28,11 @@ end
 local function clampOffset(w)
   offset=math.max(1,math.min(offset,math.max(1,doc.totalFrames-timelineCount(w)+1)))
 end
+local function libraryPanel(track)
+  local top=math.max(326,132+#doc.layers*35+10)
+  local slots=math.max(0,math.min(5,math.floor((track-105-top-22)/28)))
+  return top,slots
+end
 local function clone(value)
   if type(value)~="table" then return value end
   local out={}
@@ -243,12 +248,13 @@ local function ui()
     label("Palco "..doc.width.." x "..doc.height,w-185,track-92)
     label("FPS: "..doc.fps,w-185,track-72)
     label("Camada "..doc.currentLayer.." | F7 vis. F8 trava",w-185,track-52)
-    label("BIBLIOTECA  |  Ctrl+F8 cria Graphic",w-186,326,{.45,.82,1})
+    local libY,visibleSlots=libraryPanel(track)
+    if libY<track-108 then label("BIBLIOTECA | Ctrl+F8",w-186,libY,{.45,.82,1}) end
     local symbolList=Library.list(symbolLibrary)
-    for i=1,math.min(#symbolList,5) do
+    for i=1,math.min(#symbolList,visibleSlots) do
       local symbol=symbolList[i]
       local title=symbol.id.." "..symbol.kind..": "..symbol.name
-      button(title:sub(1,24),w-187,348+(i-1)*28,175,26,selectedSymbol==symbol.id)
+      button(title:sub(1,24),w-187,libY+22+(i-1)*28,175,26,selectedSymbol==symbol.id)
     end
   end
 
@@ -333,8 +339,9 @@ function love.mousepressed(mx,my,mousebutton)
     if inBox(mx,my,11,92+(i-1)*39,146,34) then tool=item[1];msg="Ferramenta: "..tool;return end
   end
   local symbols=Library.list(symbolLibrary)
-  for i=1,math.min(#symbols,5) do
-    if inBox(mx,my,w-187,348+(i-1)*28,175,26) then
+  local libY,visibleSlots=libraryPanel(track)
+  for i=1,math.min(#symbols,visibleSlots) do
+    if inBox(mx,my,w-187,libY+22+(i-1)*28,175,26) then
       selectedSymbol=symbols[i].id
       tool="symbol"
       msg="Instancia selecionada: "..symbols[i].name.." | clique no palco"
