@@ -1,4 +1,4 @@
--- Lua-Flash Player 0.15. Independent runtime for native .lflash animations.
+-- Lua-Flash Player 0.17. Independent runtime for native .lflash animations.
 -- Does not execute SWF, ActionScript or embedded project code.
 local Model=require("src.model")
 local Runtime=require("src.runtime")
@@ -11,6 +11,8 @@ local GamePackage=require("src.package_v9")
 local SpriteTween=require("src.sprite_tween")
 local KeyframeEditor=require("src.keyframe_editor")
 local EditHistory=require("src.edit_history")
+local Recovery=require("src.recovery")
+local Diagnostics=require("src.diagnostics")
 local SpriteTransform=require("src.sprite_transform")
 local MediaRuntime=require("src.media_runtime")
 local Session=require("src.session")
@@ -31,7 +33,9 @@ local packageDefinition=nil
 local media=nil
 local history=nil
 local recoveryClock=0
-local recoveryDirty=false
+local recoveryStore=nil
+local diagnostics=Diagnostics.new()
+local showDiagnostics=false
 local editor={open=false,track=1,segment=1,scroll=0,drag=nil}
 local C={
   bg={.075,.085,.11},top={.11,.13,.17},panel={.14,.16,.20},
@@ -75,7 +79,7 @@ local function install(doc,name,isDemo)
   media=nil
   history=nil
   recoveryClock=0
-  recoveryDirty=false
+  recoveryStore=nil
   editor={open=false,track=1,segment=1,scroll=0,drag=nil}
   document=doc
   transport=Transport.new(document)
@@ -91,7 +95,16 @@ local function install(doc,name,isDemo)
     "Projeto aberto. Aperte I para ativar ou desativar interpolacao visual."
 end
 
+local function canReplace()
+  if history and history:isDirty() then
+    notice="Alteracoes nao salvas. Ctrl+S antes de abrir outro projeto."
+    return false
+  end
+  return true
+end
+
 local function openBytes(content,name)
+  if not canReplace() then return false end
   if type(content)~="string" or #content>MAX_FILE then
     notice="Arquivo rejeitado: tamanho invalido (maximo 25 MB)."
     return false
@@ -106,7 +119,8 @@ local function openBytes(content,name)
 end
 
 -- A .lfgame contains a validated native scene and data-only interaction rules.
-local function openGameBytes(content,name)
+local function openGameBytes(content,name,originalKey)
+  if not canReplace() then return false end
   if type(content)~="string" or #content>MAX_FILE then
     notice="Jogo recusado: pacote maior que 25 MB."
     return false
@@ -130,7 +144,12 @@ local function openGameBytes(content,name)
   session=Session.new(definition,transport)
   media=prepared
   history=definition.version>=8 and EditHistory.new(definition) or nil
+  recoveryStore=history and Recovery.new(love.filesystem,GamePackage,
+    originalKey or Recovery.identity(name or definition.title,content)) or nil
   smooth=definition.smooth
+  if recoveryStore and recoveryStore:read() then
+    notice="Copia de recuperacao disponivel para este projeto: Ctrl+R."
+  end
   notice="Jogo "..definition.title.." iniciado. Sem execucao de scripts externos."
   return true
 end
@@ -167,7 +186,7 @@ local function saveCopy()
   local ok,err=love.filesystem.write(name,content)
   if ok then
     if history then history:markSaved() end
-    recoveryDirty=false
+    if recoveryStore then recoveryStore:clear() end
     notice="Copia salva: "..love.filesystem.getSaveDirectory().."/"..name
   else
     notice="Erro ao salvar: "..tostring(err)
@@ -178,26 +197,32 @@ end
 -- Recovery is an additional copy, never written over the imported game.
 -- Writes happen only after edits have settled for 12 seconds, not per drag.
 local function autosaveRecovery(dt)
-  if not history then return end
+  if not history or not recoveryStore or editor.drag then return end
   recoveryClock=recoveryClock+dt
   if recoveryClock<12 then return end
   recoveryClock=0
   if not history:isDirty() then return end
-  local ok,content=pcall(GamePackage.encode,packageDefinition)
-  if not ok or not content then return end
-  local wrote=love.filesystem.write("player_recovery.lfgame",content)
-  if wrote then recoveryDirty=true end
+  local saved,problem=recoveryStore:save(packageDefinition)
+  if not saved then notice="Aviso: recuperacao falhou: "..tostring(problem) end
 end
 
 local function openRecovery()
-  local bytes=love.filesystem.read("player_recovery.lfgame")
-  if not bytes then notice="Nenhuma copia de recuperacao encontrada.";return end
   if history and history:isDirty() then
     notice="Salve o jogo atual com Ctrl+S antes de recuperar outro."
     return
   end
-  if openGameBytes(bytes,"Copia de recuperacao") then
-    notice="Copia de recuperacao aberta. Ctrl+S para guardar."
+  if not recoveryStore then
+    notice="Abra primeiro o jogo original para localizar sua recuperacao."
+    return
+  end
+  local restored,err=recoveryStore:read()
+  if not restored then
+    notice="Recuperacao indisponivel: "..tostring(err)
+    return
+  end
+  local key=recoveryStore.key
+  if openGameBytes(restored.bytes,"Recuperacao "..source,key) then
+    notice="Recuperacao verificada (copia "..restored.sequence.."). Ctrl+S salva."
   end
 end
 
@@ -206,6 +231,7 @@ local function seekFromX(x,w)
 end
 
 local function startGame()
+  if not canReplace() then return end
   install(Demo.create(),"Acerte a bola - minijogo do Player",true)
   game=TargetGame.new()
   transport.loop=true
@@ -596,7 +622,7 @@ local function toggleSmooth()
 end
 
 function love.load()
-  love.window.setTitle("Lua-Flash Player 0.16")
+  love.window.setTitle("Lua-Flash Player 0.17")
   love.window.setMode(1040,690,{resizable=true,minwidth=780,minheight=450})
   love.graphics.setDefaultFilter("linear","linear")
   fonts.regular=love.graphics.newFont(13)
@@ -616,6 +642,7 @@ end
 function love.update(dt)
   if ciSmoke and drawnFrames>=5 then love.event.quit();return end
   autosaveRecovery(dt)
+  diagnostics:update(dt)
   local before,playing=transport.position,transport.playing
   transport:update(dt)
   local wraps=playing and transport.lastWraps or 0
@@ -655,7 +682,7 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,0,w,top)
   label("LUA-FLASH",20,13,C.accent,fonts.heading)
-  label("PLAYER 0.16  |  Undo, giro, escala e recuperacao",21,60,C.muted,fonts.small)
+  label("PLAYER 0.17  |  Recuperacao segura e diagnostico",21,60,C.muted,fonts.small)
   button("PACOTE",w-575,24,83,36,session~=nil)
   button("JOGAR",w-486,24,83,36,game~=nil)
 
@@ -759,6 +786,24 @@ function love.draw()
   lg.setColor(C.top)
   lg.rectangle("fill",0,h-26,w,26)
   label(notice,13,h-22,C.muted,fonts.small)
+  if showDiagnostics then
+    local report=diagnostics:snapshot(packageDefinition,media,session)
+    lg.push("all")
+    lg.setColor(.025,.035,.055,.93)
+    lg.rectangle("fill",w-281,93,269,146,7,7)
+    label("DIAGNOSTICO [F3]",w-270,100,C.green,fonts.small)
+    label(string.format("FPS medio: %.1f | Pior dt: %.1f ms",
+      report.fps,report.worstMs),w-270,123,C.text,fonts.small)
+    label(string.format("Memoria Lua: %.1f MB",
+      report.memoryKB/1024),w-270,146,C.text,fonts.small)
+    label(string.format("Sprites: %d  Chaves: %d  Midias: %d",
+      report.tracks,report.keys,report.resources),
+      w-270,169,C.text,fonts.small)
+    label(string.format("Mascaras: %d | Pares: %d",
+      report.maskBuilds,report.collisionPairs),
+      w-270,192,C.text,fonts.small)
+    lg.pop()
+  end
 end
 
 function love.mousepressed(x,y,key,istouch)
@@ -772,7 +817,7 @@ function love.mousepressed(x,y,key,istouch)
   if inside(x,y,w-575,24,83,36) then openGameExample();return
   elseif inside(x,y,w-486,24,83,36) then startGame();return
   elseif inside(x,y,w-395,24,80,36) then
-    install(Demo.create(),"Demonstracao interna",true);return
+    if canReplace() then install(Demo.create(),"Demonstracao interna",true) end;return
   elseif inside(x,y,w-305,24,143,36) then openSaved();return
   elseif inside(x,y,w-153,24,132,36) then transport.loop=not transport.loop;return
   end
@@ -853,6 +898,7 @@ function love.keypressed(key)
   end
   if ctrl and key=="z" then editorUndo(false);return end
   if ctrl and key=="r" then openRecovery();return end
+  if key=="f3" then showDiagnostics=not showDiagnostics;return end
   if key=="e" and packageDefinition and packageDefinition.version>=8 and
       packageDefinition.tweens and #packageDefinition.tweens>0 then
     editor.open=not editor.open
@@ -919,7 +965,7 @@ function love.keypressed(key)
   elseif key=="f11" then love.window.setFullscreen(not love.window.getFullscreen())
   elseif key=="escape" then
     if love.window.getFullscreen() then love.window.setFullscreen(false) else love.event.quit() end
-  elseif key=="d" then install(Demo.create(),"Demonstracao interna",true)
+  elseif key=="d" then if canReplace() then install(Demo.create(),"Demonstracao interna",true) end
   elseif key=="o" then openSaved()
   elseif key=="l" then transport.loop=not transport.loop
   elseif key=="i" then toggleSmooth()
