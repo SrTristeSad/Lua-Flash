@@ -850,3 +850,62 @@ local bendUndo=assert(Paths.decode(files["projeto.lflash.lfvec"]))
 assert(math.abs(Paths.at(bendUndo,1,1)[1].nodes[1].oy-oldOutY)<.001,
   "one undo must restore previous curve before segment drag")
 print("OK: UI Ctrl+drag segment curvature and atomic undo")
+
+
+-- Boolean intersection/union/subtraction through the node editor UI.
+press("n",true)
+local function filledBox(x1,y1,x2,y2)
+  press("p")
+  for _,pt in ipairs({{x1,y1},{x2,y1},{x2,y2},{x1,y2}}) do
+    love.mousepressed(pt[1],pt[2],1)
+    love.mousereleased(pt[1],pt[2],1)
+  end
+  love.mousepressed(x1,y1,1)
+  love.mousereleased(x1,y1,1)
+  love.keypressed("f")
+end
+filledBox(320,260,370,310)
+filledBox(345,275,395,325)
+project()
+local originalBooleans=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(originalBooleans,1,1)==2)
+local function selectBooleanOperands()
+  press("a")
+  love.mousepressed(320,265,1)
+  love.mousereleased(320,265,1)
+  modifiers.lshift=true
+  love.mousepressed(395,300,1)
+  love.mousereleased(395,300,1)
+  modifiers.lshift=false
+end
+local function booleanAction(key)
+  selectBooleanOperands()
+  modifiers.lctrl=true
+  modifiers.lshift=true
+  love.keypressed(key)
+  modifiers.lshift=false
+  modifiers.lctrl=false
+  project()
+  local saved=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+  assert(#Paths.at(saved,1,1)==1,
+    "Boolean "..key.." must produce a single filled path")
+  return Paths.at(saved,1,1)[1]
+end
+local intersected=booleanAction("i")
+assert(Paths.hit(intersected,360,290,1))
+assert(not Paths.hit(intersected,330,270,1))
+press("z",true)
+project()
+assert(#Paths.at(assert(Paths.decode(files["projeto.lflash.lfvec"])),1,1)==2)
+local united=booleanAction("u")
+assert(Paths.hit(united,330,270,1) and Paths.hit(united,380,315,1))
+press("z",true)
+project()
+local subtracted=booleanAction("d")
+assert(Paths.hit(subtracted,330,270,1))
+assert(not Paths.hit(subtracted,360,290,1))
+press("z",true)
+project()
+assert(#Paths.at(assert(Paths.decode(files["projeto.lflash.lfvec"])),1,1)==2,
+  "undo must restore both Boolean source paths atomically")
+print("OK: UI Boolean intersection, union, subtraction and undo")
