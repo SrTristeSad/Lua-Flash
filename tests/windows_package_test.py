@@ -50,6 +50,9 @@ def run() -> None:
             assert root + "license.txt" in names
             assert root + "README-Windows.txt" in names
             assert root + module.LAUNCHER_NAME in names
+            assert root + module.ICON_NAME in names
+            ico = archive.read(root + module.ICON_NAME)
+            assert ico[:4] == b"\x00\x00\x01\x00" and b"PNG" in ico[:40]
             launcher = archive.read(root + module.LAUNCHER_NAME)
             assert b"Lua-Flash-Player.exe" in launcher
             assert b"%~f1" in launcher
