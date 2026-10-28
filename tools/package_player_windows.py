@@ -10,13 +10,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import math
+import os
 import struct
 import zlib
 from pathlib import Path, PurePosixPath
 import tempfile
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-VERSION = "0.22"
+VERSION = "0.23"
 LOVE_VERSION = "11.5"
 LOVE_DIR = "love-11.5-win64"
 # Pinned against the public Scoop love.json 11.5 win64 distribution.
@@ -27,7 +28,7 @@ LAUNCHER_NAME = "ABRIR-JOGO.cmd"
 ICON_NAME = "Lua-Flash-Player.ico"
 ROOT = Path(__file__).resolve().parent.parent
 
-README = """Lua-Flash Player 0.22 — Windows x64 (portable)
+README = """Lua-Flash Player 0.23 — Windows x64 (portable)
 ===================================================
 1. Extract ALL contents of this ZIP into one folder.
 2. Double-click Lua-Flash-Player.exe.
@@ -37,9 +38,9 @@ README = """Lua-Flash Player 0.22 — Windows x64 (portable)
 5. You can also drag .lflash/.lfgame into the window or onto ABRIR-JOGO.cmd.
 6. Use Windows 'Open With...' to select Lua-Flash-Player.exe for these files.
    This portable build DOES NOT change Windows registry or associations.
-An original Lua-Flash icon is used for the running window and is supplied as
-Lua-Flash-Player.ico for custom desktop shortcuts. The unsigned executable
-still uses the upstream runtime's PE icon resource.
+The original Lua-Flash lightning icon is installed both into the Windows
+executable PE resources and in the portable ZIP as Lua-Flash-Player.ico.
+The runtime is still unsigned and Windows may show SmartScreen warnings.
 
 The Player embeds LÖVE 11.5; installing LÖVE separately is NOT required.
 This is NOT an MSI installer, and is not digitally signed. Windows may
@@ -189,8 +190,25 @@ def build(love_zip: Path, game: Path, output: Path) -> None:
     if not legal:
         raise ValueError("LÖVE distribution did not contain a license file")
 
-    # Fusing is official LOVE.exe followed by the .love ZIP, byte-for-byte.
-    # LÖVE locates its ZIP payload at the end of the Windows PE executable.
+    # Update Windows PE icons BEFORE appending the .love ZIP. This avoids
+    # changing a fused ZIP's offsets or accidentally invalidating its payload.
+    # Synthetic unit tests on non-Windows use a tiny fake PE and skip Win32.
+    ico=original_icon_ico()
+    if os.name=="nt":
+        import importlib.util
+        resources_path=Path(__file__).with_name("windows_resources.py")
+        spec=importlib.util.spec_from_file_location("windows_resources",resources_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Windows resource helper unavailable")
+        helper=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        with tempfile.TemporaryDirectory() as resource_tmp:
+            plain=Path(resource_tmp)/"love.exe"
+            plain.write_bytes(source_exe)
+            helper.embed_icon(plain,ico)
+            source_exe=plain.read_bytes()
+
+    # LÖVE locates the game ZIP appended to the Windows PE executable.
     fused = source_exe + game_data
     if not fused.startswith(b"MZ"):
         raise AssertionError("invalid fused PE header")
@@ -207,7 +225,7 @@ def build(love_zip: Path, game: Path, output: Path) -> None:
     with ZipFile(output, "w") as archive:
         _add(archive, f"{OUTPUT_DIR}/{EXE_NAME}", fused)
         _add(archive, f"{OUTPUT_DIR}/{LAUNCHER_NAME}", LAUNCHER)
-        _add(archive, f"{OUTPUT_DIR}/{ICON_NAME}", original_icon_ico())
+        _add(archive, f"{OUTPUT_DIR}/{ICON_NAME}", ico)
         _add(archive, f"{OUTPUT_DIR}/README-Windows.txt", README.encode("utf-8"))
         for name in sorted(extracted):
             _add(archive, f"{OUTPUT_DIR}/{name}", extracted[name])
