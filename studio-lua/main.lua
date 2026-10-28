@@ -693,7 +693,21 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     end
   end
   for i in ipairs(palette) do
-    if inBox(mx,my,12+(i-1)%3*46,375+math.floor((i-1)/3)*44,36,35) then colorIndex=i;return end
+    if inBox(mx,my,12+(i-1)%3*46,375+math.floor((i-1)/3)*44,36,35) then
+      colorIndex=i
+      local path=tool=="node" and vectorOnFrame(selectedVector)
+      if path and not editingSymbolId and editVectorFrame() then
+        path=vectorOnFrame(selectedVector)
+        if love.keyboard.isDown("lshift","rshift") and path.closed then
+          path.fill=clone(palette[i])
+          msg="Cor do preenchimento vetorial atualizada"
+        else
+          path.stroke=clone(palette[i])
+          msg="Cor do contorno vetorial atualizada"
+        end
+      end
+      return
+    end
   end
   for i,layer in ipairs(doc.layers) do
     local cy=132+(i-1)*35
@@ -1434,6 +1448,20 @@ function love.keypressed(key)
     end
     selected=nil
     return
+  end
+  if mode=="studio" and not editingSymbolId and tool=="node"
+      and (key=="-" or key=="kp-" or key=="=" or key=="+" or key=="kp+")
+      and selectedVector then
+    local path=vectorOnFrame(selectedVector)
+    if path then
+      local delta=(key=="-" or key=="kp-") and -1 or 1
+      local nextWidth=math.max(.1,math.min(200,path.width+delta))
+      if math.abs(nextWidth-path.width)>1e-6 and editVectorFrame() then
+        vectorOnFrame(selectedVector).width=nextWidth
+        msg="Contorno vetorial: "..nextWidth
+      end
+      return
+    end
   end
   if key=="v" then tool="select";penPath=nil
   elseif key=="b" then tool="brush"
