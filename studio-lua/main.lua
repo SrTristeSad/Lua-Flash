@@ -15,6 +15,13 @@ local tools={{"select","V Selecionar"},{"brush","B Pincel"},{"line","L Linha"},{
 local font
 local frameClipboard=nil
 local timelineDrag=nil
+local timelineCell=19
+local function timelineCount(w)
+  return math.max(1,math.floor((w-250-18)/timelineCell))
+end
+local function clampOffset(w)
+  offset=math.max(1,math.min(offset,math.max(1,doc.totalFrames-timelineCount(w)+1)))
+end
 local function clone(value)
   if type(value)~="table" then return value end
   local out={}
@@ -165,6 +172,7 @@ end
 local function ui()
   local lg=love.graphics
   local w,h,track=dimensions()
+  clampOffset(w)
   lg.clear(.12,.14,.18)
   lg.setColor(.15,.18,.22)
   lg.rectangle("fill",0,0,w,50)
@@ -230,8 +238,8 @@ local function ui()
   label("Quadro "..doc.currentFrame.." / "..doc.totalFrames.."    "..doc.fps.." FPS",12,track+41)
   label("Anterior/Proximo: <- ->",12,track+64,{.64,.7,.78})
   if mode=="studio" then
-    local startX,cell=250,19
-    local count=math.floor((w-startX-18)/cell)
+    local startX,cell=250,timelineCell
+    local count=timelineCount(w)
     for j=1,count do
       local n=offset+j-1
       if n<=doc.totalFrames then
@@ -246,7 +254,7 @@ local function ui()
         end
       end
     end
-    label("Roda sobre a timeline: rolar quadros",250,track+91,{.63,.68,.74})
+    label("Roda: rolar | Ctrl+roda: zoom ("..timelineCell.." px)",250,track+91,{.63,.68,.74})
   end
   lg.setColor(.1,.12,.14)
   lg.rectangle("fill",0,h-24,w,24)
@@ -288,7 +296,7 @@ function love.mousepressed(mx,my,mousebutton)
     end
   end
   if my>=track+38 and my<=track+79 and mx>=250 and mx<w-18 then
-    local n=offset+math.floor((mx-250)/19)
+    local n=offset+math.floor((mx-250)/timelineCell)
     if n>=1 and n<=doc.totalFrames then
       runtime.playing=false
       setFrame(n)
@@ -381,7 +389,18 @@ function love.wheelmoved(_,dy)
   local mx,my=love.mouse.getPosition()
   local _,_,track=dimensions()
   if my>=track then
-    offset=math.max(1,math.min(doc.totalFrames,offset-math.floor(dy*3)))
+    local w=love.graphics.getWidth and love.graphics.getWidth() or select(1,love.graphics.getDimensions())
+    if love.keyboard.isDown("lctrl","rctrl") then
+      local old=timelineCell
+      timelineCell=math.max(12,math.min(38,timelineCell+math.floor(dy*2)))
+      if timelineCell~=old then
+        local focused=offset+math.floor((mx-250)/old)
+        offset=focused-math.floor((mx-250)/timelineCell)
+      end
+    else
+      offset=offset-math.floor(dy*3)
+    end
+    clampOffset(w)
   else
     thickness=math.max(1,math.min(40,thickness+math.floor(dy)))
   end
