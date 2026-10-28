@@ -113,6 +113,8 @@ jobs:
         run: lua tests/studio_vector_boolean_test.lua
       - name: Studio LFVECTOR 3 compound holes, stencil and SVG
         run: lua tests/studio_vector_holes_test.lua
+      - name: Studio compound Boolean successive cutouts and intersections
+        run: lua tests/studio_vector_compound_boolean_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
