@@ -15,6 +15,7 @@ local tools={{"select","V Selecionar"},{"brush","B Pincel"},{"line","L Linha"},{
 local font
 local frameClipboard=nil
 local timelineDrag=nil
+local selectedKeys={}
 local timelineCell=19
 local function timelineCount(w)
   return math.max(1,math.floor((w-250-18)/timelineCell))
@@ -55,6 +56,8 @@ local function install(newdoc)
   doc=newdoc
   runtime=Runtime.new(doc)
   selected,dragged=nil,nil
+  selectedKeys={}
+  timelineDrag=nil
   dimensions()
 end
 
@@ -245,7 +248,7 @@ local function ui()
       if n<=doc.totalFrames then
         local cx=startX+(j-1)*cell
         local hasKey=Model.isKey(active(),n)
-        lg.setColor(n==doc.currentFrame and {.2,.62,.88} or (hasKey and {.52,.58,.66} or {.26,.29,.34}))
+        lg.setColor(selectedKeys[n] and {.60,.40,.87} or (n==doc.currentFrame and {.2,.62,.88} or (hasKey and {.52,.58,.66} or {.26,.29,.34})))
         lg.rectangle("fill",cx,track+38,cell-2,41)
         if n%5==0 or j==1 then label(tostring(n),cx,track+17,{.72,.76,.82}) end
         if hasKey then
@@ -301,7 +304,19 @@ function love.mousepressed(mx,my,mousebutton)
       runtime.playing=false
       setFrame(n)
       if Model.isKey(active(),n) and not active().locked then
-        timelineDrag={source=n,target=n,duplicate=love.keyboard.isDown("lctrl","rctrl")}
+        if love.keyboard.isDown("lshift","rshift") then
+          selectedKeys[n]=not selectedKeys[n] or nil
+        else
+          if not selectedKeys[n] then selectedKeys={[n]=true} end
+          local sources={}
+          for key,enabled in pairs(selectedKeys) do
+            if enabled and active().keys[key] then sources[#sources+1]=key end
+          end
+          table.sort(sources)
+          timelineDrag={source=n,target=n,sources=sources,duplicate=love.keyboard.isDown("lctrl","rctrl")}
+        end
+      elseif not love.keyboard.isDown("lshift","rshift") then
+        selectedKeys={}
       end
     end
     return
@@ -370,16 +385,37 @@ function love.mousereleased(_,_,button)
     local op=timelineDrag
     timelineDrag=nil
     local layer=active()
-    if layer and not layer.locked and op.source~=op.target
-        and (op.duplicate or op.source~=1)
-        and layer.keys[op.source] and not layer.keys[op.target] then
-      snapshot()
-      layer.keys[op.target]=clone(layer.keys[op.source])
-      if not op.duplicate then layer.keys[op.source]=nil end
-      setFrame(op.target)
-      msg=op.duplicate and "Quadro-chave duplicado" or "Quadro-chave movido"
-    elseif op.source~=op.target then
-      msg="Movimento indisponivel (quadro inicial, destino ocupado ou camada bloqueada)"
+    if layer and not layer.locked and op.source~=op.target then
+      local delta=op.target-op.source
+      local sourceSet={}
+      for _,key in ipairs(op.sources) do sourceSet[key]=true end
+      local valid=#op.sources>0
+      for _,key in ipairs(op.sources) do
+        local destination=key+delta
+        if destination<1 or destination>doc.totalFrames
+            or (not op.duplicate and key==1)
+            or (layer.keys[destination] and (op.duplicate or not sourceSet[destination])) then
+          valid=false
+          break
+        end
+      end
+      if valid then
+        snapshot()
+        local copied={}
+        for _,key in ipairs(op.sources) do copied[key+delta]=clone(layer.keys[key]) end
+        if not op.duplicate then
+          for _,key in ipairs(op.sources) do layer.keys[key]=nil end
+        end
+        selectedKeys={}
+        for key,shapes in pairs(copied) do
+          layer.keys[key]=shapes
+          selectedKeys[key]=true
+        end
+        setFrame(op.target)
+        msg=op.duplicate and "Quadros-chave duplicados" or "Quadros-chave movidos"
+      else
+        msg="Operacao cancelada: destino ocupado, limite ou quadro inicial"
+      end
     end
   end
   dragged=nil
