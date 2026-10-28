@@ -32,13 +32,13 @@ version=windows.build_version_info()
 assert struct.unpack_from("<H",version,0)[0]==len(version)
 assert "VS_VERSION_INFO".encode("utf-16le") in version
 assert "Lua-Flash Player".encode("utf-16le") in version
-assert "0.27.0.0".encode("utf-16le") in version
+assert "0.28.0.0".encode("utf-16le") in version
 assert "Lua-Flash-Player.exe".encode("utf-16le") in version
 assert struct.pack("<I",0xFEEF04BD) in version
-assert struct.pack("<I",27) in version
+assert struct.pack("<I",28) in version
 assert windows.RT_VERSION==16
 for major,minor in ((-1,24),(0,65536)):
     try: windows.build_version_info(major,minor)
     except ValueError: pass
     else: raise AssertionError("accepted invalid file version")
-print("OK: original PNG ICO, Windows RT_ICON/RT_GROUP_ICON and 0.27 VERSIONINFO")
+print("OK: original PNG ICO, Windows RT_ICON/RT_GROUP_ICON and 0.28 VERSIONINFO")
