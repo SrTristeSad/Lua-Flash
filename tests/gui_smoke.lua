@@ -193,6 +193,34 @@ assert(savedGame.tweens[1].keys[2].angle==95,
   "GUI rotate must survive undo and redo")
 assert(savedGame.tweens[1].keys[2].scaleX==160)
 assert(savedGame.tweens[1].keys[2].scaleY==95)
+-- v0.21: Windows-style Ctrl+O dialog with pasted Explorer file path and
+-- command-line file association activation, with no external commands.
+local nativePath=[[C:\Jogos Lua\demonstracao.lfgame]]
+local previousOpen=io.open
+io.open=function(path,mode)
+  if path==nativePath then
+    assert(mode=="rb")
+    return {read=function() return saved["player_game.lfgame"] end,
+      close=function() return true end}
+  end
+  return previousOpen(path,mode)
+end
+love.system={getClipboardText=function() return '"'..nativePath..'"' end}
+ctrl=true
+love.keypressed("o")
+love.keypressed("v")
+ctrl=false
+love.draw()
+love.keypressed("return")
+love.draw()
+ctrl=true;love.keypressed("s");ctrl=false
+assert(saved["player_game.lfgame"],"path-dialog native game was not imported")
+-- Opening a file via the fused executable passes it to love.load(arguments).
+love.load({nativePath})
+love.draw()
+ctrl=true;love.keypressed("s");ctrl=false
+assert(saved["player_game.lfgame"])
+io.open=previousOpen
 love.keyreleased("w")
 love.focus(false)
 love.draw()
