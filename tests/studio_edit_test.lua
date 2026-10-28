@@ -283,3 +283,21 @@ local undoPasteLib=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
 assert(not Model.isKey(undoPasteDoc.layers[1],8) and not undoPasteLib.tracks[1][8],
   "undo must restore both artwork and instance tracks")
 print("OK: Studio Ctrl+C/V copies both art and symbols with independent undo")
+
+
+-- Capture a second symbol pose via UI; undo and sidecar must stay synchronized.
+local priorLibrary=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+local firstDefinition=priorLibrary.symbols[1].definition.totalFrames
+modifiers.lctrl=true
+love.keypressed("f10")
+modifiers.lctrl=false
+project()
+local posed=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(posed.symbols[1].definition.totalFrames==firstDefinition+1,
+  "Ctrl+F10 should append an editable pose to selected symbol")
+press("z",true)
+project()
+local poseUndone=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(poseUndone.symbols[1].definition.totalFrames==firstDefinition,
+  "undo should restore the previous symbol timeline")
+print("OK: Studio Ctrl+F10 symbol pose authoring and undo")
