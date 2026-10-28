@@ -485,3 +485,53 @@ local undoProperty=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
 assert(undoProperty.tracks[1][1][1].x~=999,
   "numeric property edit must be undoable")
 print("OK: UI drag handles, rotation handle, numeric X property and undo")
+
+
+-- Multi-instance Shift+selection, alignment panel and single-step group undo.
+press("n",true)
+press("r")
+love.mousepressed(300,250,1)
+love.mousemoved(340,270,40,20)
+love.mousereleased(340,270,1)
+press("f8",true)
+for _,xp in ipairs({325,390,455}) do
+  love.mousepressed(xp,260,1)
+  love.mousereleased(xp,260,1)
+end
+project()
+local baselineGroup=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(#baselineGroup.tracks[1][1]==3)
+press("v")
+love.mousepressed(330,265,1);love.mousereleased(330,265,1)
+modifiers.lshift=true
+love.mousepressed(395,265,1);love.mousereleased(395,265,1)
+love.mousepressed(460,265,1);love.mousereleased(460,265,1)
+modifiers.lshift=false
+-- Group panel begins at x=760, y=65; top-left button aligns left bounds.
+love.mousepressed(790,114,1);love.mousereleased(790,114,1)
+project()
+local aligned=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+local alignItems=aligned.tracks[1][1]
+assert(math.abs(alignItems[1].x-alignItems[2].x)<.01 and
+  math.abs(alignItems[2].x-alignItems[3].x)<.01,
+  "group alignment must move all three selected instances")
+-- Group keyboard rotation must preserve independent IDs and update all angles.
+love.keypressed("rightbracket")
+project()
+local rotated=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+for _,item in ipairs(rotated.tracks[1][1]) do
+  assert(item.angle==5,"group rotation must affect every selected instance")
+end
+press("z",true)
+project()
+local rotationUndo=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+for _,item in ipairs(rotationUndo.tracks[1][1]) do
+  assert(item.angle==0,"one undo must revert entire group rotation")
+end
+press("z",true)
+project()
+local alignmentUndo=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(alignmentUndo.tracks[1][1][1].x<alignmentUndo.tracks[1][1][2].x and
+  alignmentUndo.tracks[1][1][2].x<alignmentUndo.tracks[1][1][3].x,
+  "one undo must revert the entire alignment")
+print("OK: Shift multi-select, align panel, group rotation and atomic undo")
