@@ -1,0 +1,26 @@
+-- Exposure spans and explicit blank keyframes: native LUAFLASH 1 compatibility.
+package.path="./studio-lua/?.lua;./studio-lua/?/init.lua;"..package.path
+local M=require("src.model")
+local doc=M.new()
+local layer=doc.layers[1]
+local shape=M.makeShape("rect",{1,0,0},2,10,12)
+layer.keys[1]={shape}
+M.ensureKey(layer,5)
+M.insertBlankKey(layer,9)
+local spans=M.spans(layer,12)
+assert(#spans==3)
+assert(spans[1].index==1 and spans[1].duration==4 and not spans[1].blank)
+assert(spans[2].index==5 and spans[2].duration==4 and not spans[2].blank)
+assert(spans[3].index==9 and spans[3].duration==4 and spans[3].blank)
+assert(M.exposure(layer,7,12).index==5 and not M.exposure(layer,7,12).isKey)
+assert(M.exposure(layer,9,12).isKey and M.exposure(layer,9,12).blank)
+assert(#M.frame(layer,10)==0)
+local bytes=M.encode(doc)
+assert(bytes:match("^LUAFLASH 1\n"),"legacy format header changed")
+local decoded=assert(M.decode(bytes))
+local restored=M.spans(decoded.layers[1],12)
+assert(#restored==3 and restored[3].blank)
+assert(M.exposure(decoded.layers[1],8,12).duration==4)
+assert(M.removeKey(decoded.layers[1],9))
+assert(#M.spans(decoded.layers[1],12)==2)
+print("OK: Flash exposure spans, blank keys and legacy .lflash round-trip")
