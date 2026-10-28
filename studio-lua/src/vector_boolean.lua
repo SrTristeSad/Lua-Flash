@@ -1,7 +1,7 @@
 -- Studio-only area booleans on CLOSED filled Bézier outlines.
 -- Curves are flattened to a bounded polygonal approximation (not exact cubic
--- boolean topology); ambiguous touching edges, unsupported hole inputs and
--- oversized contours are rejected rather than producing misleading shapes.
+-- boolean topology); touching edges, self-crossings and excessive contour
+-- complexity are rejected instead of producing incorrect fills.
 local Vector=require("src.vector_paths")
 local M={}
 local EPS=1e-7
@@ -64,20 +64,39 @@ local function flatten(path)
   if not path or not path.closed or not path.fill or #path.nodes<3 then
     return nil,"duas formas fechadas e preenchidas sao necessarias"
   end
-  -- Compound operand clipping needs a multi-ring intersection sweep.
-  -- We can create/persist holes, but refuse to silently ignore existing ones.
-  if path.holes and #path.holes>0 then
-    return nil,"booleanas em operandos com furos ainda nao suportadas"
+  if #(path.holes or {})>16 then return nil,"limite de 16 furos" end
+  local region={rings={},holes={}}
+  local total=0
+  local function ringFor(nodes)
+    if #nodes<3 or #nodes>48 then
+      return nil,"contorno deve ter entre 3 e 48 nos"
+    end
+    local sampled=Vector.sample({nodes=nodes,closed=true},8)
+    local points={}
+    for i=1,#sampled,2 do
+      points[#points+1]={x=sampled[i],y=sampled[i+1]}
+    end
+    local poly=clean(points)
+    if not poly or #poly>384 then return nil,"contorno invalido ou complexo" end
+    total=total+#poly
+    if total>512 then return nil,"limite de 512 vertices por forma" end
+    return poly
   end
-  if #path.nodes>48 then return nil,"forma muito complexa (48 nos no maximo)" end
-  local sampled=Vector.sample(path,8)
-  local points={}
-  for i=1,#sampled,2 do
-    points[#points+1]={x=sampled[i],y=sampled[i+1]}
+  local outer,err=ringFor(path.nodes)
+  if not outer then return nil,err end
+  region.outer=outer
+  region.rings[#region.rings+1]=outer
+  for _,nodes in ipairs(path.holes or {}) do
+    local hole,reason=ringFor(nodes)
+    if not hole then return nil,reason end
+    region.holes[#region.holes+1]=hole
+    -- Edges must follow the boundary of the filled set, so hole rings run
+    -- clockwise while outer rings run counterclockwise.
+    local reversed={}
+    for i=#hole,1,-1 do reversed[#reversed+1]=hole[i] end
+    region.rings[#region.rings+1]=reversed
   end
-  local poly=clean(points)
-  if not poly or #poly>384 then return nil,"contorno invalido ou complexo" end
-  return poly
+  return region
 end
 local function pointOnSegment(p,a,b)
   local dx,dy=b.x-a.x,b.y-a.y
@@ -143,6 +162,44 @@ local function simple(poly)
   end
   return true
 end
+local function ringsIntersect(a,b)
+  for i,p in ipairs(a) do
+    local q=a[i%#a+1]
+    for j,r in ipairs(b) do
+      local t=b[j%#b+1]
+      local u,v,issue=segmentIntersection(p,q,r,t)
+      if u or issue then return true end
+    end
+  end
+  return false
+end
+local function validateRegion(region)
+  for _,ring in ipairs(region.rings) do
+    if not simple(ring) then return nil,"contorno autointersectante" end
+  end
+  for i,hole in ipairs(region.holes) do
+    if ringsIntersect(region.outer,hole) then return nil,"furo cruza a borda externa" end
+    if inside(region.outer,hole[1])~=true then return nil,"furo fora da forma" end
+    for j=1,i-1 do
+      local other=region.holes[j]
+      if ringsIntersect(hole,other) then return nil,"furos sobrepostos" end
+      if inside(hole,other[1])~=false or inside(other,hole[1])~=false then
+        return nil,"furos aninhados ou sobrepostos"
+      end
+    end
+  end
+  return true
+end
+local function regionInside(region,point)
+  local included=inside(region.outer,point)
+  if included~=true then return included end
+  for _,hole in ipairs(region.holes) do
+    local contained=inside(hole,point)
+    if contained==nil then return nil end
+    if contained then return false end
+  end
+  return true
+end
 local function cuts(poly)
   local out={}
   for i=1,#poly do out[i]={0,1} end
@@ -171,7 +228,7 @@ local function selectedEdges(poly,other,ts,operation,fromB)
       local t0,t1=values[j],values[j+1]
       if t1-t0>EPS then
         local midpoint=point(a,b,(t0+t1)/2)
-        local isInside=inside(other,midpoint)
+        local isInside=regionInside(other,midpoint)
         if isInside==nil then return nil,"boundary classification ambiguous" end
         local keep
         if operation=="union" then keep=not isInside
@@ -252,32 +309,47 @@ local function calculate(a,b,operation)
   if not ca then return nil,err end
   local cb,err2=flatten(b)
   if not cb then return nil,err2 end
-  if not simple(ca) or not simple(cb) then return nil,"self-intersecting paths unsupported" end
-  local ta,tb=cuts(ca),cuts(cb)
+  local validA,errorA=validateRegion(ca)
+  if not validA then return nil,errorA end
+  local validB,errorB=validateRegion(cb)
+  if not validB then return nil,errorB end
+  local ta,tb={},{}
+  for i,ring in ipairs(ca.rings) do ta[i]=cuts(ring) end
+  for i,ring in ipairs(cb.rings) do tb[i]=cuts(ring) end
   local crossing=0
-  for i,aa in ipairs(ca) do
-    local ab=ca[i%#ca+1]
-    for j,ba in ipairs(cb) do
-      local bb=cb[j%#cb+1]
-      local t,u,issue=segmentIntersection(aa,ab,ba,bb)
-      if issue then return nil,issue end
-      if t then
-        ta[i][#ta[i]+1]=t
-        tb[j][#tb[j]+1]=u
-        crossing=crossing+1
+  for ri,ringA in ipairs(ca.rings) do
+    for i,a in ipairs(ringA) do
+      local nextA=ringA[i%#ringA+1]
+      for rj,ringB in ipairs(cb.rings) do
+        for j,b in ipairs(ringB) do
+          local nextB=ringB[j%#ringB+1]
+          local t,u,issue=segmentIntersection(a,nextA,b,nextB)
+          if issue then return nil,issue end
+          if t then
+            ta[ri][i][#ta[ri][i]+1]=t
+            tb[rj][j][#tb[rj][j]+1]=u
+            crossing=crossing+1
+          end
+        end
       end
     end
   end
   if crossing>500 then return nil,"too many intersections" end
-  local fromA,err3=selectedEdges(ca,cb,ta,operation,false)
-  if not fromA then return nil,err3 end
-  local fromB,err4=selectedEdges(cb,ca,tb,operation,true)
-  if not fromB then return nil,err4 end
-  for _,e in ipairs(fromB) do fromA[#fromA+1]=e end
-  if #fromA==0 then return nil,"empty result" end
-  local rings,err5=contours(fromA)
-  if not rings then return nil,err5 end
-  return rings
+  local result={}
+  for i,ring in ipairs(ca.rings) do
+    local edges,err=selectedEdges(ring,cb,ta[i],operation,false)
+    if not edges then return nil,err end
+    for _,e in ipairs(edges) do result[#result+1]=e end
+  end
+  for i,ring in ipairs(cb.rings) do
+    local edges,err=selectedEdges(ring,ca,tb[i],operation,true)
+    if not edges then return nil,err end
+    for _,e in ipairs(edges) do result[#result+1]=e end
+  end
+  if #result==0 then return nil,"empty result" end
+  local shapes,err=contours(result)
+  if not shapes then return nil,err end
+  return shapes
 end
 local function pathFromPolygon(shape,source,id)
   local p={id=id,closed=true,stroke=copy(source.stroke),
