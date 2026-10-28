@@ -17,7 +17,7 @@ from pathlib import Path, PurePosixPath
 import tempfile
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-VERSION = "0.24"
+VERSION = "0.25"
 LOVE_VERSION = "11.5"
 LOVE_DIR = "love-11.5-win64"
 # Pinned against the public Scoop love.json 11.5 win64 distribution.
@@ -28,7 +28,7 @@ LAUNCHER_NAME = "ABRIR-JOGO.cmd"
 ICON_NAME = "Lua-Flash-Player.ico"
 ROOT = Path(__file__).resolve().parent.parent
 
-README = """Lua-Flash Player 0.24 — Windows x64 (portable)
+README = """Lua-Flash Player 0.25 — Windows x64 (portable)
 ===================================================
 1. Extract ALL contents of this ZIP into one folder.
 2. Double-click Lua-Flash-Player.exe.
@@ -40,7 +40,7 @@ README = """Lua-Flash Player 0.24 — Windows x64 (portable)
    This portable build DOES NOT change Windows registry or associations.
 The original Lua-Flash lightning icon is installed both into the Windows
 executable PE resources and in the portable ZIP as Lua-Flash-Player.ico.
-The executable also includes FileVersion/ProductVersion 0.24.0.0
+The executable also includes FileVersion/ProductVersion 0.25.0.0
 and Lua-Flash Player product metadata in native VERSIONINFO resources.
 The runtime is still unsigned and Windows may show SmartScreen warnings.
 

@@ -21,7 +21,7 @@ IMAGE_ID = 50000
 
 
 
-def build_version_info(major: int = 0, minor: int = 24) -> bytes:
+def build_version_info(major: int = 0, minor: int = 25) -> bytes:
     """Create a standard VS_VERSION_INFO block without third-party tools.
 
     FILEVERSION and PRODUCTVERSION use four 16-bit numbers. The Windows
