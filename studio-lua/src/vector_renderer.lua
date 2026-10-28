@@ -35,6 +35,8 @@ local function handles(lg,path,zoom)
     lg.circle("line",node.x,node.y,nodeSize)
   end
 end
+M.paintPath=paintPath
+
 function M.draw(v,doc,frame,view,selectedId)
   local lg=love.graphics
   lg.push("all")
