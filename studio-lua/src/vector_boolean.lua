@@ -1,7 +1,7 @@
 -- Studio-only area booleans on CLOSED filled Bézier outlines.
 -- Curves are flattened to a bounded polygonal approximation (not exact cubic
--- boolean topology); ambiguous touching edges, holes and oversized contours
--- are rejected rather than producing misleading shapes.
+-- boolean topology); ambiguous touching edges, unsupported hole inputs and
+-- oversized contours are rejected rather than producing misleading shapes.
 local Vector=require("src.vector_paths")
 local M={}
 local EPS=1e-7
@@ -63,6 +63,11 @@ end
 local function flatten(path)
   if not path or not path.closed or not path.fill or #path.nodes<3 then
     return nil,"duas formas fechadas e preenchidas sao necessarias"
+  end
+  -- Compound operand clipping needs a multi-ring intersection sweep.
+  -- We can create/persist holes, but refuse to silently ignore existing ones.
+  if path.holes and #path.holes>0 then
+    return nil,"booleanas em operandos com furos ainda nao suportadas"
   end
   if #path.nodes>48 then return nil,"forma muito complexa (48 nos no maximo)" end
   local sampled=Vector.sample(path,8)
@@ -194,32 +199,53 @@ local function contours(edges)
     ends[kb]=(ends[kb] or 0)+1
   end
   for ka in pairs(starts) do if ends[ka]~=1 then return nil,"open boolean boundary" end end
-  local loops,visited={},{}
+  local outers,holes,visited={},{},{}
   for i=1,#edges do
     if not visited[i] then
       local firstKey=key(edges[i].a)
       local current=i
       local ring={}
+      local closed=false
       for _=1,#edges+1 do
         if visited[current] then return nil,"repeated contour edge" end
         visited[current]=true
         local e=edges[current]
         ring[#ring+1]=e.a
         local nextKey=key(e.b)
-        if nextKey==firstKey then break end
+        if nextKey==firstKey then closed=true;break end
         current=starts[nextKey]
         if not current then return nil,"unclosed boolean result" end
       end
+      if not closed then return nil,"unclosed boolean loop" end
+      local winding=area(ring)
       local polygon=clean(ring)
       if not polygon then return nil,"degenerate boolean region" end
-      -- A negative original winding is a hole; current Studio format has no
-      -- compound paths, so a hole would be rendered as filled. Reject it.
-      if area(ring)<-1e-4 then return nil,"result has a hole (not yet supported)" end
       if #polygon>256 then return nil,"output exceeds 256 anchors" end
-      loops[#loops+1]=polygon
+      if winding<0 then
+        holes[#holes+1]=polygon
+      else
+        outers[#outers+1]={outer=polygon,holes={}}
+      end
     end
   end
-  return loops
+  -- Assign each negative contour to its smallest enclosing positive contour.
+  -- Containment uses actual geometry, not bounding-box proximity.
+  for _,hole in ipairs(holes) do
+    local container,minArea=nil,nil
+    for _,outer in ipairs(outers) do
+      local within=inside(outer.outer,hole[1])
+      if within==nil then return nil,"hole touches outer contour" end
+      if within then
+        local size=math.abs(area(outer.outer))
+        if not minArea or size<minArea then container,minArea=outer,size end
+      end
+    end
+    if not container then return nil,"orphan hole contour" end
+    if #container.holes>=16 then return nil,"more than 16 holes" end
+    container.holes[#container.holes+1]=hole
+  end
+  if #outers==0 then return nil,"no filled outer contour" end
+  return outers
 end
 local function calculate(a,b,operation)
   local ca,err=flatten(a)
@@ -253,12 +279,19 @@ local function calculate(a,b,operation)
   if not rings then return nil,err5 end
   return rings
 end
-local function pathFromPolygon(points,source,id)
+local function pathFromPolygon(shape,source,id)
   local p={id=id,closed=true,stroke=copy(source.stroke),
-    width=source.width,fill=copy(source.fill),nodes={}}
-  for _,q in ipairs(points) do
-    p.nodes[#p.nodes+1]={x=q.x,y=q.y,ix=q.x,iy=q.y,ox=q.x,oy=q.y}
+    width=source.width,fill=copy(source.fill),nodes={},holes={}}
+  local function nodesFor(points)
+    local output={}
+    for _,q in ipairs(points) do
+      output[#output+1]={x=q.x,y=q.y,ix=q.x,iy=q.y,ox=q.x,oy=q.y}
+    end
+    return output
   end
+  p.nodes=nodesFor(shape.outer)
+  for _,hole in ipairs(shape.holes) do p.holes[#p.holes+1]=nodesFor(hole) end
+  if #p.holes==0 then p.holes=nil end
   return p
 end
 function M.plan(scope,layer,frame,firstId,secondId,operation)
