@@ -267,7 +267,10 @@ function M.pickFill(paths,x,y)
   if not valid(x) or not valid(y) then return nil end
   for i=#paths,1,-1 do
     local p=paths[i]
-    if p.closed and (contains(p,x,y) or V.hit(p,x,y,2)) then return p end
+    if p.closed and (V.inFill(p,x,y) or
+        (not p.holes or #p.holes==0) and (contains(p,x,y) or V.hit(p,x,y,2))) then
+      return p
+    end
   end
   return nil
 end
