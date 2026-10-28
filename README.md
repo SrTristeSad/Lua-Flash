@@ -1,43 +1,44 @@
 # Lua-Flash
 
-**O Flash renasce em Lua** — Player independente para animações e jogos em formatos próprios; não executa SWF/FLA/ActionScript antigos.
+**O Flash renasce em Lua** — Player original de jogos e animações, sem suporte a SWF/FLA/ActionScript antigos.
 
-## Projetos independentes
+## Aplicações independentes
 
-| Aplicação | Pasta | Executar | Estado |
+| Aplicação | Pasta | Executar | Situação |
 |---|---|---|---|
-| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.22 experimental** |
+| **[Player Lua](player-lua/)** | `player-lua/` | `love player-lua` | **0.23 experimental** |
 | **[Studio Lua](studio-lua/)** | `studio-lua/` | `love studio-lua` | 0.1 experimental, preservado |
 
-## Player 0.22 — seletor nativo Windows e identidade visual
+## Player 0.23 — interface adaptável e ícone integrado ao executável
 
-A versão 0.22 acrescenta uma janela **Abrir Arquivo** do próprio Windows, integrada diretamente por APIs Win32 Unicode. Ao clicar em **ABRIR ARQUIVO** ou pressionar **Ctrl+O**, o Player mostra o seletor padrão para arquivos `.lflash` ou `.lfgame`.
+O Player agora ajusta proporcionalmente o palco e os controles em **janelas menores**, incluindo 600 × 380 e 640 × 400. A escala mantém as proporções do layout; faixas laterais podem aparecer para preservar a geometria. O cálculo inverso do mouse e do toque mantém os cliques alinhados aos botões e ao palco, inclusive com recortes corretos de sprites e formas.
 
-A versão 0.21 já aceitava arrastar/soltar, caminho digitado e argumentos de inicialização; todos permanecem. **Ctrl+Shift+O** abre o campo manual, útil em plataformas sem seletor nativo ou se o usuário preferir colar caminhos. O leitor Windows utiliza `CreateFileW`, `GetFileSizeEx` e `ReadFile` para oferecer suporte UTF-16 a nomes com acentos, dentro do limite de 25 MB.
+A janela Windows opera com suporte `highdpi` do LÖVE. A interface usa as coordenadas lógicas reportadas pelo LÖVE e não presume que um pixel de janela equivale a um pixel físico em monitores com DPI diferente.
 
-O novo **ícone original de raio** é desenhado por código Lua e aplicado à janela em execução. O ZIP Windows também contém `Lua-Flash-Player.ico`, utilizável em atalhos personalizados. **O recurso de ícone embutido no próprio `.exe` permanece o do LÖVE oficial**, enquanto a versão de arquivo e a assinatura digital ainda estão pendentes.
+O ícone original Lua-Flash (raio e arco) foi **incorporado ao recurso de ícone do próprio `.exe`**, além de continuar sendo aplicado à janela e disponibilizado como `.ico` para atalhos. O empacotador altera os recursos do executável oficial LÖVE 11.5 **antes** de acrescentar o pacote do jogo, preservando o conteúdo `.love`. O GitHub Actions verifica os bytes do ícone dentro do executável Windows.
 
-O Windows portátil continua incluindo `Lua-Flash-Player.exe`, as DLLs do LÖVE 11.5, `ABRIR-JOGO.cmd` e documentação, sem instalar LÖVE separadamente.
+Os jogos LUAFGAME 1–9 e as animações `.lflash` continuam compatíveis. O **Studio não foi modificado**. Arquivos externos permanecem dados validados, não scripts executados.
 
-## Baixar
+## Downloads
 
-Na página de execução aprovada de [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions), procure:
+Na execução aprovada do [GitHub Actions](https://github.com/SrTristeSad/Lua-Flash/actions), baixe:
 
-- `lua-flash-player-0.22-windows-x64-portable`: ZIP Windows com executável, DLLs, ícone e lançador portátil;
-- `lua-flash-player-0.22-love-and-game`: Player `.love` e exemplos, para sistemas com [LÖVE](https://love2d.org/) instalado.
+- **`lua-flash-player-0.23-windows-x64-portable`** — ZIP Windows com `Lua-Flash-Player.exe`, DLLs do LÖVE oficial e `ABRIR-JOGO.cmd`. Extraia todo o conteúdo para uma pasta e abra o EXE, sem instalar LÖVE.
+- **`lua-flash-player-0.23-love-and-game`** — arquivo `.love` e exemplos para computadores com [LÖVE](https://love2d.org/) instalado.
 
-Extraia o conteúdo integral dos ZIPs antes de abrir o executável. A distribuição é experimental, não assinada, e ainda precisa de homologação gráfica em computadores Windows físicos. Ela não modifica associações do Registro e não possui instalador MSI.
+A distribuição continua **sem assinatura digital** e pode exibir avisos do Windows SmartScreen. Embora o executável seja iniciado no CI Windows, o uso com diferentes monitores DPI/GPU ainda exige testes em PCs reais.
 
-## Desenvolvimento
+## Desenvolvimento e testes
 
 ```bash
 love player-lua
-lua tests/native_dialog_test.lua
-lua tests/file_import_test.lua
+lua tests/responsive_test.lua
+lua tests/gui_smoke.lua
+python3 tests/windows_resource_test.py
 python3 tests/windows_package_test.py
 python3 tools/package_player.py
 ```
 
 [Manual do Player](player-lua/README.md) · [Roadmap](docs/ROADMAP.md) · [Formato LUAFGAME 9](docs/FORMAT_LUAFGAME9.md)
 
-O Studio não foi modificado. Arquivos externos são dados validados, nunca código Lua executado.
+Projeto independente da Adobe.

@@ -1,45 +1,47 @@
-# Lua-Flash Player 0.22 — Windows nativo
+# Lua-Flash Player 0.23 — interface responsiva e ícone Windows
 
-Player experimental feito em Lua e LÖVE para `.lflash` e `.lfgame` (LUAFGAME 1–9). Não abre SWF nem executa ActionScript.
+Reprodutor experimental Lua/LÖVE de jogos LUAFGAME 1–9 e animações `.lflash`. Não reproduz Adobe Flash SWF ou ActionScript.
 
-## Abrir arquivos
+## Layout adaptável
 
-**No Windows:** pressione **Ctrl+O** ou clique em **ABRIR ARQUIVO**. O seletor padrão do Windows permite navegar por pastas e escolher um arquivo `.lflash` ou `.lfgame`. Depois de escolher, o Player lê o arquivo e valida o conteúdo. Cancelar o diálogo não altera o projeto aberto.
+Quando a janela tem menos do que **1040 × 690**, o Player usa o layout completo de 1040 × 690 unidades lógicas e o reduz uniformemente até caber. Assim, a barra de reprodução, botões, timeline, painel de edição e área do jogo permanecem acessíveis. A aplicação pode exibir margens escuras nas laterais/superior para evitar esticar a imagem.
 
-O seletor usa o diálogo Win32 `GetOpenFileNameW` via LuaJIT FFI. O leitor associa a ele APIs `CreateFileW` / `ReadFile`, sem executar PowerShell ou outros comandos; isso permite abrir caminhos Unicode, inclusive nomes acentuados, diretamente no Windows.
+Com janelas maiores, o Player aproveita o espaço adicional mantendo escala 1:1. Os eventos de mouse/toque são transformados de volta às coordenadas da interface antes do hit-testing, e o recorte (*scissor*) é mapeado para coordenadas reais da janela.
 
-**Em outros sistemas:** Ctrl+O abre o campo de caminho introduzido na versão 0.21. No Windows, **Ctrl+Shift+O** abre esse campo manual também. Cole o caminho do Explorador e pressione Enter.
+LÖVE `highdpi=true` está habilitado na janela. Os valores de tamanho e posição são trabalhados em coordenadas lógicas da plataforma; isto dá suporte inicial a diferentes escalas de DPI sem introduzir um fator físico artificial.
 
-**Em qualquer plataforma:** é possível arrastar/soltar um arquivo diretamente na janela do Player. No Windows portátil há ainda `ABRIR-JOGO.cmd`, sobre o qual se pode arrastar um jogo para abrir o executável, ou selecionar o Player pelo menu **Abrir com...**.
+**Limitação:** em 600 × 380, o conteúdo ficará menor; ainda é necessária uma interface móvel ou realmente refluida para telas muito pequenas. Há testes de layout em 600 × 380, 640 × 400, 780 × 450 e resoluções maiores, além de inicialização gráfica LÖVE em janela compacta.
 
-Só são aceitas extensões `.lflash` e `.lfgame`, limitadas a 25 MB. Os arquivos são validados pelos formatos existentes antes da instalação da cena. Nenhum arquivo importado executa código Lua arbitrário. Se existirem alterações não salvas, o carregamento de outro arquivo é bloqueado.
+## Ícone diretamente no EXE
 
-## Ícone do Player
+O desenho original do raio foi criado em Lua no módulo `src/window_icon.lua`. A versão anterior incluía um `.ico` separado e mudava o ícone da janela após iniciar. Agora a compilação Windows também usa `tools/windows_resources.py` para gravar os recursos **RT_ICON** e **RT_GROUP_ICON** no executável Windows, antes de anexar o jogo `.love`.
 
-Foi criado um ícone original em azul escuro, ciano e dourado, com um raio e um arco, a partir de código em `src/window_icon.lua`. Ele é aplicado à janela do LÖVE durante a execução. O empacotador Windows inclui um `.ico` independente com o mesmo desenho, para atalhos personalizados.
+O pipeline verifica por Win32 que o executável distribuído contém os mesmos dados PNG do `.ico`. O ícone é incorporado ao PE; **o executável ainda não possui assinatura digital nem instalador**.
 
-**Importante:** isso ainda não substitui o ícone do recurso PE do próprio `Lua-Flash-Player.exe`, que continua herdado do runtime LÖVE. A incorporação do ícone no PE, metadados de versão e assinatura de código estão previstos para outra etapa.
+O pacote portátil mantém o runtime LÖVE 11.5 de hash fixo, suas DLLs e licenças. Não é necessária a instalação separada do LÖVE no Windows.
 
-## Distribuição e verificação
+## Recursos anteriores preservados
 
-A build Windows segue usando o runtime oficial LÖVE 11.5 com checksum SHA-256 fixo e verificado. O GitHub Actions constrói o executável portátil, valida ZIP/PE/DLLs, seu conteúdo `.love`, a existência do ícone e do lançador, e verifica a inicialização da aplicação. Há também um teste automatizado para importação de um arquivo com nome Unicode no Windows, e testes de fallback quando o seletor nativo não está disponível.
+- **Ctrl+O**: diálogo nativo de arquivos no Windows; em outros sistemas, campo de caminho.
+- **Ctrl+Shift+O**: campo manual de caminho.
+- **Arrastar e soltar**: importar arquivos `.lflash` ou `.lfgame`.
+- **E**: editar quadros-chave e curvas.
+- **Ctrl+Z / Ctrl+Y**: desfazer/refazer.
+- **Ctrl+S / Ctrl+R**: salvar ou recuperar projeto.
+- **F3**: diagnósticos; **F5–F10**: áudio; **F11**: tela cheia.
 
-O diálogo real é interativo e precisa ser testado manualmente em um PC Windows para homologação da experiência. O ícone do Windows é aplicado apenas à janela em execução.
+O formato permanece LUAFGAME 9, e o Studio não foi alterado.
 
-Para preparar os arquivos:
+## Verificação
 
 ```bash
-python3 tools/package_player.py
-python3 tools/package_player_windows.py --love-zip love-11.5-win64.zip
-```
-
-Para verificar:
-
-```bash
-lua tests/native_dialog_test.lua
-lua tests/file_import_test.lua
+lua tests/responsive_test.lua
 lua tests/gui_smoke.lua
+python3 tests/windows_resource_test.py
 python3 tests/windows_package_test.py
+python3 tools/package_player.py
 ```
 
-Não alteramos o Studio. O formato permanece LUAFGAME 9, e todos os jogos antigos seguem compatíveis. A distribuição Windows ainda não possui assinatura digital nem instalador MSI.
+No GitHub Actions, a suíte também testa a renderização com LÖVE real em display virtual, a leitura Windows Unicode e verifica o ícone embutido no arquivo `.exe`.
+
+O desempenho real em vários monitores Windows, DPI misto e GPUs continua pendente para a versão 1.0.
