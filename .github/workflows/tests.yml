@@ -83,6 +83,8 @@ jobs:
         run: lua tests/interpolation_segments_test.lua
       - name: Player 0.28 crowded 11.5k-shape culling stress and draw-call comparison
         run: lua tests/culling_stress_test.lua
+      - name: Studio 0.2 project and layer lifecycle regression
+        run: lua tests/studio_edit_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
