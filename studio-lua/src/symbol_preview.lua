@@ -1,6 +1,7 @@
--- Studio-only preview for symbol instances; no Flash runtime emulation.
+-- Studio-only drawing and pointer hit tests for reusable symbol instances.
 local Model=require("src.model")
 local Library=require("src.symbol_library")
+local Motion=require("src.symbol_motion")
 local Preview={}
 local function drawShape(g,shape)
   local p,c=shape.points,shape.color
@@ -19,8 +20,10 @@ local function drawShape(g,shape)
       math.max(.01,math.abs(p[3]-p[1])/2),math.max(.01,math.abs(p[4]-p[2])/2))
   end
 end
-function Preview.draw(lib,doc,frame,view)
+
+function Preview.draw(lib,doc,frame,view,state)
   local g=love.graphics
+  state=state or Motion.new()
   g.push("all")
   g.setScissor(view.x,view.y,view.w,view.h)
   g.translate(view.ox,view.oy)
@@ -33,7 +36,7 @@ function Preview.draw(lib,doc,frame,view)
           g.push()
           g.translate(instance.x,instance.y)
           g.scale(instance.sx,instance.sy)
-          local symbolFrame=1 -- Phase 1: static preview; internal clocks come later.
+          local symbolFrame=Motion.frame(state,lib,sym,instance,index,frame)
           for _,inner in ipairs(sym.definition.layers) do
             if inner.visible then
               for _,shape in ipairs(Model.frame(inner,symbolFrame)) do drawShape(g,shape) end
@@ -45,5 +48,38 @@ function Preview.draw(lib,doc,frame,view)
     end
   end
   g.pop()
+end
+
+-- The fourth Button key is a non-rendered hit area, if present.
+-- For early Studio preview, when absent, use geometry from the Up state.
+function Preview.pickButton(lib,doc,frame,view,mx,my)
+  if not view or not view.scale or view.scale<=0 then return nil end
+  local x,y=(mx-view.ox)/view.scale,(my-view.oy)/view.scale
+  if x<0 or y<0 or x>doc.width or y>doc.height then return nil end
+  for layerIndex=#doc.layers,1,-1 do
+    if doc.layers[layerIndex].visible then
+      local items=Library.at(lib,layerIndex,frame)
+      for i=#items,1,-1 do
+        local instance=items[i]
+        local sym=Library.find(lib,instance.symbolId)
+        if sym and sym.kind=="button" and instance.sx~=0 and instance.sy~=0 then
+          local lx,ly=(x-instance.x)/instance.sx,(y-instance.y)/instance.sy
+          local hitFrame=sym.definition.layers[1].keys[4] and 4 or 1
+          for li=#sym.definition.layers,1,-1 do
+            local inner=sym.definition.layers[li]
+            if inner.visible then
+              for _,shape in ipairs(Model.frame(inner,hitFrame)) do
+                if Model.hit(shape,lx,ly) then return instance.uid end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  return nil
+end
+function Preview.pointerMoved(state,lib,doc,frame,view,mx,my)
+  Motion.setHover(state,Preview.pickButton(lib,doc,frame,view,mx,my))
 end
 return Preview
