@@ -197,3 +197,30 @@ love.mousepressed(250+8,780-170+38+26+5,1)
 local switched=project()
 assert(switched.currentLayer==1,"second timeline track must activate layer 1")
 print("OK: Studio multi-layer timeline track selection")
+
+
+-- Studio symbol workflow: create a Graphic from artwork, stamp it, save and undo.
+local SymbolLibrary=require("src.symbol_library")
+press("n",true)
+press("b")
+love.mousepressed(250,200,1)
+love.mousemoved(270,220,20,20)
+love.mousereleased(270,220,1)
+modifiers.lctrl=true
+love.keypressed("f8")
+modifiers.lctrl=false
+local sidecar=files["projeto.lflash.lflib"]
+project()
+sidecar=files["projeto.lflash.lflib"]
+local authoring=assert(SymbolLibrary.decode(sidecar))
+assert(SymbolLibrary.count(authoring)==1,"Ctrl+F8 should create a symbol")
+love.mousepressed(325,260,1)
+love.mousereleased(325,260,1)
+project()
+local placed=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(#SymbolLibrary.at(placed,1,1)==1,"symbol tool must place instance on stage")
+press("z",true)
+project()
+local undoneSymbol=assert(SymbolLibrary.decode(files["projeto.lflash.lflib"]))
+assert(#SymbolLibrary.at(undoneSymbol,1,1)==0,"undo must remove placed instance")
+print("OK: Studio symbol creation, stage stamping, sidecar save and undo")
