@@ -12,6 +12,13 @@ local runtime = Runtime.new(doc)
 local symbolLibrary=Library.new()
 local symbolMotion=SymbolMotion.new()
 local selectedSymbol=nil
+local rootDoc=doc
+local editingSymbolId=nil
+-- Instance tracks belong to the main scene; symbols currently contain vector art only.
+local symbolTimeline=Library.new()
+local function trackLibrary()
+  return editingSymbolId and symbolTimeline or symbolLibrary
+end
 local mode,tool="studio","brush"
 local selected,dragged,dragX,dragY,offset= nil,nil,0,0,1
 local undo,redo={},{}
@@ -60,7 +67,7 @@ local function dimensions()
 end
 
 local function snapshot()
-  undo[#undo+1]={document=Model.encode(doc),symbols=Library.encode(symbolLibrary)}
+  undo[#undo+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),editingSymbolId=editingSymbolId}
   if #undo>40 then table.remove(undo,1) end
   redo={}
 end
@@ -78,13 +85,18 @@ end
 local function history(reverse)
   local from,to=reverse and undo or redo,reverse and redo or undo
   if #from==0 then msg="Nada para "..(reverse and "desfazer" or "refazer");return end
-  to[#to+1]={document=Model.encode(doc),symbols=Library.encode(symbolLibrary)}
+  to[#to+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),editingSymbolId=editingSymbolId}
   local contents=table.remove(from)
   local d,err=Model.decode(contents.document)
   local lib,liberr=Library.decode(contents.symbols)
   if d and lib then
-    install(d)
+    rootDoc=d
     symbolLibrary=lib
+    editingSymbolId=contents.editingSymbolId
+    if editingSymbolId and not Library.find(lib,editingSymbolId) then editingSymbolId=nil end
+    symbolTimeline=Library.new()
+    local focus=editingSymbolId and Library.find(lib,editingSymbolId)
+    install(focus and focus.definition or rootDoc)
     if selectedSymbol and not Library.find(lib,selectedSymbol) then selectedSymbol=nil end
   else
     msg="Historico invalido: "..tostring(err or liberr)
@@ -93,7 +105,7 @@ end
 
 local function save()
   local filename=projectName..".lflash"
-  local bytes=Model.encode(doc)
+  local bytes=Model.encode(rootDoc)
   -- The native project stays LUAFLASH 1. Symbols live in a separate sidecar.
   local libOk,libErr=love.filesystem.write(filename..".lflib",Library.encode(symbolLibrary))
   if not libOk then msg="Erro ao salvar biblioteca: "..tostring(libErr);return end
@@ -111,7 +123,10 @@ local function load(data,libraryData)
   if not d then msg="Nao foi possivel abrir: "..tostring(err);return end
   local lib,liberr=libraryData and Library.decode(libraryData) or Library.new()
   if not lib then msg="Biblioteca invalida: "..tostring(liberr);return end
-  install(d)
+  rootDoc=d
+  editingSymbolId=nil
+  symbolTimeline=Library.new()
+  install(rootDoc)
   symbolLibrary=lib
   selectedSymbol=nil
   undo,redo={},{}
@@ -120,7 +135,10 @@ end
 
 local function newProject()
   snapshot()
-  install(Model.new(800,450,24))
+  rootDoc=Model.new(800,450,24)
+  editingSymbolId=nil
+  symbolTimeline=Library.new()
+  install(rootDoc)
   symbolLibrary=Library.new()
   selectedSymbol=nil
   runtime.playing=false
@@ -128,6 +146,33 @@ local function newProject()
   projectName="projeto"
   naming=false
   msg="Novo projeto criado (Ctrl+Z para recuperar o anterior)"
+end
+
+local function editSymbol(id)
+  local symbol=Library.find(symbolLibrary,id)
+  if not symbol then msg="Simbolo nao encontrado";return end
+  if editingSymbolId then msg="Volte ao palco para escolher outro simbolo";return end
+  editingSymbolId=id
+  selectedSymbol=id
+  symbolTimeline=Library.new()
+  install(symbol.definition)
+  mode="studio"
+  tool="select"
+  runtime.playing=false
+  offset=1
+  msg="Editando "..symbol.name.." | F5 estende, F6 cria chave; Esc volta ao palco"
+end
+
+local function exitSymbol()
+  if not editingSymbolId then return end
+  editingSymbolId=nil
+  symbolTimeline=Library.new()
+  install(rootDoc)
+  mode="studio"
+  tool="select"
+  runtime.playing=false
+  offset=1
+  msg="Voltou ao palco principal. Alteracoes do simbolo mantidas."
 end
 
 local function openLast()
