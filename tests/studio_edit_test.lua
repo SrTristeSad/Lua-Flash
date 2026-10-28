@@ -921,3 +921,57 @@ project()
 assert(#Paths.at(assert(Paths.decode(files["projeto.lflash.lfvec"])),1,1)==2,
   "undo must restore both Boolean source paths atomically")
 print("OK: UI Boolean intersection, union, subtraction and undo")
+
+
+-- Nested subtraction should leave a real, saved hole rather than a filled box.
+press("n",true)
+local function drawFilledRect(x1,y1,x2,y2)
+  press("p")
+  for _,point in ipairs({{x1,y1},{x2,y1},{x2,y2},{x1,y2}}) do
+    love.mousepressed(point[1],point[2],1)
+    love.mousereleased(point[1],point[2],1)
+  end
+  love.mousepressed(x1,y1,1)
+  love.mousereleased(x1,y1,1)
+  love.keypressed("f")
+end
+drawFilledRect(320,260,420,360)
+drawFilledRect(350,290,390,330)
+project()
+local origHollow=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(origHollow,1,1)==2)
+press("a")
+love.mousepressed(320,270,1)
+love.mousereleased(320,270,1)
+modifiers.lshift=true
+love.mousepressed(350,300,1)
+love.mousereleased(350,300,1)
+modifiers.lshift=false
+modifiers.lctrl=true
+modifiers.lshift=true
+love.keypressed("d")
+modifiers.lshift=false
+modifiers.lctrl=false
+project()
+local hollow=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local donut=assert(Paths.at(hollow,1,1)[1])
+assert(#Paths.at(hollow,1,1)==1 and donut.holes and #donut.holes==1,
+  "UI nested subtraction must produce a compound hole")
+assert(files["projeto.lflash.lfvec"]:find("LFVECTOR 3",1,true))
+local inner=donut.holes[1]
+local holeX,holeY=(inner[1].x+inner[3].x)/2,(inner[1].y+inner[3].y)/2
+assert(not Paths.inFill(donut,holeX,holeY))
+press("e",true)
+assert(files["quadro.svg"]:find('fill-rule="evenodd"',1,true))
+press("z",true)
+project()
+local hollowUndone=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(hollowUndone,1,1)==2)
+press("y",true)
+project()
+assert(#Paths.at(assert(Paths.decode(files["projeto.lflash.lfvec"])),1,1)==1)
+press("o",true)
+project()
+local hollowReopened=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(hollowReopened,1,1)[1].holes==1)
+print("OK: UI donut subtraction, LFVECTOR 3, SVG, undo and reopen")
