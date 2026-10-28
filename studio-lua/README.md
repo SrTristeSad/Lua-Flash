@@ -1,17 +1,42 @@
-# Lua-Flash Studio 0.1
+# Lua-Flash Studio 0.2 — editor experimental
 
-Editor visual experimental do ecossistema Lua-Flash. O editor existente foi preservado nesta pasta.
+Editor visual do ecossistema Lua-Flash para projetos nativos `.lflash`. O Studio é um aplicativo separado do Player e **ainda não está homologado como versão 1.0**.
 
 ## Executar
 
-Instale LÖVE 11.5 e execute na raiz do repositorio:
+Com LÖVE 11.5 instalado, na raiz do repositório:
 
 ```bash
 love studio-lua
 ```
 
-Recursos atuais: palco, pincel, linhas, retangulos, elipses, borracha, selecao, camadas, quadros-chave, salvar e abrir .lflash. O botao de previa do editor nao substitui o programa Player, que agora vive em `../player-lua/`.
+A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Flash-Studio-0.2.love`. Abra-o com LÖVE 11.5.
 
-Para testar no Player: salve usando Ctrl+S e depois clique **PROJETO SALVO** no Player; ambos usam a mesma identidade de armazenamento do LÖVE (`lua-flash`). Tambem e possivel arrastar um arquivo .lflash diretamente para o Player.
+## Recursos
 
-O sistema ainda nao executa scripts Lua de projetos, e esta versao nao foi validada em todos os sistemas.
+- Palco, pincel, linhas, retângulos, elipses, borracha e seleção.
+- Camadas, timeline, quadros-chave e prévia.
+- Salvar / abrir projeto `.lflash` e exportar o quadro atual para SVG.
+- Histórico de desfazer/refazer (até 40 instantâneos).
+- **Ctrl+N**: criar projeto novo, com possibilidade de desfazer imediatamente via Ctrl+Z.
+- **F7**: ocultar/mostrar camada atual.
+- **F8**: bloquear/desbloquear camada atual.
+- **F6**: inserir quadro-chave; **Shift+F6**: remover.
+- **Ctrl+S**: salvar como `projeto.lflash` na pasta de dados LÖVE.
+- **Ctrl+O**: reabrir o último `projeto.lflash` salvo.
+- **Ctrl+E**: exportar quadro como `quadro.svg`.
+- **Tab**: alternar Studio / prévia Player.
+
+O nome de salvamento ainda é fixo, portanto **Ctrl+S substitui o projeto salvo anteriormente**. Faça cópias de segurança dos arquivos importantes antes de editar. O Studio não oferece execução de scripts de jogo nem empacotamento de jogos LUAFGAME; essas funções permanecem no fluxo de ferramentas/Player.
+
+## Validação
+
+```bash
+lua tests/studio_edit_test.lua
+lua tests/gui_smoke.lua
+python3 tools/package_studio.py
+```
+
+Os testes automatizados não substituem uma validação manual da interface, de janelas compactas, do fluxo completo de edição nem das builds nativas Windows. O Player 0.28 permanece independente em `../player-lua/`.
+
+Para testar no Player, salve com Ctrl+S e abra o projeto pelo Player. Ambos usam a mesma identidade de armazenamento do LÖVE (`lua-flash`), ou você pode arrastar um `.lflash` para o Player.
