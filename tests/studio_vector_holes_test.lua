@@ -47,13 +47,14 @@ assert(restored,decodeError)
 assert(V.encode(restored)==saved,"compound LFVECTOR 3 must roundtrip exactly")
 local undo=assert(V.decode(original))
 assert(#V.at(undo,1,1)==2,"undo snapshot restores two operands")
+local originalHoleX=V.at(restored,1,1)[1].holes[1][1].x
 local copied=V.ensureKey(restored,1,3)
 assert(copied[1].holes and #copied[1].holes[1]==4)
 assert(V.move(copied[1],10,12))
 assert(V.inFill(copied[1],20,22))
 assert(not V.inFill(copied[1],60,62))
 assert(V.at(restored,1,1)[1].nodes[1].x==0)
-assert(V.at(restored,1,1)[1].holes[1][1].x==25,
+assert(V.at(restored,1,1)[1].holes[1][1].x==originalHoleX,
   "moving later exposure must not mutate earlier hole")
 -- Compound operands are explicitly rejected until multi-ring boolean sweep.
 local c=rect(restored,120,120,140,140)
