@@ -747,6 +747,9 @@ end
 function love.load(arguments)
   love.window.setTitle("Lua-Flash Player 0.23")
   love.window.setMode(1040,690,{resizable=true,minwidth=600,minheight=380,highdpi=true})
+  if os.getenv("LUA_FLASH_SMOKE_COMPACT")=="1" then
+    love.window.setMode(640,400,{resizable=true,minwidth=600,minheight=380,highdpi=true})
+  end
   love.graphics.setDefaultFilter("linear","linear")
   if love.image and love.image.newImageData and
       love.window and love.window.setIcon then
