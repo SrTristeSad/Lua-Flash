@@ -389,7 +389,7 @@ end
 
 function love.draw() ui() end
 
-function love.mousepressed(mx,my,mousebutton)
+function love.mousepressed(mx,my,mousebutton,istouch,presses)
   if mousebutton~=1 then return end
   if naming then return end
   local w,h,track=dimensions()
@@ -423,8 +423,12 @@ function love.mousepressed(mx,my,mousebutton)
         return
       end
       selectedSymbol=symbols[i].id
-      tool="symbol"
-      msg="Simbolo selecionado: "..symbols[i].name.." | Ctrl+Enter edita, clique no palco instancia"
+      if presses and presses>=2 then
+        editSymbol(selectedSymbol)
+      else
+        tool="symbol"
+        msg="Simbolo selecionado: "..symbols[i].name.." | duplo clique edita, clique no palco instancia"
+      end
       return
     end
   end
