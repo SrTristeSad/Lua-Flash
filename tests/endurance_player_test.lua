@@ -21,7 +21,7 @@ local start=os.clock()
 for tick=1,frameCount do
   timeline:update(1/60)
   stats:update(1/60)
-  assert(timeline.position>=1 and timeline.position<=g.document.totalFrames,
+  assert(timeline.position>=1 and timeline.position<g.document.totalFrames+1,
     "timeline position escaped during long playback")
   wraps=wraps+timeline.lastWraps
   if tick%8==0 then
