@@ -44,3 +44,40 @@ assert(not V.decode("LFVECTOR 1\nK\t1\t1\nP\t1\t0\t2\t0,0,0,1\t-\nN\tNaN\t1\t1\t
 assert(not V.decode("LFVECTOR 1\nK\t1\t1\nP\t1\t1\t2\t0,0,0,1\t-\nN\t1\t1\t1\t1\t1\t1\nEP\nEK\nEND\n"))
 assert(not V.decode("LFVECTOR 1\nK\t1\t1\nK\t1\t1\nEND\n"))
 print("OK: cubic paths, controls, fill/stroke persistence, key exposure and hostile input")
+
+
+do
+  local Model=require("src.model")
+  local doc=Model.new()
+  local lib=V.new()
+  local path=assert(V.addPath(lib,1,3,10,10,{.2,.4,.6},2,{.8,.3,.2}))
+  V.addNode(path,50,10)
+  V.addNode(path,40,40)
+  assert(V.close(path))
+  local baseline=V.encode(lib)
+  local tx=assert(V.planTransfer(lib,1,{3},4,false,doc.totalFrames))
+  assert(V.encode(lib)==baseline,"timeline planning must not mutate")
+  tx.apply()
+  assert(#V.at(lib,1,7)==1 and not lib.tracks[1][3])
+  local movedID=lib.tracks[1][7][1].id
+  local duplicate=assert(V.planTransfer(lib,1,{7},2,true,doc.totalFrames))
+  duplicate.apply()
+  assert(lib.tracks[1][7][1].id==movedID)
+  assert(lib.tracks[1][9][1].id~=movedID,
+    "copy should create a new editable vector path identity")
+  assert(not V.planTransfer(lib,1,{7},2,false,doc.totalFrames),
+    "occupied destination must reject move")
+  local copied=assert(V.planPaste(lib,1,11,V.at(lib,1,9)))
+  copied.apply()
+  assert(lib.tracks[1][11][1].id~=lib.tracks[1][9][1].id)
+  local blank=assert(V.planPaste(lib,1,12,{}))
+  blank.apply()
+  assert(#V.at(lib,1,12)==0)
+  local svg=V.svg(lib,doc,7)
+  assert(svg:find("<path",1,true) and svg:find(" C ",1,true)
+      and svg:find('fill="#CC4D33"',1,true),
+    "SVG export should retain Bezier control points and fill")
+  local round=assert(V.decode(V.encode(lib)))
+  assert(#round.tracks[1][9]==1 and #round.tracks[1][11]==1)
+  print("OK: vector timeline move/copy/paste and cubic SVG serialization")
+end
