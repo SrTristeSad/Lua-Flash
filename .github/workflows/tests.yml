@@ -125,6 +125,9 @@ jobs:
         run: lua tests/studio_vector_contacts_test.lua
       - name: Studio fully and partially shared cubic Boolean boundaries
         run: lua tests/studio_vector_curved_seams_test.lua
+
+      - name: Studio cubic interior tangencies
+        run: lua tests/studio_vector_extrema_contacts_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)

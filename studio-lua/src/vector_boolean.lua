@@ -9,6 +9,7 @@ local CubicIntersections=require("src.cubic_intersections")
 local CubicDetection=require("src.cubic_detection")
 local Contacts=require("src.vector_contacts")
 local CurvedSeams=require("src.vector_curved_seams")
+local ExtremaContacts=require("src.vector_extrema_contacts")
 local M={}
 local EPS=1e-7
 local SNAP=1e-5
@@ -393,6 +394,11 @@ local function calculate(a,b,operation,tolerance,pass)
   if handled then return shapes,contactError end
   local curvedHandled,curvedShapes,curvedError=CurvedSeams.plan(a,b,operation)
   if curvedHandled then return curvedShapes,curvedError end
+  -- Exact axis support bounds can certify a single contact strictly inside
+  -- BOTH source cubics, even when the polygon chords miss it altogether.
+  local extremaHandled,extremaShapes,extremaError=
+    ExtremaContacts.plan(a,b,operation)
+  if extremaHandled then return extremaShapes,extremaError end
   -- Two disjoint filled interiors touching at exactly one original anchor
   -- should not be forced into a self-touching compound outline.
   if Contacts.safeCornerTouch(ca,cb,a,b) then
