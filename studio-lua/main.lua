@@ -15,6 +15,7 @@ local VectorBoolean = require("src.vector_boolean")
 local VectorRenderer = require("src.vector_renderer")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
+local LayerOps = require("src.layer_ops")
 local ProjectBrowser = require("src.project_browser")
 local Runtime = require("src.runtime")
 local doc = Model.new(800,450,24)
@@ -76,6 +77,9 @@ end
 local projectName="projeto"
 local naming=false
 local nameDraft=""
+local layerNaming=false
+local layerNameDraft=""
+local layerNamingIndex=nil
 local projectBrowser=false
 local browserEntries={}
 local browserSelected=1
@@ -133,6 +137,33 @@ local function install(newdoc)
   selectedKeys={}
   timelineDrag=nil
   dimensions()
+end
+
+local function beginLayerRename()
+  if mode~="studio" or editingSymbolId then
+    msg="Renomeie camadas no palco principal"
+    return
+  end
+  local layer=doc.layers[doc.currentLayer]
+  if not layer then return end
+  layerNaming=true
+  layerNamingIndex=doc.currentLayer
+  layerNameDraft=layer.name
+  msg="Renomear camada: Ctrl+A limpa, Enter confirma, Esc cancela"
+end
+
+local function moveActiveLayer(direction)
+  if mode~="studio" or editingSymbolId then
+    msg="Mude a ordem das camadas no palco principal"
+    return
+  end
+  local tx,err=LayerOps.planMove(rootDoc,symbolLibrary,vectors,
+    doc.currentLayer,direction)
+  if not tx then msg=err;return end
+  snapshot()
+  tx.apply()
+  install(rootDoc)
+  msg="Camada movida para a posicao "..doc.currentLayer
 end
 
 local function history(reverse)
@@ -561,7 +592,10 @@ local function ui()
     end
     label("CAMADAS",w-186,65,{.45,.82,1})
     button("ABRIR",w-108,56,97,28,false)
-    button("+ Nova camada",w-187,90,176,34,false)
+    button("+ CAM",w-187,90,64,34,false)
+    button("NOME",w-120,90,65,34,layerNaming)
+    button("^",w-51,90,20,34,false)
+    button("v",w-28,90,17,34,false)
     for i,layer in ipairs(doc.layers) do
       local name=(layer.visible and "o " or "- ")..layer.name..(layer.locked and " [X]" or "")
       button(name,w-187,132+(i-1)*35,118,31,i==doc.currentLayer)
@@ -570,7 +604,7 @@ local function ui()
     end
     label("Palco "..doc.width.." x "..doc.height,w-185,track-92)
     label("FPS: "..doc.fps,w-185,track-72)
-    label("Camada "..doc.currentLayer.." | F7 vis. F8 trava",w-185,track-52)
+    label("Camada "..doc.currentLayer.." | F2 nome",w-185,track-52)
     if editingSymbolId then
       local sym=Library.find(symbolLibrary,editingSymbolId)
       label("EDITANDO: "..(sym and sym.name or "?"),w-185,track-112,{.98,.78,.38})
@@ -785,7 +819,9 @@ local function ui()
   end
   lg.setColor(.1,.12,.14)
   lg.rectangle("fill",0,h-24,w,24)
-  label(naming and ("SALVAR COMO > "..nameDraft.."_") or msg,10,h-20,{.76,.8,.85})
+  label(layerNaming and ("RENOMEAR CAMADA "..layerNamingIndex.." > "..layerNameDraft.."_")
+    or (naming and ("SALVAR COMO > "..nameDraft.."_") or msg),
+    10,h-20,{.76,.8,.85})
 end
 
 function love.draw() ui() end
@@ -814,7 +850,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     end
     return
   end
-  if naming then return end
+  if naming or layerNaming then return end
   local w,h,track=dimensions()
   if inBox(mx,my,160,8,95,34) then mode="studio";runtime.playing=false;return end
   if inBox(mx,my,263,8,95,34) then mode="player";runtime.playing=true;return end
@@ -850,9 +886,13 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   end
   if inBox(mx,my,465,8,82,34) then save();return end
   if inBox(mx,my,w-108,56,97,28) then beginOpen();return end
-  if inBox(mx,my,555,8,109,34) or inBox(mx,my,w-187,90,176,34) then
+  if inBox(mx,my,555,8,109,34) or inBox(mx,my,w-187,90,64,34) then
+    if #doc.layers>=128 then msg="Limite de 128 camadas";return end
     snapshot();Model.addLayer(doc);selected=nil;msg="Camada criada";return
   end
+  if inBox(mx,my,w-120,90,65,34) then beginLayerRename();return end
+  if inBox(mx,my,w-51,90,20,34) then moveActiveLayer(-1);return end
+  if inBox(mx,my,w-28,90,17,34) then moveActiveLayer(1);return end
   for i,item in ipairs(tools) do
     if inBox(mx,my,11,92+(i-1)*39,146,34) then tool=item[1];penPath=nil;msg="Ferramenta: "..tool;return end
   end
@@ -1418,6 +1458,13 @@ end
 
 function love.textinput(text)
   if projectBrowser then return end
+  if layerNaming then
+    if type(text)=="string" and #layerNameDraft+#text<=48
+        and not text:find("[%z\1-\31\127]") then
+      layerNameDraft=layerNameDraft..text
+    end
+    return
+  end
   if propertyEditor then
     if #text<=20 and text:match("^[%d%.%+%-]+$") then
       if propertyEditor.replace then propertyEditor.draft="" end
@@ -1432,6 +1479,36 @@ function love.textinput(text)
 end
 
 function love.keypressed(key)
+  if layerNaming then
+    if key=="escape" then
+      layerNaming=false
+      msg="Renomeacao cancelada"
+    elseif key=="a" and love.keyboard.isDown("lctrl","rctrl") then
+      layerNameDraft=""
+    elseif key=="backspace" then
+      local i=#layerNameDraft
+      while i>1 do
+        local byte=layerNameDraft:byte(i)
+        if byte<128 or byte>191 then break end
+        i=i-1
+      end
+      layerNameDraft=layerNameDraft:sub(1,i-1)
+    elseif key=="return" or key=="kpenter" then
+      local tx,err=LayerOps.planRename(rootDoc,layerNamingIndex,layerNameDraft)
+      if tx then
+        snapshot()
+        tx.apply()
+        layerNaming=false
+        msg="Camada renomeada: "..tx.name
+      elseif err=="nome sem alteracao" then
+        layerNaming=false
+        msg="Nome da camada mantido"
+      else
+        msg="Nome de camada invalido: "..tostring(err)
+      end
+    end
+    return
+  end
   if projectBrowser then
     if key=="escape" then
       projectBrowser=false
@@ -1557,6 +1634,13 @@ function love.keypressed(key)
   local ctrl=love.keyboard.isDown("lctrl","rctrl")
   local shift=love.keyboard.isDown("lshift","rshift")
   local alt=love.keyboard.isDown("lalt","ralt")
+  if mode=="studio" and key=="f2" and not naming and not propertyEditor then
+    beginLayerRename();return
+  end
+  if mode=="studio" and ctrl and alt and (key=="up" or key=="down") then
+    moveActiveLayer(key=="up" and -1 or 1)
+    return
+  end
   if key=="escape" and not editingSymbolId and mode=="studio" and selectedCount()>0 then
     selectedInstance=nil
     selectedInstances={}

@@ -20,6 +20,7 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 - **Ctrl+O: navegador de projetos salvos**: abre uma lista de arquivos `.lflash` na pasta de dados do Studio, com os mais recentes primeiro. Use **↑/↓**, **Page Up/Page Down**, **Home/End**, **Enter** ou clique para escolher. O carregamento inclui os arquivos auxiliares `.lflib` (símbolos) e `.lfvec` (vetores) quando presentes; um erro ou arquivo inválido não substitui o projeto aberto. Se houver alterações não salvas, a abertura exige uma segunda confirmação. **Esc** cancela. Em ambientes sem listagem de diretório, Ctrl+O preserva a abertura do projeto com o nome atual.
 - Histórico de desfazer/refazer (até 40 instantâneos).
 - **Ctrl+N**: criar projeto novo, com possibilidade de desfazer imediatamente via Ctrl+Z.
+- **Gerenciar camadas**: use o botão **NOME** ou **F2** para renomear a camada atual (aceita espaços e caracteres acentuados; Ctrl+A limpa, Enter confirma, Esc cancela). Use os botões **^ / v** ao lado de NOME ou **Ctrl+Alt+↑/↓** para mudar sua posição na pilha, mantendo juntos os quadros-chave, os desenhos vetoriais e as instâncias de símbolos. Cada alteração pode ser desfeita com Ctrl+Z. Essas operações atuam na cena principal, não dentro do editor de símbolo.
 - **F7**: ocultar/mostrar camada atual.
 - **F8**: bloquear/desbloquear camada atual.
 - **F6**: inserir quadro-chave; **Shift+F6**: remover.
