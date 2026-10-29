@@ -118,10 +118,7 @@ local function colorlessCopy(nodes)
 end
 -- Exact cyclic geometry including handles; avoids merging merely similar
 -- shapes at tessellation resolution.
-function M.identical(a,b)
-  if not a or not b or not a.closed or not b.closed
-      or #(a.holes or {})~=0 or #(b.holes or {})~=0 then return false end
-  local aa,bb=a.nodes,b.nodes
+local function sameRing(aa,bb)
   if #aa~=#bb or #aa<3 then return false end
   for offset=1,#bb do
     for _,dir in ipairs({1,-1}) do
@@ -142,7 +139,31 @@ function M.identical(a,b)
   end
   return false
 end
+function M.identical(a,b)
+  if not a or not b or not a.closed or not b.closed or
+      not sameRing(a.nodes,b.nodes) then return false end
+  local ah,bh=a.holes or {},b.holes or {}
+  if #ah~=#bh then return false end
+  local used={}
+  for _,hole in ipairs(ah) do
+    local match=nil
+    for j,other in ipairs(bh) do
+      if not used[j] and sameRing(hole,other) then
+        match=j
+        break
+      end
+    end
+    if not match then return false end
+    used[match]=true
+  end
+  return true
+end
 function M.originalResult(path)
-  return {outer={},outerNodes=colorlessCopy(path.nodes),holes={},holeNodes={}}
+  local holes={}
+  for _,hole in ipairs(path.holes or {}) do
+    holes[#holes+1]=colorlessCopy(hole)
+  end
+  return {outer={},outerNodes=colorlessCopy(path.nodes),
+    holes=holes,holeNodes=holes}
 end
 return M
