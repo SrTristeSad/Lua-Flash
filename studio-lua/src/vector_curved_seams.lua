@@ -15,6 +15,7 @@ local function controls(nodes,i)
   return {{x=n.x,y=n.y},{x=n.ox,y=n.oy},
     {x=m.ix,y=m.iy},{x=m.x,y=m.y}}
 end
+local reversedEqual
 local function cloneNodes(nodes)
   local out={}
   for i,n in ipairs(nodes) do
@@ -112,7 +113,7 @@ local function partialSeam(longer,shorter)
   end
   return nil
 end
-local function reversedEqual(a,b)
+reversedEqual=function(a,b)
   for i=1,4 do
     if not near(a[i],b[5-i]) then return false end
   end
