@@ -173,3 +173,49 @@ do
   assert(V.encode(assert(V.decode(V.encode(v))))==V.encode(v))
   print("OK: smoothly tangent circles at a shared anchor retain cubic controls")
 end
+
+
+do
+  -- Identical compound artwork with a real interior cutout should not lose
+  -- its transparent holes when the duplicate is merged or intersected.
+  for _,operation in ipairs({"union","intersection","difference"}) do
+    local v=V.new()
+    local outer=rect(v,0,0,100,100)
+    local hole=rect(v,25,25,75,75)
+    local subtract=assert(Bool.plan(v,1,1,outer.id,hole.id,"difference"))
+    subtract.apply()
+    local compound=V.at(v,1,1)[1]
+    assert(#compound.holes==1)
+    local second=assert(V.addPath(v,1,1,0,0,compound.stroke,
+      compound.width,compound.fill))
+    for i,n in ipairs(compound.nodes) do
+      second.nodes[i]={x=n.x,y=n.y,ix=n.ix,iy=n.iy,ox=n.ox,oy=n.oy}
+    end
+    second.closed=true
+    second.holes={}
+    for i,nodes in ipairs(compound.holes) do
+      second.holes[i]={}
+      for j,n in ipairs(nodes) do
+        second.holes[i][j]={x=n.x,y=n.y,ix=n.ix,iy=n.iy,
+          ox=n.ox,oy=n.oy}
+      end
+    end
+    assert(Contacts.identical(compound,second))
+    local snapshot=V.encode(v)
+    local tx,err=Bool.plan(v,1,1,compound.id,second.id,operation)
+    if operation=="difference" then
+      assert(not tx and err=="empty result")
+      assert(snapshot==V.encode(v))
+    else
+      assert(tx,err)
+      assert(snapshot==V.encode(v))
+      tx.apply()
+      local result=V.at(v,1,1)
+      assert(#result==1 and result[1].holes and #result[1].holes==1)
+      assert(V.inFill(result[1],10,10))
+      assert(not V.inFill(result[1],50,50))
+      assert(V.encode(assert(V.decode(V.encode(v))))==V.encode(v))
+    end
+  end
+  print("OK: fully coincident compound shapes preserve their existing holes")
+end
