@@ -152,3 +152,31 @@ do
     "non-seam overlap must be rejected despite identical shared cubic")
   print("OK: real curved seam cannot mask overlapping filled interiors")
 end
+
+
+do
+  -- A curved upper boundary is touched by a second shape's original tip,
+  -- at t=.37 (deliberately not an adaptive tessellation midpoint).
+  local v=V.new()
+  local base=path(v,{{0,0},{100,0},{100,60},{0,60}})
+  base.nodes[1].ox,base.nodes[1].oy=25,-30
+  base.nodes[2].ix,base.nodes[2].iy=75,-30
+  local t=.37
+  local u=1-t
+  local x=3*u*u*t*25+3*u*t*t*75+t^3*100
+  local y=-90*u*t
+  local tip=path(v,{{x,y},{x-7,y-35},{x+7,y-35}})
+  local snapshot=V.encode(v)
+  local union,err=Boolean.plan(v,1,1,base.id,tip.id,"union")
+  assert(union,err)
+  assert(union.resultCount==2,
+    "nonlinear point tangent must keep both independently filled shapes")
+  assert(snapshot==V.encode(v))
+  union.apply()
+  local result=V.at(v,1,1)
+  assert(#result==2)
+  assert(V.inFill(result[1],50,20))
+  assert(V.inFill(result[2],x,y-15))
+  assert(V.encode(assert(V.decode(V.encode(v))))==V.encode(v))
+  print("OK: exact tip-on-nonlinear-cubic tangency is not a filled crossing")
+end
