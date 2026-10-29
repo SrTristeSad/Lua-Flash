@@ -87,7 +87,7 @@ press("f8")
 press("s",true)
 assert(reload("dois").layers[1].locked)
 press("n",true)
-press("o",true)
+love.mousepressed(1200-100,60,1) -- sidebar ABRIR button
 -- Current blank project is unsaved; first Enter must only show a warning.
 press("return")
 press("escape")
