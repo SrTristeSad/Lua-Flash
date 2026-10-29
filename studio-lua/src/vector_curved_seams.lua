@@ -15,6 +15,103 @@ local function controls(nodes,i)
   return {{x=n.x,y=n.y},{x=n.ox,y=n.oy},
     {x=m.ix,y=m.iy},{x=m.x,y=m.y}}
 end
+local function cloneNodes(nodes)
+  local out={}
+  for i,n in ipairs(nodes) do
+    out[i]={x=n.x,y=n.y,ix=n.ix,iy=n.iy,ox=n.ox,oy=n.oy}
+  end
+  return out
+end
+local function blend(a,b,t)
+  return {x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t}
+end
+local function halves(p,t)
+  local a,b,c=blend(p[1],p[2],t),blend(p[2],p[3],t),
+    blend(p[3],p[4],t)
+  local d,e=blend(a,b,t),blend(b,c,t)
+  local mid=blend(d,e,t)
+  return {p[1],a,d,mid},{mid,e,c,p[4]}
+end
+local function portion(p,lo,hi)
+  local source=p
+  if hi<1 then source=select(1,halves(source,hi)) end
+  if lo>0 then
+    local _,right=halves(source,lo/hi)
+    source=right
+  end
+  return source
+end
+local function evaluate(p,t)
+  local u=1-t
+  return {
+    x=u*u*u*p[1].x+3*u*u*t*p[2].x+3*u*t*t*p[3].x+t*t*t*p[4].x,
+    y=u*u*u*p[1].y+3*u*u*t*p[2].y+3*u*t*t*p[3].y+t*t*t*p[4].y
+  }
+end
+local function nearestParameter(p,target)
+  -- Only used as a candidate generator. Matching all four subcurve
+  -- controls later establishes actual geometry, not this approximation.
+  local bestT,bestDist=0,math.huge
+  for i=0,64 do
+    local t=i/64
+    local q=evaluate(p,t)
+    local d=(q.x-target.x)^2+(q.y-target.y)^2
+    if d<bestDist then bestT,bestDist=t,d end
+  end
+  local low=math.max(0,bestT-1/64)
+  local high=math.min(1,bestT+1/64)
+  for _=1,45 do
+    local t1=low+(high-low)/3
+    local t2=high-(high-low)/3
+    local p1,p2=evaluate(p,t1),evaluate(p,t2)
+    local d1=(p1.x-target.x)^2+(p1.y-target.y)^2
+    local d2=(p2.x-target.x)^2+(p2.y-target.y)^2
+    if d1<d2 then high=t2 else low=t1 end
+  end
+  local t=(low+high)*.5
+  local q=evaluate(p,t)
+  if (q.x-target.x)^2+(q.y-target.y)^2>1e-12 then return nil end
+  return t
+end
+local function insertAnchor(nodes,index,t)
+  local p=controls(nodes,index)
+  local left,right=halves(p,t)
+  nodes[index].ox,nodes[index].oy=left[2].x,left[2].y
+  local nextIndex=index%#nodes+1
+  local nextNode=nodes[nextIndex]
+  nextNode.ix,nextNode.iy=right[3].x,right[3].y
+  table.insert(nodes,index+1,{
+    x=left[4].x,y=left[4].y,
+    ix=left[3].x,iy=left[3].y,
+    ox=right[2].x,oy=right[2].y
+  })
+end
+local function partialSeam(longer,shorter)
+  for i=1,#longer do
+    local p=controls(longer,i)
+    for j=1,#shorter do
+      local q=controls(shorter,j)
+      local lo=nearestParameter(p,q[4])
+      local hi=nearestParameter(p,q[1])
+      if lo and hi and hi-lo>1e-6 and
+          (lo>1e-6 or hi<1-1e-6) then
+        if reversedEqual(portion(p,lo,hi),q) then
+          local expanded=cloneNodes(longer)
+          local seam=i
+          if hi<1-1e-6 then insertAnchor(expanded,i,hi) end
+          if lo>1e-6 then
+            insertAnchor(expanded,i,lo/(hi<1-1e-6 and hi or 1))
+            seam=i+1
+          end
+          if reversedEqual(controls(expanded,seam),q) then
+            return expanded,seam,j
+          end
+        end
+      end
+    end
+  end
+  return nil
+end
 local function reversedEqual(a,b)
   for i=1,4 do
     if not near(a[i],b[5-i]) then return false end
@@ -134,8 +231,22 @@ function M.plan(a,b,operation)
       end
     end
   end
+  local aNodes,bNodes=a.nodes,b.nodes
+  if count==0 then
+    local adjusted,ai,bj=partialSeam(a.nodes,b.nodes)
+    if adjusted then
+      aNodes,seamI,seamJ=adjusted,ai,bj
+      count=1
+    else
+      adjusted,bj,ai=partialSeam(b.nodes,a.nodes)
+      if adjusted then
+        bNodes,seamI,seamJ=adjusted,ai,bj
+        count=1
+      end
+    end
+  end
   if count~=1 then return false end
-  if not validContours(a.nodes,b.nodes,seamI,seamJ) then
+  if not validContours(aNodes,bNodes,seamI,seamJ) then
     -- Shared cubic is real but other boundaries are ambiguous: do not fall
     -- through to a polygon-only cutter that might discard the coincidence.
     return true,nil,"shared curved contour has overlapping or ambiguous interiors"
@@ -144,7 +255,7 @@ function M.plan(a,b,operation)
   if operation=="difference" then
     return true,{{outer={},outerNodes=a.nodes,holes={},holeNodes={}}}
   end
-  local nodes=combine(a.nodes,b.nodes,seamI,seamJ)
+  local nodes=combine(aNodes,bNodes,seamI,seamJ)
   if not nodes then return true,nil,"shared curved boundary cannot be joined" end
   return true,{{outer={},outerNodes=nodes,holes={},holeNodes={}}}
 end
