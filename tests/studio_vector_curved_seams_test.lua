@@ -178,6 +178,11 @@ do
   local detected,detectError=Detector.detect(base.nodes,tip.nodes,{maxVisits=12000})
   print("TANGENCY DIAG",contact,allowed,
     detected and #detected or "nil",detectError)
+  for _,hit in ipairs(detected or {}) do
+    print("TANGENCY HIT",hit.point.x,hit.point.y,
+      hit.aSegment,hit.bSegment,hit.aT,hit.bT,
+      (hit.point.x-x)^2+(hit.point.y-y)^2)
+  end
   local union,err=Boolean.plan(v,1,1,base.id,tip.id,"union")
   assert(union,err)
   assert(union.resultCount==2,
