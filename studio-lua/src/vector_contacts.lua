@@ -113,19 +113,97 @@ local function onStraightArc(nodes,p)
   end
   return false
 end
--- Supports contacts at two original anchors, or one original anchor
--- touching the INTERIOR of an exactly straight cubic arc on the other
--- shape. No interpolated or approximate tangency is treated as exact.
+local function onNonlinearArc(nodes,p)
+  -- Find an exact closest-point root numerically. Candidate search is not
+  -- proof: require residual < 1e-8 and a transverse derivative so a cusp
+  -- cannot masquerade as a regular tangent contact.
+  local candidates=0
+  for i,a in ipairs(nodes) do
+    local b=nodes[i%#nodes+1]
+    local c={{x=a.x,y=a.y},{x=a.ox,y=a.oy},
+      {x=b.ix,y=b.iy},{x=b.x,y=b.y}}
+    local function at(t)
+      local u=1-t
+      return {
+        x=u^3*c[1].x+3*u*u*t*c[2].x+3*u*t*t*c[3].x+t^3*c[4].x,
+        y=u^3*c[1].y+3*u*u*t*c[2].y+3*u*t*t*c[3].y+t^3*c[4].y
+      }
+    end
+    local best,bestD=0,math.huge
+    for step=0,64 do
+      local t=step/64
+      local q=at(t)
+      local d=(q.x-p.x)^2+(q.y-p.y)^2
+      if d<bestD then best,bestD=t,d end
+    end
+    if bestD<4 then
+      local lo=math.max(0,best-1/64)
+      local hi=math.min(1,best+1/64)
+      for _=1,48 do
+        local lt=lo+(hi-lo)/3
+        local rt=hi-(hi-lo)/3
+        local left,right=at(lt),at(rt)
+        local ld=(left.x-p.x)^2+(left.y-p.y)^2
+        local rd=(right.x-p.x)^2+(right.y-p.y)^2
+        if ld<rd then hi=rt else lo=lt end
+      end
+      local t=(lo+hi)*.5
+      local q=at(t)
+      if t>1e-5 and t<1-1e-5 and
+          (q.x-p.x)^2+(q.y-p.y)^2<1e-14 then
+        local u=1-t
+        local dx=3*(u*u*(c[2].x-c[1].x)+
+          2*u*t*(c[3].x-c[2].x)+t*t*(c[4].x-c[3].x))
+        local dy=3*(u*u*(c[2].y-c[1].y)+
+          2*u*t*(c[3].y-c[2].y)+t*t*(c[4].y-c[3].y))
+        if dx*dx+dy*dy>1e-8 then
+          candidates=candidates+1
+        end
+      end
+    end
+  end
+  return candidates==1
+end
+local function onOriginalArc(nodes,p)
+  return onStraightArc(nodes,p) or onNonlinearArc(nodes,p)
+end
+-- Supports a single exact original-anchor contact with the interior of
+-- another cubic, including curved arcs. Ambiguous or crossing contacts are
+-- still rejected rather than interpreted as tangent fills.
 function M.safeCornerTouch(aRegion,bRegion,aPath,bPath)
   if #aRegion.holes~=0 or #bRegion.holes~=0 then return false end
   local a,b=aRegion.outer,bRegion.outer
   local kind,pos=M.classifyPolygons(a,b)
-  if kind~="point" then return false end
+  if kind~="point" and kind~="disjoint" then return false end
+  if kind=="disjoint" then
+    -- Polygon chords may miss a real exact contact on a curved interior.
+    -- Locate it on the ORIGINAL cubics; require one unique contact only.
+    local contacts={}
+    local function consider(p)
+      for _,q in ipairs(contacts) do if same(p,q) then return end end
+      contacts[#contacts+1]={x=p.x,y=p.y}
+    end
+    for _,node in ipairs(aPath.nodes) do
+      if onOriginalArc(bPath.nodes,node) then consider(node) end
+    end
+    for _,node in ipairs(bPath.nodes) do
+      if onOriginalArc(aPath.nodes,node) then consider(node) end
+    end
+    if #contacts~=1 then return false end
+    pos=contacts[1]
+  end
   local anchorA=originalAnchor(aPath.nodes,pos)
   local anchorB=originalAnchor(bPath.nodes,pos)
   if not anchorA and not anchorB then return false end
-  if not anchorA and not onStraightArc(aPath.nodes,pos) then return false end
-  if not anchorB and not onStraightArc(bPath.nodes,pos) then return false end
+  if not anchorA and not onOriginalArc(aPath.nodes,pos) then return false end
+  if not anchorB and not onOriginalArc(bPath.nodes,pos) then return false end
+  -- Reject a hidden transverse crossing missed by the polygonal outline.
+  -- Tangencies do not appear as roots in this transverse-only detector.
+  if kind=="disjoint" then
+    local Detector=require("src.cubic_detection")
+    local hits=Detector.detect(aPath.nodes,bPath.nodes,{maxVisits=12000})
+    if not hits or #hits>0 then return false end
+  end
   for _,p in ipairs(a) do
     if not same(p,pos) and isInside(b,p) then return false end
   end
