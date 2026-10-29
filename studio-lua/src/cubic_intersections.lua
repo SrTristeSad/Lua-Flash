@@ -97,6 +97,16 @@ function M.refine(aMeta,bMeta,aFraction,bFraction)
   -- Reject numerically unstable roots. Do not invent a more accurate cut if
   -- the polynomial system does not actually intersect nearby.
   if err2>1e-8 then return nil,"intersecao cubica sem convergencia" end
+  -- An exact coordinate match is insufficient: coincident or tangential
+  -- segments have no unique transverse crossing, even at zero residual.
+  local _,_,adx,ady=evaluate(pa,t)
+  local _,_,bdx,bdy=evaluate(pb,u)
+  local det=bdx*ady-adx*bdy
+  local tangentScale=math.sqrt(adx*adx+ady*ady)
+    *math.sqrt(bdx*bdx+bdy*bdy)
+  if tangentScale<1e-12 or math.abs(det)<=tangentScale*1e-9 then
+    return nil,"intersecao tangente ou coincidente"
+  end
   local _,ax,ay,bx,by=residual(t,u)
   local x,y=(ax+bx)*.5,(ay+by)*.5
   if not finite(x) or not finite(y)
