@@ -63,7 +63,7 @@ for _,axis in ipairs({"y","x"}) do
       local paths=V.at(v,1,1)
       assert(#paths==(op=="union" and 2 or 1))
       assert(#paths[1].nodes==4 and paths[1].nodes[1].ox==a.nodes[1].ox)
-      assert(#paths[1].holes==0 or not paths[1].holes)
+      assert(not paths[1].holes or #paths[1].holes==0)
       assert(V.encode(assert(V.decode(V.encode(v))))==V.encode(v))
     end
     if op=="intersection" then
