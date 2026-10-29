@@ -1007,3 +1007,41 @@ press("y",true)
 project()
 assert(#Paths.at(assert(Paths.decode(files["projeto.lflash.lfvec"])),1,1)[1].holes==2)
 print("OK: Studio UI repeated compound Boolean subtraction and atomic undo")
+
+
+-- The Studio UI must accept a one-vertex tangent union, preserve both
+-- regions as independent filled paths, and undo them as one operation.
+press("n",true)
+drawFilledRect(320,260,360,300)
+drawFilledRect(360,300,400,340)
+project()
+local beforeCorner=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local cornerPaths=Paths.at(beforeCorner,1,1)
+assert(#cornerPaths==2)
+local originalCornerId=cornerPaths[2].id
+press("a")
+love.mousepressed(320,270,1)
+love.mousereleased(320,270,1)
+modifiers.lshift=true
+love.mousepressed(400,330,1)
+love.mousereleased(400,330,1)
+modifiers.lshift=false
+modifiers.lctrl=true
+modifiers.lshift=true
+love.keypressed("u")
+modifiers.lctrl=false
+modifiers.lshift=false
+project()
+local cornerUnion=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local resultingCorners=Paths.at(cornerUnion,1,1)
+assert(#resultingCorners==2 and resultingCorners[1].closed and
+  resultingCorners[2].closed,"corner union must keep two separate closed regions")
+assert(resultingCorners[2].id~=originalCornerId,
+  "the atomic Boolean operation must assign a new ID to the second output")
+press("z",true)
+project()
+local cornerRestored=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(cornerRestored,1,1)==2 and
+  Paths.at(cornerRestored,1,1)[2].id==originalCornerId,
+  "undo must restore both original tangent paths and their IDs")
+print("OK: UI corner-only tangent union, fresh path ID and atomic undo")
