@@ -17,6 +17,7 @@ A CI também produz o artefato `lua-flash-studio-0.2-love`, que contém `Lua-Fla
 - Palco, pincel, linhas, retângulos, elipses, borracha e seleção.
 - Camadas, timeline, quadros-chave e prévia.
 - Salvar / abrir projeto `.lflash` e exportar o quadro atual para SVG.
+- **Ctrl+O: navegador de projetos salvos**: abre uma lista de arquivos `.lflash` na pasta de dados do Studio, com os mais recentes primeiro. Use **↑/↓**, **Page Up/Page Down**, **Home/End**, **Enter** ou clique para escolher. O carregamento inclui os arquivos auxiliares `.lflib` (símbolos) e `.lfvec` (vetores) quando presentes; um erro ou arquivo inválido não substitui o projeto aberto. Se houver alterações não salvas, a abertura exige uma segunda confirmação. **Esc** cancela. Em ambientes sem listagem de diretório, Ctrl+O preserva a abertura do projeto com o nome atual.
 - Histórico de desfazer/refazer (até 40 instantâneos).
 - **Ctrl+N**: criar projeto novo, com possibilidade de desfazer imediatamente via Ctrl+Z.
 - **F7**: ocultar/mostrar camada atual.
