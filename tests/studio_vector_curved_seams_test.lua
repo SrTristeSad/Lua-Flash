@@ -175,13 +175,14 @@ do
   local contact=Contacts.classifyPolygons(pa,pb)
   local allowed=Contacts.safeCornerTouch({outer=pa,holes={}},
     {outer=pb,holes={}},base,tip)
+  assert(contact=="disjoint",
+    "this exact curve contact is intentionally between polygon samples")
+  assert(allowed,"verified original-anchor tangent must be classed as safe")
   local detected,detectError=Detector.detect(base.nodes,tip.nodes,{maxVisits=12000})
-  print("TANGENCY DIAG",contact,allowed,
-    detected and #detected or "nil",detectError)
-  for _,hit in ipairs(detected or {}) do
-    print("TANGENCY HIT",hit.point.x,hit.point.y,
-      hit.aSegment,hit.bSegment,hit.aT,hit.bT,
-      (hit.point.x-x)^2+(hit.point.y-y)^2)
+  assert(detected,detectError)
+  for _,hit in ipairs(detected) do
+    assert((hit.point.x-x)^2+(hit.point.y-y)^2<1e-8,
+      "detected crossing must stay inside the actual tangent neighborhood")
   end
   local union,err=Boolean.plan(v,1,1,base.id,tip.id,"union")
   assert(union,err)
