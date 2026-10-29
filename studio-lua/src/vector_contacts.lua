@@ -209,8 +209,8 @@ function M.safeCornerTouch(aRegion,bRegion,aPath,bPath)
       -- A root at the same contact must terminate at an actual anchor of
       -- at least one source cubic; interior/interior transversal crossings
       -- are not safe point tangencies.
-      local endpoint=hit.aT<=1e-6 or hit.aT>=1-1e-6 or
-        hit.bT<=1e-6 or hit.bT>=1-1e-6
+      local endpoint=hit.aT<=.001 or hit.aT>=1-.001 or
+        hit.bT<=.001 or hit.bT>=1-.001
       if not endpoint then return false end
     end
   end
