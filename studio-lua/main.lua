@@ -16,6 +16,7 @@ local VectorRenderer = require("src.vector_renderer")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
 local LayerOps = require("src.layer_ops")
+local LayerViewport = require("src.layer_viewport")
 local ProjectBrowser = require("src.project_browser")
 local Runtime = require("src.runtime")
 local doc = Model.new(800,450,24)
@@ -57,6 +58,7 @@ local frameClipboard=nil
 local timelineDrag=nil
 local selectedKeys={}
 local timelineCell=19
+local layerScroll=1
 local function timelineCount(w)
   return math.max(1,math.floor((w-250-18)/timelineCell))
 end
@@ -64,7 +66,7 @@ local function clampOffset(w)
   offset=math.max(1,math.min(offset,math.max(1,doc.totalFrames-timelineCount(w)+1)))
 end
 local function libraryPanel(track)
-  local top=math.max(326,132+#doc.layers*35+10)
+  local top=math.max(326,132+math.min(#doc.layers,LayerViewport.rows)*35+70)
   local slots=math.max(0,math.min(5,math.floor((track-105-top-22)/28)))
   return top,slots
 end
@@ -119,6 +121,7 @@ end
 
 local function install(newdoc)
   doc=newdoc
+  layerScroll=LayerViewport.ensureVisible(#doc.layers,layerScroll,doc.currentLayer)
   runtime=Runtime.new(doc)
   SymbolMotion.reset(symbolMotion)
   selected,dragged=nil,nil
@@ -337,6 +340,16 @@ local function setFrame(n)
   selectedVectorNode=nil
   handleDrag=nil
   propertyEditor=nil
+end
+
+local function changeLayer(index)
+  if not index or index==doc.currentLayer then return end
+  if not doc.layers[index] then return end
+  doc.currentLayer=index
+  layerScroll=LayerViewport.ensureVisible(#doc.layers,layerScroll,index)
+  setFrame(doc.currentFrame)
+  selectedKeys={}
+  timelineDrag=nil
 end
 
 local function active()
@@ -596,12 +609,23 @@ local function ui()
     button("NOME",w-120,90,65,34,layerNaming)
     button("^",w-51,90,20,34,false)
     button("v",w-28,90,17,34,false)
-    for i,layer in ipairs(doc.layers) do
-      local name=(layer.visible and "o " or "- ")..layer.name..(layer.locked and " [X]" or "")
-      button(name,w-187,132+(i-1)*35,118,31,i==doc.currentLayer)
-      button(layer.visible and "O" or "-",w-65,132+(i-1)*35,25,31,layer.visible)
-      button(layer.locked and "X" or "L",w-37,132+(i-1)*35,26,31,layer.locked)
+    layerScroll=LayerViewport.clamp(#doc.layers,layerScroll)
+    for row=1,LayerViewport.count(#doc.layers,layerScroll) do
+      local i=LayerViewport.index(#doc.layers,layerScroll,row)
+      local layer=doc.layers[i]
+      local cy=132+(row-1)*35
+      local name=(layer.visible and "o " or "- ")..layer.name
+      lg.setScissor(w-187,cy,118,31)
+      button(name,w-187,cy,118,31,i==doc.currentLayer)
+      lg.setScissor()
+      button(layer.visible and "O" or "-",w-65,cy,25,31,layer.visible)
+      button(layer.locked and "X" or "L",w-37,cy,26,31,layer.locked)
     end
+    button("ANT.",w-187,244,84,29,false)
+    button("PROX.",w-98,244,87,29,false)
+    local last=math.min(#doc.layers,layerScroll+LayerViewport.rows-1)
+    label("Camadas "..layerScroll.."-"..last.."/"..#doc.layers,w-185,283,{.69,.77,.86})
+    label("Roda: navegar",w-185,305,{.54,.62,.71})
     label("Palco "..doc.width.." x "..doc.height,w-185,track-92)
     label("FPS: "..doc.fps,w-185,track-72)
     label("Camada "..doc.currentLayer.." | F2 nome",w-185,track-52)
@@ -751,9 +775,9 @@ local function ui()
   if mode=="studio" then
     local startX,cell=250,timelineCell
     local count=timelineCount(w)
-    local rows=math.min(#doc.layers,3)
+    local rows=LayerViewport.count(#doc.layers,layerScroll)
     for row=1,rows do
-      local layerIndex=((doc.currentLayer+row-2)%#doc.layers)+1
+      local layerIndex=LayerViewport.index(#doc.layers,layerScroll,row)
       local layer=doc.layers[layerIndex]
       local rowY=track+38+(row-1)*26
       label(tostring(layerIndex)..(layerIndex==doc.currentLayer and "*" or ""),222,rowY+4)
@@ -784,7 +808,7 @@ local function ui()
         end
       end
     end
-    label("Roda: rolar | Ctrl+roda: zoom ("..timelineCell.." px)",250,track+91,{.63,.68,.74})
+    label("Roda: quadros | Shift+roda: camadas | Ctrl+roda: zoom ("..timelineCell.." px)",250,track+91,{.63,.68,.74})
   end
   if projectBrowser then
     local bx,by,bw,bh=browserGeometry(w,h)
@@ -888,7 +912,19 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
   if inBox(mx,my,w-108,56,97,28) then beginOpen();return end
   if inBox(mx,my,555,8,109,34) or inBox(mx,my,w-187,90,64,34) then
     if #doc.layers>=128 then msg="Limite de 128 camadas";return end
-    snapshot();Model.addLayer(doc);selected=nil;msg="Camada criada";return
+    snapshot();Model.addLayer(doc)
+    layerScroll=LayerViewport.ensureVisible(#doc.layers,layerScroll,doc.currentLayer)
+    setFrame(doc.currentFrame)
+    selectedKeys={}
+    msg="Camada criada";return
+  end
+  if inBox(mx,my,w-187,244,84,29) then
+    layerScroll=LayerViewport.scroll(#doc.layers,layerScroll,-LayerViewport.rows)
+    return
+  end
+  if inBox(mx,my,w-98,244,87,29) then
+    layerScroll=LayerViewport.scroll(#doc.layers,layerScroll,LayerViewport.rows)
+    return
   end
   if inBox(mx,my,w-120,90,65,34) then beginLayerRename();return end
   if inBox(mx,my,w-51,90,20,34) then moveActiveLayer(-1);return end
@@ -931,8 +967,10 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
       return
     end
   end
-  for i,layer in ipairs(doc.layers) do
-    local cy=132+(i-1)*35
+  for row=1,LayerViewport.count(#doc.layers,layerScroll) do
+    local i=LayerViewport.index(#doc.layers,layerScroll,row)
+    local layer=doc.layers[i]
+    local cy=132+(row-1)*35
     if inBox(mx,my,w-65,cy,25,31) then
       snapshot();layer.visible=not layer.visible
       msg=layer.visible and "Camada visivel" or "Camada oculta";return
@@ -942,18 +980,18 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
       msg=layer.locked and "Camada bloqueada" or "Camada desbloqueada";return
     end
     if inBox(mx,my,w-187,cy,118,31) then
-      doc.currentLayer=i;selected=nil;return
+      changeLayer(i)
+      return
     end
   end
-  if my>=track+38 and my<track+38+math.min(#doc.layers,3)*26
-      and mx>=250 and mx<w-18 then
+  if my>=track+38
+      and my<track+38+LayerViewport.count(#doc.layers,layerScroll)*26
+      and mx>=214 and mx<w-18 then
     local row=math.floor((my-track-38)/26)+1
-    local layerIndex=((doc.currentLayer+row-2)%#doc.layers)+1
-    if layerIndex~=doc.currentLayer then
-      doc.currentLayer=layerIndex
-      selectedKeys={}
-      timelineDrag=nil
-    end
+    local layerIndex=LayerViewport.index(#doc.layers,layerScroll,row)
+    if not layerIndex then return end
+    if layerIndex~=doc.currentLayer then changeLayer(layerIndex) end
+    if mx<250 then return end
     local n=offset+math.floor((mx-250)/timelineCell)
     if n>=1 and n<=doc.totalFrames then
       runtime.playing=false
@@ -1437,9 +1475,17 @@ function love.wheelmoved(_,dy)
   if projectBrowser then browseMove(-math.floor(dy));return end
   if mode~="studio" then return end
   local mx,my=love.mouse.getPosition()
-  local _,_,track=dimensions()
+  local w,_,track=dimensions()
+  if mx>=w-198 and mx<w and my>=132 and my<=310 then
+    layerScroll=LayerViewport.scroll(#doc.layers,layerScroll,-math.floor(dy*3))
+    return
+  end
   if my>=track then
-    local w=love.graphics.getWidth and love.graphics.getWidth() or select(1,love.graphics.getDimensions())
+    if not love.keyboard.isDown("lctrl","rctrl")
+        and (love.keyboard.isDown("lshift","rshift") or mx>=214 and mx<250) then
+      layerScroll=LayerViewport.scroll(#doc.layers,layerScroll,-math.floor(dy*3))
+      return
+    end
     if love.keyboard.isDown("lctrl","rctrl") then
       local old=timelineCell
       timelineCell=math.max(12,math.min(38,timelineCell+math.floor(dy*2)))
