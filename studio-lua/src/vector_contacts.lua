@@ -90,17 +90,42 @@ local function originalAnchor(nodes,p)
   end
   return false
 end
--- This specialization permits union/difference when simple shapes meet only
--- at one explicit anchor; the result has unchanged filled interiors.
--- No attempt is made to merge two outer loops at the touching point.
+local function onStraightArc(nodes,p)
+  for i,a in ipairs(nodes) do
+    local b=nodes[i%#nodes+1]
+    local dx,dy=b.x-a.x,b.y-a.y
+    local length2=dx*dx+dy*dy
+    if length2>EPS*EPS then
+      local function validControl(x,y)
+        local px,py=x-a.x,y-a.y
+        local t=(px*dx+py*dy)/length2
+        return math.abs(cross(dx,dy,px,py))<=EPS*math.sqrt(length2)
+          and t>=-EPS and t<=1+EPS
+      end
+      local px,py=p.x-a.x,p.y-a.y
+      local t=(px*dx+py*dy)/length2
+      if validControl(a.ox,a.oy) and validControl(b.ix,b.iy)
+          and math.abs(cross(dx,dy,px,py))<=EPS*math.sqrt(length2)
+          and t>=-EPS and t<=1+EPS then
+        return true
+      end
+    end
+  end
+  return false
+end
+-- Supports contacts at two original anchors, or one original anchor
+-- touching the INTERIOR of an exactly straight cubic arc on the other
+-- shape. No interpolated or approximate tangency is treated as exact.
 function M.safeCornerTouch(aRegion,bRegion,aPath,bPath)
   if #aRegion.holes~=0 or #bRegion.holes~=0 then return false end
   local a,b=aRegion.outer,bRegion.outer
   local kind,pos=M.classifyPolygons(a,b)
   if kind~="point" then return false end
-  if not originalAnchor(aPath.nodes,pos) or not originalAnchor(bPath.nodes,pos) then
-    return false
-  end
+  local anchorA=originalAnchor(aPath.nodes,pos)
+  local anchorB=originalAnchor(bPath.nodes,pos)
+  if not anchorA and not anchorB then return false end
+  if not anchorA and not onStraightArc(aPath.nodes,pos) then return false end
+  if not anchorB and not onStraightArc(bPath.nodes,pos) then return false end
   for _,p in ipairs(a) do
     if not same(p,pos) and isInside(b,p) then return false end
   end
@@ -108,6 +133,153 @@ function M.safeCornerTouch(aRegion,bRegion,aPath,bPath)
     if not same(p,pos) and isInside(a,p) then return false end
   end
   return true
+end
+-- Recognize actual axis-aligned RECTANGLES with monotone straight
+-- Bezier handles. This is a deliberately narrow exact specialization:
+-- only two rectangles sharing a positive-length boundary and having
+-- disjoint interiors are supported. Other coincident/curved edges remain
+-- rejected by the general polygon clipper.
+local function axisRectangle(path)
+  if not path or not path.closed or path.holes and #path.holes>0
+      or #path.nodes~=4 then return nil end
+  local x1,y1,x2,y2
+  for _,n in ipairs(path.nodes) do
+    if not finite(n.x) or not finite(n.y) then return nil end
+    x1=x1 and math.min(x1,n.x) or n.x
+    y1=y1 and math.min(y1,n.y) or n.y
+    x2=x2 and math.max(x2,n.x) or n.x
+    y2=y2 and math.max(y2,n.y) or n.y
+  end
+  if x2-x1<=EPS or y2-y1<=EPS then return nil end
+  local seen={}
+  for i,n in ipairs(path.nodes) do
+    local m=path.nodes[i%4+1]
+    local sideX=math.abs(n.x-m.x)<=EPS
+    local sideY=math.abs(n.y-m.y)<=EPS
+    if sideX==sideY then return nil end
+    local function handle(x,y)
+      if not finite(x) or not finite(y) then return false end
+      local dx,dy=m.x-n.x,m.y-n.y
+      local len2=dx*dx+dy*dy
+      local px,py=x-n.x,y-n.y
+      local t=(px*dx+py*dy)/len2
+      return t>=-EPS and t<=1+EPS
+        and math.abs(cross(dx,dy,px,py))<=EPS*math.sqrt(len2)
+    end
+    if not handle(n.ox,n.oy) or not handle(m.ix,m.iy) then return nil end
+    local k=(math.abs(n.x-x1)<=EPS and "L" or
+      math.abs(n.x-x2)<=EPS and "R" or "?")..
+      (math.abs(n.y-y1)<=EPS and "T" or
+       math.abs(n.y-y2)<=EPS and "B" or "?")
+    if k:find("?",1,true) or seen[k] then return nil end
+    seen[k]=true
+  end
+  if not (seen.LT and seen.RT and seen.RB and seen.LB) then return nil end
+  return {x1=x1,y1=y1,x2=x2,y2=y2}
+end
+local function lineKey(x,y)
+  return string.format("%.8f:%.8f",x,y)
+end
+local function simplifyPolygon(points)
+  local changed=true
+  while changed and #points>3 do
+    changed=false
+    for i=1,#points do
+      local a=points[(i-2)%#points+1]
+      local b=points[i]
+      local c=points[i%#points+1]
+      if math.abs(cross(b.x-a.x,b.y-a.y,c.x-b.x,c.y-b.y))<=EPS then
+        table.remove(points,i)
+        changed=true
+        break
+      end
+    end
+  end
+  return points
+end
+local function rectangleUnion(a,b)
+  local xs={a.x1,a.x2,b.x1,b.x2}
+  local ys={a.y1,a.y2,b.y1,b.y2}
+  local function unique(values)
+    table.sort(values)
+    local out={}
+    for _,v in ipairs(values) do
+      if #out==0 or math.abs(v-out[#out])>EPS then out[#out+1]=v end
+    end
+    return out
+  end
+  xs,ys=unique(xs),unique(ys)
+  local occupied={}
+  local function filled(x,y)
+    return (x>a.x1 and x<a.x2 and y>a.y1 and y<a.y2) or
+      (x>b.x1 and x<b.x2 and y>b.y1 and y<b.y2)
+  end
+  for i=1,#xs-1 do
+    occupied[i]={}
+    for j=1,#ys-1 do
+      occupied[i][j]=filled((xs[i]+xs[i+1])*.5,(ys[j]+ys[j+1])*.5)
+    end
+  end
+  local segments,starts={},{}
+  local function edge(x1,y1,x2,y2)
+    local first=lineKey(x1,y1)
+    if starts[first] then return false end
+    segments[#segments+1]={a={x=x1,y=y1},b={x=x2,y=y2}}
+    starts[first]=#segments
+    return true
+  end
+  for i=1,#xs-1 do
+    for j=1,#ys-1 do
+      if occupied[i][j] then
+        local x1,x2,y1,y2=xs[i],xs[i+1],ys[j],ys[j+1]
+        if not (occupied[i][j-1]) then
+          if not edge(x1,y1,x2,y1) then return nil end
+        end
+        if not (occupied[i+1] and occupied[i+1][j]) then
+          if not edge(x2,y1,x2,y2) then return nil end
+        end
+        if not occupied[i][j+1] then
+          if not edge(x2,y2,x1,y2) then return nil end
+        end
+        if not (occupied[i-1] and occupied[i-1][j]) then
+          if not edge(x1,y2,x1,y1) then return nil end
+        end
+      end
+    end
+  end
+  local polygon,used={},{}
+  local current=1
+  for _=1,#segments do
+    if not current or used[current] then return nil end
+    used[current]=true
+    local e=segments[current]
+    polygon[#polygon+1]=e.a
+    current=starts[lineKey(e.b.x,e.b.y)]
+  end
+  if current~=1 then return nil end
+  simplifyPolygon(polygon)
+  if #polygon<4 or #polygon>256 then return nil end
+  local nodes={}
+  for i,p in ipairs(polygon) do
+    nodes[i]={x=p.x,y=p.y,ix=p.x,iy=p.y,ox=p.x,oy=p.y}
+  end
+  return nodes
+end
+function M.sharedRectangle(a,b,operation)
+  local ra,rb=axisRectangle(a),axisRectangle(b)
+  if not ra or not rb then return false end
+  local overlapX=math.min(ra.x2,rb.x2)-math.max(ra.x1,rb.x1)
+  local overlapY=math.min(ra.y2,rb.y2)-math.max(ra.y1,rb.y1)
+  if overlapX>EPS and overlapY>EPS then return false end
+  if not ((math.abs(overlapX)<=EPS and overlapY>EPS) or
+      (math.abs(overlapY)<=EPS and overlapX>EPS)) then
+    return false
+  end
+  if operation=="intersection" then return true,nil,"empty result" end
+  if operation=="difference" then return true,{M.originalResult(a)} end
+  local nodes=rectangleUnion(ra,rb)
+  if not nodes then return true,nil,"unsupported shared rectangle topology" end
+  return true,{{outer={},outerNodes=nodes,holes={},holeNodes={}}}
 end
 local function colorlessCopy(nodes)
   local out={}
