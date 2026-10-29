@@ -8,6 +8,7 @@ local Retention=require("src.bezier_retention")
 local CubicIntersections=require("src.cubic_intersections")
 local CubicDetection=require("src.cubic_detection")
 local Contacts=require("src.vector_contacts")
+local CurvedSeams=require("src.vector_curved_seams")
 local M={}
 local EPS=1e-7
 local SNAP=1e-5
@@ -390,6 +391,8 @@ local function calculate(a,b,operation,tolerance,pass)
   end
   local handled,shapes,contactError=Contacts.sharedRectangle(a,b,operation)
   if handled then return shapes,contactError end
+  local curvedHandled,curvedShapes,curvedError=CurvedSeams.plan(a,b,operation)
+  if curvedHandled then return curvedShapes,curvedError end
   -- Two disjoint filled interiors touching at exactly one original anchor
   -- should not be forced into a self-touching compound outline.
   if Contacts.safeCornerTouch(ca,cb,a,b) then
