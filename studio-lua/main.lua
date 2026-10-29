@@ -114,7 +114,7 @@ local function dimensions()
 end
 
 local function snapshot()
-  undo[#undo+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),vectors=Vector.encode(vectors),editingSymbolId=editingSymbolId}
+  undo[#undo+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),vectors=Vector.encode(vectors),editingSymbolId=editingSymbolId,layerScroll=layerScroll}
   if #undo>40 then table.remove(undo,1) end
   redo={}
 end
@@ -172,7 +172,7 @@ end
 local function history(reverse)
   local from,to=reverse and undo or redo,reverse and redo or undo
   if #from==0 then msg="Nada para "..(reverse and "desfazer" or "refazer");return end
-  to[#to+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),vectors=Vector.encode(vectors),editingSymbolId=editingSymbolId}
+  to[#to+1]={document=Model.encode(rootDoc),symbols=Library.encode(symbolLibrary),vectors=Vector.encode(vectors),editingSymbolId=editingSymbolId,layerScroll=layerScroll}
   local contents=table.remove(from)
   local d,err=Model.decode(contents.document)
   local lib,liberr=Library.decode(contents.symbols)
@@ -185,6 +185,7 @@ local function history(reverse)
     if editingSymbolId and not Library.find(lib,editingSymbolId) then editingSymbolId=nil end
     symbolTimeline=Library.new()
     local focus=editingSymbolId and Library.find(lib,editingSymbolId)
+    layerScroll=contents.layerScroll or layerScroll
     install(focus and focus.definition or rootDoc)
     if selectedSymbol and not Library.find(lib,selectedSymbol) then selectedSymbol=nil end
   else
