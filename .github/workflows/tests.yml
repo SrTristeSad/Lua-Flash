@@ -87,6 +87,8 @@ jobs:
         run: lua tests/studio_player_roundtrip_test.lua
       - name: Studio 0.2 project and layer lifecycle regression
         run: lua tests/studio_edit_test.lua
+      - name: Studio synchronized layer rename and reorder
+        run: lua tests/studio_layer_ops_test.lua
       - name: Studio saved-project chooser regression
         run: lua tests/studio_project_browser_test.lua
       - name: Studio Flash exposure spans and blank frame compatibility
