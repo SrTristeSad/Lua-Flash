@@ -560,6 +560,7 @@ local function ui()
       end
     end
     label("CAMADAS",w-186,65,{.45,.82,1})
+    button("ABRIR",w-108,56,97,28,false)
     button("+ Nova camada",w-187,90,176,34,false)
     for i,layer in ipairs(doc.layers) do
       local name=(layer.visible and "o " or "- ")..layer.name..(layer.locked and " [X]" or "")
@@ -848,6 +849,7 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
     return
   end
   if inBox(mx,my,465,8,82,34) then save();return end
+  if inBox(mx,my,w-108,56,97,28) then beginOpen();return end
   if inBox(mx,my,555,8,109,34) or inBox(mx,my,w-187,90,176,34) then
     snapshot();Model.addLayer(doc);selected=nil;msg="Camada criada";return
   end
