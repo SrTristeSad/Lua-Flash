@@ -121,6 +121,8 @@ jobs:
         run: lua tests/studio_cubic_intersections_test.lua
       - name: Studio direct cubic crossing detection and shallow humps
         run: lua tests/studio_cubic_detection_test.lua
+      - name: Studio tangent contact and exact boundary coincidence
+        run: lua tests/studio_vector_contacts_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
