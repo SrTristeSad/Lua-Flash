@@ -66,10 +66,10 @@ function M.classifyPolygons(a,b)
           if dx*dx+dy*dy<=EPS*EPS then seen=true;break end
         end
         if not seen then contacts[#contacts+1]=position end
-        if #contacts>1 then return "multiple-touch" end
       end
     end
   end
+  if #contacts>1 then return "multiple-touch" end
   if #contacts==1 then return "point",contacts[1] end
   return "disjoint"
 end
