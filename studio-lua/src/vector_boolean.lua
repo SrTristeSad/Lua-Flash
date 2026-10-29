@@ -6,6 +6,7 @@ local Vector=require("src.vector_paths")
 local Flatten=require("src.bezier_flatten")
 local Retention=require("src.bezier_retention")
 local CubicIntersections=require("src.cubic_intersections")
+local CubicDetection=require("src.cubic_detection")
 local M={}
 local EPS=1e-7
 local SNAP=1e-5
@@ -63,7 +64,7 @@ local function clean(points)
   end
   return result
 end
-local function flatten(path)
+local function flatten(path,tolerance)
   if not path or not path.closed or not path.fill or #path.nodes<3 then
     return nil,"duas formas fechadas e preenchidas sao necessarias"
   end
@@ -75,7 +76,7 @@ local function flatten(path)
       return nil,"contorno deve ter entre 3 e 48 nos"
     end
     local points,edgesOrError=Flatten.ringWithEdges(nodes,
-      {tolerance=.25,maxPoints=385})
+      {tolerance=tolerance or .25,maxPoints=385})
     if not points then return nil,edgesOrError end
     local poly=clean(points)
     if not poly or #poly>384 then return nil,"contorno invalido ou complexo" end
@@ -369,10 +370,12 @@ local function originalRing(polygon,regions)
   return nil
 end
 
-local function calculate(a,b,operation)
-  local ca,err=flatten(a)
+local function calculate(a,b,operation,tolerance,pass)
+  tolerance=tolerance or .25
+  pass=pass or 0
+  local ca,err=flatten(a,tolerance)
   if not ca then return nil,err end
-  local cb,err2=flatten(b)
+  local cb,err2=flatten(b,tolerance)
   if not cb then return nil,err2 end
   local validA,errorA=validateRegion(ca)
   if not validA then return nil,errorA end
@@ -414,6 +417,28 @@ local function calculate(a,b,operation)
     end
   end
   if crossing>500 then return nil,"too many intersections" end
+  -- A direct cubic-hull search checks whether a coarse polygon can have
+  -- skipped two close crossings in a shallow arc. If it did, tessellate more
+  -- accurately BEFORE selecting boundary edges. Never silently output a
+  -- different topology from the original curves.
+  local actualCrossings=0
+  for _,sourceA in ipairs(ca.sources) do
+    for _,sourceB in ipairs(cb.sources) do
+      local hits,detectionError=CubicDetection.detect(
+        sourceA.nodes,sourceB.nodes,{maxVisits=16000})
+      if not hits then
+        return nil,"busca cubica ambigua: "..tostring(detectionError)
+      end
+      actualCrossings=actualCrossings+#hits
+      if actualCrossings>500 then return nil,"too many cubic intersections" end
+    end
+  end
+  if actualCrossings~=crossing then
+    if pass<3 then
+      return calculate(a,b,operation,tolerance/4,pass+1)
+    end
+    return nil,"cruzamentos cubicos nao representados com seguranca pelos contornos"
+  end
   local result={}
   for i,ring in ipairs(ca.rings) do
     local edges,err=selectedEdges(ring,cb,ta[i],operation,false,ca.lookups[i])
