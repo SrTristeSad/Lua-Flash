@@ -1045,3 +1045,49 @@ assert(#Paths.at(cornerRestored,1,1)==2 and
   Paths.at(cornerRestored,1,1)[2].id==originalCornerId,
   "undo must restore both original tangent paths and their IDs")
 print("OK: UI corner-only tangent union, fresh path ID and atomic undo")
+
+
+-- Partially shared straight boundary: Boolean union through the Studio UI.
+press("n",true)
+drawFilledRect(320,260,360,320)
+drawFilledRect(360,280,400,300)
+project()
+local edgeBefore=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local edgeOperands=Paths.at(edgeBefore,1,1)
+assert(#edgeOperands==2)
+local function polygonArea(path)
+  local sum=0
+  for i,p in ipairs(path.nodes) do
+    local nextNode=path.nodes[i%#path.nodes+1]
+    sum=sum+p.x*nextNode.y-nextNode.x*p.y
+  end
+  return math.abs(sum)*.5
+end
+local expectedArea=polygonArea(edgeOperands[1])+polygonArea(edgeOperands[2])
+local secondId=edgeOperands[2].id
+press("a")
+love.mousepressed(330,270,1)
+love.mousereleased(330,270,1)
+modifiers.lshift=true
+love.mousepressed(390,290,1)
+love.mousereleased(390,290,1)
+modifiers.lshift=false
+modifiers.lctrl=true
+modifiers.lshift=true
+love.keypressed("u")
+modifiers.lctrl=false
+modifiers.lshift=false
+project()
+local edgeMerged=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+local edgeResult=Paths.at(edgeMerged,1,1)
+assert(#edgeResult==1 and #edgeResult[1].nodes==8,
+  "Studio must construct one polygonal outline around a partial shared edge")
+assert(math.abs(polygonArea(edgeResult[1])-expectedArea)<.0001,
+  "Studio shared-edge union must preserve exact area")
+press("z",true)
+project()
+local edgeUndo=assert(Paths.decode(files["projeto.lflash.lfvec"]))
+assert(#Paths.at(edgeUndo,1,1)==2 and
+  Paths.at(edgeUndo,1,1)[2].id==secondId,
+  "undo must restore both original rectangles and their IDs")
+print("OK: Studio UI partially shared rectangle edge and atomic undo")
