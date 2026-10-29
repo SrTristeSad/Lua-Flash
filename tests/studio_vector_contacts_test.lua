@@ -222,3 +222,76 @@ do
   end
   print("OK: fully coincident compound shapes preserve their existing holes")
 end
+
+
+do
+  -- Only part of A's right-hand boundary overlaps B's left-hand boundary.
+  -- Union must remove this shared internal edge and retain the two notches.
+  for _,op in ipairs({"union","difference","intersection"}) do
+    local v=V.new()
+    local a=rect(v,0,0,20,20)
+    local b=rect(v,20,5,40,15)
+    local bytes=V.encode(v)
+    local tx,err=Bool.plan(v,1,1,a.id,b.id,op)
+    if op=="intersection" then
+      assert(not tx and err=="empty result")
+      assert(V.encode(v)==bytes)
+    else
+      assert(tx,err)
+      assert(V.encode(v)==bytes)
+      tx.apply()
+      local shapes=V.at(v,1,1)
+      assert(#shapes==1 and shapes[1].id==a.id)
+      local expected=op=="union" and 600 or 400
+      assert(area(shapes[1].nodes)==expected,
+        "shared partial edge "..op.." area must be "..expected)
+      if op=="union" then
+        assert(#shapes[1].nodes==8,"partial shared edge requires an L-shaped boundary")
+        assert(V.inFill(shapes[1],30,10))
+        assert(not V.inFill(shapes[1],30,18))
+      else
+        assert(#shapes[1].nodes==4)
+        assert(not V.inFill(shapes[1],30,10))
+      end
+      assert(V.encode(assert(V.decode(V.encode(v))))==V.encode(v))
+    end
+  end
+  print("OK: partially coincident rectangle sides support union, difference and empty intersection")
+end
+do
+  local v=V.new()
+  local a=rect(v,0,0,20,20)
+  local triangle=assert(V.addPath(v,1,1,10,20,{.2,.3,.8},2,{.7,.6,.1}))
+  assert(V.addNode(triangle,15,30))
+  assert(V.addNode(triangle,5,30))
+  assert(V.close(triangle))
+  -- The triangle's tip contacts the MIDDLE of A's bottom cubic, not an anchor.
+  local saved=V.encode(v)
+  local tx,err=Bool.plan(v,1,1,a.id,triangle.id,"union")
+  assert(tx,err)
+  assert(tx.resultCount==2)
+  assert(V.encode(v)==saved)
+  tx.apply()
+  local pieces=V.at(v,1,1)
+  assert(#pieces==2 and area(pieces[1].nodes)==400)
+  assert(area(pieces[2].nodes)==50)
+  local intersection=V.new()
+  local aa=rect(intersection,0,0,20,20)
+  local bb=assert(V.addPath(intersection,1,1,10,20,{.2,.3,.8},2,{.7,.6,.1}))
+  assert(V.addNode(bb,15,30))
+  assert(V.addNode(bb,5,30))
+  assert(V.close(bb))
+  local plan,why=Bool.plan(intersection,1,1,aa.id,bb.id,"intersection")
+  assert(not plan and why=="empty result")
+  print("OK: original anchor touching interior of straight Bezier is point-only tangency")
+end
+do
+  local v=V.new()
+  local a=rect(v,0,0,20,20)
+  local b=rect(v,20,5,40,15)
+  -- A bent control can never qualify as an EXACT straight shared rectangle.
+  b.nodes[4].ox=b.nodes[4].ox+.01
+  local handled=Contacts.sharedRectangle(a,b,"union")
+  assert(handled==false)
+  print("OK: curved coincident-lookalikes never use exact straight rectangle shortcut")
+end
