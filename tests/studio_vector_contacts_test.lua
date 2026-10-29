@@ -67,9 +67,12 @@ do
   },{
     {x=20,y=0},{x=40,y=0},{x=40,y=20},{x=20,y=20}
   })=="coincident")
-  assert(not Bool.plan(v,1,1,a.id,b.id,"union"),
-    "shared edge still requires unsupported overlapping-topology handling")
-  print("OK: coincident boundary segment is distinguished from point-only contact")
+  local tx,err=Bool.plan(v,1,1,a.id,b.id,"union")
+  assert(tx,err)
+  assert(tx.resultCount==1)
+  tx.apply()
+  assert(#V.at(v,1,1)==1 and area(V.at(v,1,1)[1].nodes)==800)
+  print("OK: a fully shared edge is distinguished and merged safely")
 end
 do
   local v=V.new()
