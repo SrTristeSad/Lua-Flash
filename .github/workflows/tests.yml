@@ -119,6 +119,8 @@ jobs:
         run: lua tests/studio_boolean_precision_test.lua
       - name: Studio cubic crossing Newton refinement and safety
         run: lua tests/studio_cubic_intersections_test.lua
+      - name: Studio direct cubic crossing detection and shallow humps
+        run: lua tests/studio_cubic_detection_test.lua
       - name: Player and Studio interface smoke tests
         run: lua tests/gui_smoke.lua
       - name: Real LÖVE graphical/media smoke test (virtual display)
