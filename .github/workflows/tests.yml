@@ -89,6 +89,8 @@ jobs:
         run: lua tests/studio_edit_test.lua
       - name: Studio synchronized layer rename and reorder
         run: lua tests/studio_layer_ops_test.lua
+      - name: Studio scrollable synchronized layer viewport
+        run: lua tests/studio_layer_viewport_test.lua
       - name: Studio saved-project chooser regression
         run: lua tests/studio_project_browser_test.lua
       - name: Studio Flash exposure spans and blank frame compatibility
