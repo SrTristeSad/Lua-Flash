@@ -15,6 +15,7 @@ local VectorBoolean = require("src.vector_boolean")
 local VectorRenderer = require("src.vector_renderer")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
+local ProjectBrowser = require("src.project_browser")
 local Runtime = require("src.runtime")
 local doc = Model.new(800,450,24)
 local runtime = Runtime.new(doc)
@@ -75,6 +76,23 @@ end
 local projectName="projeto"
 local naming=false
 local nameDraft=""
+local projectBrowser=false
+local browserEntries={}
+local browserSelected=1
+local browserTop=1
+local browserConfirm=false
+local savedSignature=nil
+local function signature()
+  return {document=Model.encode(rootDoc),
+    library=Library.encode(symbolLibrary),vectors=Vector.encode(vectors)}
+end
+local function hasUnsavedChanges()
+  if not savedSignature then return true end
+  local current=signature()
+  return current.document~=savedSignature.document
+      or current.library~=savedSignature.library
+      or current.vectors~=savedSignature.vectors
+end
 local function cleanName(name)
   name=(name or ""):gsub("^%s+",""):gsub("%s+$","")
   if #name<1 or #name>64 or name:find("[^%w_%-]") then return nil end
@@ -149,6 +167,7 @@ local function save()
   local libOk,libErr=love.filesystem.write(filename..".lflib",Library.encode(symbolLibrary))
   if not libOk then msg="Erro ao salvar biblioteca: "..tostring(libErr);return end
   local ok,err=love.filesystem.write(filename,bytes)
+  if ok then savedSignature=signature() end
   msg=ok and ("Projeto salvo: "..love.filesystem.getSaveDirectory().."/"..filename.." (+ .lflib e .lfvec)") or ("Erro ao salvar: "..tostring(err))
 end
 local function beginSaveAs()
@@ -172,7 +191,9 @@ local function load(data,libraryData,vectorData)
   symbolLibrary=lib
   selectedSymbol=nil
   undo,redo={},{}
+  savedSignature=signature()
   msg="Projeto Lua-Flash aberto"
+  return true
 end
 
 local function newProject()
@@ -188,6 +209,7 @@ local function newProject()
   mode="studio"
   projectName="projeto"
   naming=false
+  savedSignature=nil
   msg="Novo projeto criado (Ctrl+Z para recuperar o anterior)"
 end
 
@@ -225,6 +247,48 @@ local function openLast()
     local vectorData=love.filesystem.read(projectName..".lflash.lfvec")
     load(s,libData,vectorData)
   else msg="Arquivo nao encontrado: "..tostring(err) end
+end
+
+local function beginOpen()
+  local entries,err=ProjectBrowser.list(love.filesystem)
+  if not entries then
+    -- Older/headless LÖVE shims may not expose filesystem directory listing.
+    openLast()
+    return
+  end
+  browserEntries=entries
+  browserSelected=1
+  browserTop=1
+  browserConfirm=false
+  projectBrowser=true
+  msg=#entries==0 and "Nenhum projeto salvo nesta pasta" or
+    "Escolha um projeto e pressione Enter para abrir"
+end
+local function browseMove(delta)
+  if #browserEntries==0 then return end
+  browserSelected=math.max(1,math.min(#browserEntries,browserSelected+delta))
+  browserTop=math.min(browserTop,browserSelected)
+  browserTop=math.max(browserTop,browserSelected-7)
+  browserConfirm=false
+end
+local function openSelected()
+  local entry=browserEntries[browserSelected]
+  if not entry then return end
+  if hasUnsavedChanges() and not browserConfirm then
+    browserConfirm=true
+    msg="Alteracoes nao salvas! Pressione Enter novamente para descartar, Esc cancela."
+    return
+  end
+  local bundle,err=ProjectBrowser.read(love.filesystem,entry.name)
+  if not bundle then msg=err;browserConfirm=false;return end
+  if not load(bundle.document,bundle.library,bundle.vectors) then
+    browserConfirm=false
+    return
+  end
+  projectName=entry.name
+  projectBrowser=false
+  browserConfirm=false
+  msg="Projeto aberto: "..entry.name..".lflash"
 end
 
 local function setFrame(n)
@@ -406,6 +470,10 @@ local function button(s,x,y,w,h,activeButton)
   love.graphics.setColor(.42,.45,.5)
   love.graphics.rectangle("line",x+.5,y+.5,w-1,h-1,5,5)
   label(s,x+10,y+8)
+end
+
+local function browserGeometry(w,h)
+  return math.floor((w-520)/2),math.floor((h-380)/2),520,380
 end
 
 function love.load()
@@ -683,6 +751,37 @@ local function ui()
     end
     label("Roda: rolar | Ctrl+roda: zoom ("..timelineCell.." px)",250,track+91,{.63,.68,.74})
   end
+  if projectBrowser then
+    local bx,by,bw,bh=browserGeometry(w,h)
+    lg.setColor(0,0,0,.78)
+    lg.rectangle("fill",0,0,w,h)
+    lg.setColor(.17,.20,.26)
+    lg.rectangle("fill",bx,by,bw,bh,9,9)
+    lg.setColor(.42,.54,.67)
+    lg.rectangle("line",bx,by,bw,bh,9,9)
+    label("ABRIR PROJETO  |  Ctrl+O",bx+20,by+15,{.47,.84,1})
+    label("Pasta de projetos do Lua-Flash",bx+20,by+38,{.68,.72,.80})
+    if #browserEntries==0 then
+      label("Nenhum arquivo .lflash salvo.",bx+20,by+92)
+      label("Use Ctrl+Shift+S para salvar o projeto atual.",bx+20,by+120)
+    end
+    for row=1,math.min(8,#browserEntries-browserTop+1) do
+      local i=browserTop+row-1
+      local entry=browserEntries[i]
+      local y=by+67+(row-1)*29
+      button(entry.name..".lflash",bx+20,y,bw-40,26,i==browserSelected)
+    end
+    if #browserEntries>8 then
+      label(browserSelected.." / "..#browserEntries.."  (setas para navegar)",
+        bx+20,by+303,{.7,.76,.82})
+    end
+    button(browserConfirm and "DESCARTAR E ABRIR" or "ABRIR",
+      bx+bw-260,by+334,165,32,browserConfirm)
+    button("CANCELAR",bx+bw-89,by+334,78,32,false)
+    if browserConfirm then
+      label("Alteracoes nao salvas! Confirme para descartar.",bx+20,by+309,{1,.68,.48})
+    end
+  end
   lg.setColor(.1,.12,.14)
   lg.rectangle("fill",0,h-24,w,24)
   label(naming and ("SALVAR COMO > "..nameDraft.."_") or msg,10,h-20,{.76,.8,.85})
@@ -692,6 +791,28 @@ function love.draw() ui() end
 
 function love.mousepressed(mx,my,mousebutton,istouch,presses)
   if mousebutton~=1 then return end
+  if projectBrowser then
+    local w,h=love.graphics.getDimensions()
+    local bx,by,bw=browserGeometry(w,h)
+    if inBox(mx,my,bx+bw-260,by+334,165,32) then
+      openSelected()
+    elseif inBox(mx,my,bx+bw-89,by+334,78,32) then
+      projectBrowser=false
+      browserConfirm=false
+      msg="Abertura cancelada"
+    else
+      for row=1,math.min(8,#browserEntries-browserTop+1) do
+        local i=browserTop+row-1
+        if inBox(mx,my,bx+20,by+67+(row-1)*29,bw-40,26) then
+          if browserSelected~=i then browserConfirm=false end
+          browserSelected=i
+          if presses and presses>=2 then openSelected() end
+          return
+        end
+      end
+    end
+    return
+  end
   if naming then return end
   local w,h,track=dimensions()
   if inBox(mx,my,160,8,95,34) then mode="studio";runtime.playing=false;return end
@@ -1271,6 +1392,7 @@ function love.mousereleased(_,_,button)
 end
 
 function love.wheelmoved(_,dy)
+  if projectBrowser then browseMove(-math.floor(dy));return end
   if mode~="studio" then return end
   local mx,my=love.mouse.getPosition()
   local _,_,track=dimensions()
@@ -1293,6 +1415,7 @@ function love.wheelmoved(_,dy)
 end
 
 function love.textinput(text)
+  if projectBrowser then return end
   if propertyEditor then
     if #text<=20 and text:match("^[%d%.%+%-]+$") then
       if propertyEditor.replace then propertyEditor.draft="" end
@@ -1307,6 +1430,20 @@ function love.textinput(text)
 end
 
 function love.keypressed(key)
+  if projectBrowser then
+    if key=="escape" then
+      projectBrowser=false
+      browserConfirm=false
+      msg="Abertura cancelada"
+    elseif key=="up" then browseMove(-1)
+    elseif key=="down" then browseMove(1)
+    elseif key=="pageup" then browseMove(-8)
+    elseif key=="pagedown" then browseMove(8)
+    elseif key=="home" then browseMove(-#browserEntries)
+    elseif key=="end" then browseMove(#browserEntries)
+    elseif key=="return" or key=="kpenter" then openSelected() end
+    return
+  end
   if mode=="studio" and not naming and not propertyEditor then
     if tool=="node" and love.keyboard.isDown("lctrl","rctrl")
         and love.keyboard.isDown("lshift","rshift") then
@@ -1568,7 +1705,7 @@ function love.keypressed(key)
   if ctrl and key=="n" then newProject();return end
   if ctrl and shift and key=="s" then beginSaveAs();return end
   if ctrl and key=="s" then save();return end
-  if ctrl and key=="o" then openLast();return end
+  if ctrl and key=="o" then beginOpen();return end
   if ctrl and key=="e" then
     local svg=Model.svg(doc,doc.currentFrame)
     if not editingSymbolId then
@@ -1672,8 +1809,10 @@ function love.filedropped(file)
   local content=file:read()
   file:close()
   if content then
-    load(content)
-    projectName="projeto"
-    msg="Projeto importado. Ctrl+Shift+S permite salvar com novo nome."
+    if load(content) then
+      projectName="projeto"
+      savedSignature=nil
+      msg="Projeto importado. Ctrl+Shift+S permite salvar com novo nome."
+    end
   end
 end
