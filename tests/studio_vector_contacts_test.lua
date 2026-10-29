@@ -135,3 +135,41 @@ do
   end
   print("OK: near-miss is not mistaken for exact shared-anchor tangency")
 end
+
+
+do
+  -- Two cubic approximations of circles that touch at a single native
+  -- anchor. The hulls overlap only at x=r; neither filled area crosses.
+  local K=.5522847498307936
+  local function circle(v,cx,cy,r)
+    local p=assert(V.addPath(v,1,1,cx+r,cy,{.2,.3,.8},2,{.7,.6,.1}))
+    assert(V.addNode(p,cx,cy+r))
+    assert(V.addNode(p,cx-r,cy))
+    assert(V.addNode(p,cx,cy-r))
+    assert(V.close(p))
+    local n=p.nodes
+    local h=r*K
+    n[1].ox,n[1].oy=cx+r,cy+h
+    n[2].ix,n[2].iy=cx+h,cy+r
+    n[2].ox,n[2].oy=cx-h,cy+r
+    n[3].ix,n[3].iy=cx-r,cy+h
+    n[3].ox,n[3].oy=cx-r,cy-h
+    n[4].ix,n[4].iy=cx-h,cy-r
+    n[4].ox,n[4].oy=cx+h,cy-r
+    n[1].ix,n[1].iy=cx+r,cy-h
+    return p
+  end
+  local v=V.new()
+  local first=circle(v,0,0,20)
+  local second=circle(v,40,0,20)
+  local before=V.encode(v)
+  local tx,err=Bool.plan(v,1,1,first.id,second.id,"union")
+  assert(tx,err)
+  assert(tx.resultCount==2,"tangent circles must remain separate filled regions")
+  assert(V.encode(v)==before)
+  tx.apply()
+  assert(#V.at(v,1,1)==2 and #V.at(v,1,1)[1].nodes==4)
+  assert(#V.at(v,1,1)[2].nodes==4)
+  assert(V.encode(assert(V.decode(V.encode(v))))==V.encode(v))
+  print("OK: smoothly tangent circles at a shared anchor retain cubic controls")
+end
