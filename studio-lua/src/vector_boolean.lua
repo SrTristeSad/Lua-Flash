@@ -7,6 +7,7 @@ local Flatten=require("src.bezier_flatten")
 local Retention=require("src.bezier_retention")
 local CubicIntersections=require("src.cubic_intersections")
 local CubicDetection=require("src.cubic_detection")
+local Contacts=require("src.vector_contacts")
 local M={}
 local EPS=1e-7
 local SNAP=1e-5
@@ -381,6 +382,19 @@ local function calculate(a,b,operation,tolerance,pass)
   if not validA then return nil,errorA end
   local validB,errorB=validateRegion(cb)
   if not validB then return nil,errorB end
+  -- Fully coincident contours have no meaningful intersecting edge graph:
+  -- the filled union and intersection are simply the first source shape.
+  if Contacts.identical(a,b) then
+    if operation=="difference" then return nil,"empty result" end
+    return {Contacts.originalResult(a)}
+  end
+  -- Two disjoint filled interiors touching at exactly one original anchor
+  -- should not be forced into a self-touching compound outline.
+  if Contacts.safeCornerTouch(ca,cb,a,b) then
+    if operation=="intersection" then return nil,"empty result" end
+    if operation=="difference" then return {Contacts.originalResult(a)} end
+    return {Contacts.originalResult(a),Contacts.originalResult(b)}
+  end
   local ta,tb={},{}
   for i,ring in ipairs(ca.rings) do ta[i]=cuts(ring) end
   for i,ring in ipairs(cb.rings) do tb[i]=cuts(ring) end
