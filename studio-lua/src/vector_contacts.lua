@@ -202,7 +202,17 @@ function M.safeCornerTouch(aRegion,bRegion,aPath,bPath)
   if kind=="disjoint" then
     local Detector=require("src.cubic_detection")
     local hits=Detector.detect(aPath.nodes,bPath.nodes,{maxVisits=12000})
-    if not hits or #hits>0 then return false end
+    if not hits then return false end
+    for _,hit in ipairs(hits) do
+      local dx,dy=hit.point.x-pos.x,hit.point.y-pos.y
+      if dx*dx+dy*dy>1e-8 then return false end
+      -- A root at the same contact must terminate at an actual anchor of
+      -- at least one source cubic; interior/interior transversal crossings
+      -- are not safe point tangencies.
+      local endpoint=hit.aT<=1e-6 or hit.aT>=1-1e-6 or
+        hit.bT<=1e-6 or hit.bT>=1-1e-6
+      if not endpoint then return false end
+    end
   end
   for _,p in ipairs(a) do
     if not same(p,pos) and isInside(b,p) then return false end
