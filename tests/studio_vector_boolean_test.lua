@@ -80,10 +80,16 @@ do
   local v=Vector.new()
   local a=rect(v,0,0,20,20)
   local b=rect(v,20,0,40,20)
-  assert(not Boolean.plan(v,1,1,a.id,b.id,"union"),
-    "collinear coincident touching edges must fail safely")
-  assert(#Vector.at(v,1,1)==2)
-  print("OK: shared boundary rejected instead of corrupting topology")
+  local snapshot=Vector.encode(v)
+  local plan,err=Boolean.plan(v,1,1,a.id,b.id,"union")
+  assert(plan,err)
+  assert(Vector.encode(v)==snapshot)
+  plan.apply()
+  local result=Vector.at(v,1,1)
+  assert(#result==1 and #result[1].nodes==4)
+  assert(Vector.inFill(result[1],10,10) and Vector.inFill(result[1],30,10))
+  assert(Vector.encode(assert(Vector.decode(Vector.encode(v))))==Vector.encode(v))
+  print("OK: shared full rectangle edge merges into one filled outline")
 end
 do
   local v=Vector.new()
