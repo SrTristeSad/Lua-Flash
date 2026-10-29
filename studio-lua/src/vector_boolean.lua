@@ -388,6 +388,8 @@ local function calculate(a,b,operation,tolerance,pass)
     if operation=="difference" then return nil,"empty result" end
     return {Contacts.originalResult(a)}
   end
+  local handled,shapes,contactError=Contacts.sharedRectangle(a,b,operation)
+  if handled then return shapes,contactError end
   -- Two disjoint filled interiors touching at exactly one original anchor
   -- should not be forced into a self-touching compound outline.
   if Contacts.safeCornerTouch(ca,cb,a,b) then
