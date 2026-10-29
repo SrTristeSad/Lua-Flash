@@ -62,3 +62,42 @@ do
   assert(not Detect.detect(bad,b))
   print("OK: non-crossing, invalid and parallel curves")
 end
+
+
+do
+  local Vector=require("src.vector_paths")
+  local Boolean=require("src.vector_boolean")
+  local v=Vector.new()
+  -- Filled closed shape whose top cubic crosses y=0 twice, only .05 apart in
+  -- its parameter space. A static .25-unit tessellation misses the tiny cap.
+  local arch=assert(Vector.addPath(v,1,1,0,-1.26,{0,0,0},1,{1,0,0}))
+  assert(Vector.addNode(arch,100,-.91))
+  assert(Vector.addNode(arch,100,-20))
+  assert(Vector.addNode(arch,0,-20))
+  assert(Vector.close(arch))
+  assert(Vector.handle(arch,1,100/3,1.69,"out"))
+  assert(Vector.handle(arch,2,200/3,-1.52666666666667,"in"))
+  local mask=assert(Vector.addPath(v,1,1,5,0,{0,0,0},1,{0,1,0}))
+  for _,pt in ipairs({{95,0},{95,10},{5,10}}) do
+    assert(Vector.addNode(mask,pt[1],pt[2]))
+  end
+  assert(Vector.close(mask))
+  local original=Vector.encode(v)
+  local tx,err=Boolean.plan(v,1,1,arch.id,mask.id,"intersection")
+  assert(tx,err)
+  assert(Vector.encode(v)==original,"precision retries must not mutate operands")
+  tx.apply()
+  local result=Vector.at(v,1,1)
+  assert(#result>=1)
+  local minY,maxY=math.huge,-math.huge
+  for _,p in ipairs(result) do
+    for _,node in ipairs(p.nodes) do
+      minY=math.min(minY,node.y)
+      maxY=math.max(maxY,node.y)
+    end
+  end
+  assert(minY>=-1e-4 and maxY>0,
+    "Boolean must recover area above y=0 missed by coarse tessellation")
+  assert(Vector.encode(assert(Vector.decode(Vector.encode(v))))==Vector.encode(v))
+  print("OK: Boolean retries finer tessellation to capture two direct cubic crossings")
+end
