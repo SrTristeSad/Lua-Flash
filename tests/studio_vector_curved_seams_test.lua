@@ -167,6 +167,17 @@ do
   local y=-90*u*t
   local tip=path(v,{{x,y},{x-7,y-35},{x+7,y-35}})
   local snapshot=V.encode(v)
+  local Flatten=require("src.bezier_flatten")
+  local Contacts=require("src.vector_contacts")
+  local Detector=require("src.cubic_detection")
+  local pa=assert(Flatten.ring(base.nodes,{tolerance=.25,maxPoints=385}))
+  local pb=assert(Flatten.ring(tip.nodes,{tolerance=.25,maxPoints=385}))
+  local contact=Contacts.classifyPolygons(pa,pb)
+  local allowed=Contacts.safeCornerTouch({outer=pa,holes={}},
+    {outer=pb,holes={}},base,tip)
+  local detected,detectError=Detector.detect(base.nodes,tip.nodes,{maxVisits=12000})
+  print("TANGENCY DIAG",contact,allowed,
+    detected and #detected or "nil",detectError)
   local union,err=Boolean.plan(v,1,1,base.id,tip.id,"union")
   assert(union,err)
   assert(union.resultCount==2,
