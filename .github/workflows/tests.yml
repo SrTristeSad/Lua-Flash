@@ -99,6 +99,8 @@ jobs:
         run: lua tests/studio_symbols_test.lua
       - name: Studio atomic artwork and symbol timeline transactions
         run: lua tests/studio_timeline_ops_test.lua
+      - name: Studio scene-wide exposure duration and ripple safety
+        run: lua tests/studio_timeline_duration_test.lua
       - name: Studio Graphic MovieClip Button playback and interaction
         run: lua tests/studio_symbol_motion_test.lua
       - name: Studio symbol instance transforms and LUALIB compatibility
