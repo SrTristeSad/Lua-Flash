@@ -15,6 +15,7 @@ local VectorBoolean = require("src.vector_boolean")
 local VectorRenderer = require("src.vector_renderer")
 local SymbolMotion = require("src.symbol_motion")
 local TimelineOps = require("src.timeline_ops")
+local TimelineDuration = require("src.timeline_duration")
 local LayerOps = require("src.layer_ops")
 local LayerViewport = require("src.layer_viewport")
 local ProjectBrowser = require("src.project_browser")
@@ -341,6 +342,26 @@ local function setFrame(n)
   selectedVectorNode=nil
   handleDrag=nil
   propertyEditor=nil
+end
+
+local function changeSceneDuration(operation)
+  if mode~="studio" or editingSymbolId then
+    msg="A duracao global e editada no palco principal"
+    return
+  end
+  local transaction,err=TimelineDuration.plan(rootDoc,symbolLibrary,vectors,
+    doc.currentFrame,operation)
+  if not transaction then
+    msg="Duracao nao alterada: "..tostring(err)
+    return
+  end
+  snapshot()
+  transaction.apply()
+  runtime.playing=false
+  setFrame(doc.currentFrame)
+  msg=(operation=="insert" and "Quadro de espera inserido em " or
+    "Quadro removido em ")..transaction.affectedFrame..
+    " | Duracao: "..doc.totalFrames.." quadros"
 end
 
 local function changeLayer(index)
@@ -770,9 +791,17 @@ local function ui()
   lg.rectangle("fill",0,track,w,h-track)
   lg.setColor(.25,.28,.32)
   lg.line(0,track,w,track)
-  label(mode=="studio" and (editingSymbolId and "SIMBOLO | F5: estender  F6: chave  F9: vazio  Esc: voltar" or "TIMELINE | F6: chave  F9: vazio  SHIFT+F6: excluir") or "REPRODUCAO  |  ESPACO: play/pause",12,track+10,{.44,.82,1})
+  label(mode=="studio" and (editingSymbolId and "SIMBOLO | F5: estender  F6: chave  F9: vazio  Esc: voltar" or "TIMELINE | F5: inserir tempo  Shift+F5: remover  F6: chave  F9: vazio") or "REPRODUCAO  |  ESPACO: play/pause",12,track+10,{.44,.82,1})
   label("Quadro "..doc.currentFrame.." / "..doc.totalFrames.."    "..doc.fps.." FPS",12,track+41)
   label("Anterior/Proximo: <- ->",12,track+64,{.64,.7,.78})
+  if mode=="studio" and not editingSymbolId then
+    button("F5 +",12,track+91,90,30,false)
+    button("Shift+F5 -",108,track+91,128,30,false)
+    local span=Exposure.exposure(active(),doc.currentFrame,doc.totalFrames)
+    label(string.format("%.2f s | exposicao: %d q",
+      doc.totalFrames/doc.fps,span and span.duration or 0),
+      12,track+131,{.68,.80,.92})
+  end
   if mode=="studio" then
     local startX,cell=250,timelineCell
     local count=timelineCount(w)
@@ -907,6 +936,14 @@ function love.mousepressed(mx,my,mousebutton,istouch,presses)
       SymbolPreview.pointerMoved(symbolMotion,symbolLibrary,doc,doc.currentFrame,view,mx,my,vectors)
     end
     SymbolMotion.press(symbolMotion)
+    return
+  end
+  if not editingSymbolId and inBox(mx,my,12,track+91,90,30) then
+    changeSceneDuration("insert")
+    return
+  end
+  if not editingSymbolId and inBox(mx,my,108,track+91,128,30) then
+    changeSceneDuration("remove")
     return
   end
   if inBox(mx,my,465,8,82,34) then save();return end
@@ -1860,6 +1897,10 @@ function love.keypressed(key)
   if key=="pagedown" then jumpKey(1);return end
   if key=="home" then runtime.playing=false;setFrame(1);return end
   if key=="end" then runtime.playing=false;setFrame(doc.totalFrames);return end
+  if key=="f5" and not editingSymbolId then
+    changeSceneDuration(shift and "remove" or "insert")
+    return
+  end
   if key=="f5" and editingSymbolId then
     local symbol=Library.find(symbolLibrary,editingSymbolId)
     local limit=symbol and symbol.kind=="button" and 4 or 10000
